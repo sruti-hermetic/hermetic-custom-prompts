@@ -139,9 +139,15 @@
   .inline-add{ display:flex; gap:var(--space-2); margin-bottom:var(--space-5); }
   .inline-add input{ flex:1; }
 
-  .tabs{ display:flex; gap:var(--space-6); border-bottom:1px solid var(--border-subtle); margin-bottom:var(--space-5); }
-  .tab{ background:none; border:none; padding:var(--space-2-5) var(--space-1) var(--space-3); font-size:14px; color:var(--mid-slate); border-bottom:2px solid transparent; margin-bottom:-1px; }
-  .tab.active{ color:var(--night-ink); border-bottom-color:var(--venue-blue); font-weight:500; }
+  .part-head{ margin-bottom:var(--space-4); padding-bottom:var(--space-2); border-bottom:1px solid var(--border-subtle); }
+  .part-head .t-caption{ margin-top:2px; }
+  .section-head{ display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); margin-bottom:var(--space-2); flex-wrap:wrap; }
+  .section-head .t-overline{ margin-bottom:0; }
+  .mode-toggle{ display:inline-flex; border:1px solid var(--border-default); border-radius:var(--radius-md); overflow:hidden; background:var(--canvas); flex-shrink:0; }
+  .mode-btn{ border:none; background:transparent; padding:0 var(--space-2-5); height:26px; font-size:12px; color:var(--mid-slate); white-space:nowrap; }
+  .mode-btn + .mode-btn{ border-left:1px solid var(--border-default); }
+  .mode-btn.active{ background:var(--venue-blue-tint); color:var(--venue-blue-deep); font-weight:500; }
+  textarea.raw-paste{ min-height:96px; }
 
   .empty-state{ display:flex; flex-direction:column; align-items:center; text-align:center; gap:var(--space-2); padding:var(--space-12) var(--space-6); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); color:var(--mid-slate); }
   .empty-state .icon-lg{ color:var(--mid-slate); margin-bottom:var(--space-1); }
@@ -214,7 +220,7 @@
     <div class="topbar">
       <div>
         <div class="t-display" id="pageTitle">Accounts</div>
-        <div class="t-caption topbar-meta" id="pageMeta">Add an account to configure locations and campaigns for Mia.</div>
+        <div class="t-caption topbar-meta" id="pageMeta">Add an account to set up venues for Mia.</div>
       </div>
       <button class="btn btn-outline" id="btnSettings"></button>
     </div>
@@ -351,13 +357,16 @@ const LOCATION_SCHEMA = [
     {path:'parking', label:'Parking', kind:'text'}
   ]},
   {type:'list', title:'Hours & blackout dates', key:'hours_notes', itemLabel:'note', placeholder:'e.g. Closed Thanksgiving and Christmas'},
-  {type:'group', title:'Rooms', key:'rooms', itemLabel:'room', fields: ROOM_FIELDS},
+  {type:'group', title:'Rooms', key:'rooms', itemLabel:'room', fields: ROOM_FIELDS, allowRaw:true,
+   rawPlaceholder:'Paste the room list straight from the venue guide or private-dining packet — names, capacities, features, in whatever shape it comes in.'},
   {type:'list', title:'Availability policy', key:'availability_policy', itemLabel:'rule', placeholder:'e.g. For 1-60 guests, offer School Night only'},
-  {type:'group', title:'Pricing', key:'pricing_rows', itemLabel:'pricing row', fields: PRICING_FIELDS},
+  {type:'group', title:'Pricing', key:'pricing_rows', itemLabel:'pricing row', fields: PRICING_FIELDS, allowRaw:true,
+   rawPlaceholder:'Paste the price sheet — F&B minimums, room fees, by day and guest count.'},
   {type:'section', title:'Per-unit activity pricing (if applicable)', fields:[
     {path:'activity_pricing', label:'e.g. Bowling: $75 per lane per hour Sun-Thu', kind:'textarea'}
   ]},
-  {type:'group', title:'Menus', key:'menus', itemLabel:'menu', fields: MENU_FIELDS},
+  {type:'group', title:'Menus', key:'menus', itemLabel:'menu', fields: MENU_FIELDS, allowRaw:true,
+   rawPlaceholder:'Paste the menus — package names, per-person prices, courses, minimums, upcharges.'},
   {type:'section', title:'Fees & taxes', fields:[
     {path:'fees.service_charge', label:'Service charge (% on F&B)', kind:'text'},
     {path:'fees.sales_tax', label:'Sales tax (%)', kind:'text'},
@@ -382,8 +391,10 @@ const LOCATION_SCHEMA = [
     {path:'booking.headcount_due', label:'Headcount guarantee due', kind:'text'},
     {path:'booking.included', label:'Included in every rental', kind:'textarea'}
   ]},
-  {type:'group', title:'Policies', key:'policies', itemLabel:'policy', fields: POLICY_FIELDS},
-  {type:'group', title:'FAQs', key:'faqs', itemLabel:'FAQ', fields: FAQ_FIELDS},
+  {type:'group', title:'Policies', key:'policies', itemLabel:'policy', fields: POLICY_FIELDS, allowRaw:true,
+   rawPlaceholder:'Paste the policy section from the packet or contract — one topic per line is fine.'},
+  {type:'group', title:'FAQs', key:'faqs', itemLabel:'FAQ', fields: FAQ_FIELDS, allowRaw:true,
+   rawPlaceholder:'Paste any FAQ sheet, or the questions guests ask with their answers.'},
   {type:'group', title:'Sub-venues (only if one record covers multiple concepts)', key:'sub_venues', itemLabel:'sub-venue', fields: SUBVENUE_FIELDS}
 ];
 
@@ -416,22 +427,41 @@ const CAMPAIGN_SCHEMA = [
   ]}
 ];
 
-function newLocationData(){
+/* One venue record covers both documents: the facts (Location Details) and the
+   behavior (Campaign Instructions). Support fills it in one pass; "Copy for
+   Claude" still asks for the two documents separately, so the extraction step
+   downstream is unchanged. */
+const VENUE_PARTS = [
+  { id:'facts', title:'Venue facts', schema: LOCATION_SCHEMA,
+    caption:'Everything a guest may be told, plus the availability rules. Becomes the Location Details document.' },
+  { id:'behavior', title:'Assistant behavior', schema: CAMPAIGN_SCHEMA,
+    caption:'How Mia talks, what she does in order, and when she hands off. Becomes the Campaign Instructions document.' }
+];
+const VENUE_SCHEMA = [...LOCATION_SCHEMA, ...CAMPAIGN_SCHEMA];
+
+function newVenueData(){
   return { overview:'', address:'', phone:'', website:'', parking:'',
     hours_notes:[], rooms:[], availability_policy:[], pricing_rows:[], activity_pricing:'',
     menus:[], fees:{service_charge:'',sales_tax:'',admin_fee:'',gratuity:''}, other_fees:[],
     deposit:'', final_payment:'', payment_methods:'', refundability:'', cancellation:'',
     booking:{min_guests:'',max_guests:'',min_lead_time:'',duration:'',headcount_due:'',included:''},
-    policies:[], faqs:[], sub_venues:[], source_material:'', drive_link:'', docs:[],
-    draft_doc:'', draft_open_questions:'' };
-}
-function newCampaignData(){
-  return { location_id:'', personality:'', tone_rules:[], salutation:'',
+    policies:[], faqs:[], sub_venues:[],
+    personality:'', tone_rules:[], salutation:'',
     handoff:{window:'',overrides:'',required_before:'',routing:'',bypass:'',after:''},
     steps:[], rules:[], links:[], vocabulary:[], ai_disclosure:'', legal_wording:'',
-    cross_sell:{when:'',how:'',link:''}, source_material:'', drive_link:'', docs:[],
-    draft_doc:'', draft_open_questions:'' };
+    cross_sell:{when:'',how:'',link:''},
+    raw:{}, raw_mode:{}, source_material:'', drive_link:'', docs:[],
+    draft_location_doc:'', draft_campaign_doc:'', draft_open_questions:'' };
 }
+
+/* A section that allows a pasted blob starts in paste mode and only switches to
+   field-by-field entry once someone asks for it (or already has rows there). */
+function isRawMode(data, key){
+  const modes = data.raw_mode || {};
+  if (modes[key] !== undefined) return !!modes[key];
+  return ((getAtPath(data, key) || []).length === 0);
+}
+function rawText(data, key){ return (getAtPath(data, 'raw.' + key) || '').trim(); }
 function emptyRow(fields){ const o = {}; fields.forEach(f => o[f.path] = ''); return o; }
 
 /* =================================================================
@@ -663,9 +693,7 @@ async function uploadDocumentToDrive({ segments, category, file }){
 let state = {
   accounts: [],
   currentAccountId: null,
-  currentTab: 'locations',
-  locationsByAccount: {},
-  campaignsByAccount: {},
+  venuesByAccount: {},
   versionsByItem: {},
   settings: { rootFolderName: "Hermetic AI - Customer Setup", rootFolderId: "" },
   openItemIds: new Set(),
@@ -693,20 +721,87 @@ function formatTimestamp(ms){
 
 async function saveAccounts(){ await kvSet('hermetic:accounts', state.accounts); }
 async function saveSettings(){ await kvSet('hermetic:settings', state.settings); }
-async function loadLocations(accountId){
-  if (state.locationsByAccount[accountId]) return state.locationsByAccount[accountId];
-  const data = await kvGet(`hermetic:locations:${accountId}`);
-  state.locationsByAccount[accountId] = data || [];
-  return state.locationsByAccount[accountId];
+async function loadVenues(accountId){
+  if (state.venuesByAccount[accountId]) return state.venuesByAccount[accountId];
+  let data = await kvGet(`hermetic:venues:${accountId}`);
+  if (!data){
+    const migrated = await migrateLegacyVenues(accountId);
+    if (migrated){
+      state.venuesByAccount[accountId] = migrated;
+      await saveVenues(accountId);
+      return migrated;
+    }
+  }
+  state.venuesByAccount[accountId] = data || [];
+  return state.venuesByAccount[accountId];
 }
-async function saveLocations(accountId){ await kvSet(`hermetic:locations:${accountId}`, state.locationsByAccount[accountId]); }
-async function loadCampaigns(accountId){
-  if (state.campaignsByAccount[accountId]) return state.campaignsByAccount[accountId];
-  const data = await kvGet(`hermetic:campaigns:${accountId}`);
-  state.campaignsByAccount[accountId] = data || [];
-  return state.campaignsByAccount[accountId];
+async function saveVenues(accountId){ await kvSet(`hermetic:venues:${accountId}`, state.venuesByAccount[accountId]); }
+
+/* One-time fold of the old separate location and campaign records into the
+   combined venue record. A location with several campaigns becomes one venue
+   per campaign, each carrying the same facts. */
+async function migrateLegacyVenues(accountId){
+  const locations = (await kvGet(`hermetic:locations:${accountId}`)) || [];
+  const campaigns = (await kvGet(`hermetic:campaigns:${accountId}`)) || [];
+  if (!locations.length && !campaigns.length) return null;
+  const venues = [];
+  const claimed = new Set();
+  for (const loc of locations){
+    const mine = campaigns.filter(c => c.data && c.data.location_id === loc.id);
+    mine.forEach(c => claimed.add(c.id));
+    if (!mine.length){
+      venues.push(await mergeLegacyPair(loc.id, loc.name, loc, null));
+      continue;
+    }
+    venues.push(await mergeLegacyPair(loc.id, loc.name, loc, mine[0]));
+    for (const extra of mine.slice(1)){
+      venues.push(await mergeLegacyPair(extra.id, `${loc.name} — ${extra.name}`, loc, extra));
+    }
+  }
+  for (const camp of campaigns){
+    if (claimed.has(camp.id)) continue;
+    venues.push(await mergeLegacyPair(camp.id, camp.name, null, camp));
+  }
+  return venues;
 }
-async function saveCampaigns(accountId){ await kvSet(`hermetic:campaigns:${accountId}`, state.campaignsByAccount[accountId]); }
+async function mergeLegacyPair(id, name, loc, camp){
+  const ld = (loc && loc.data) || {};
+  const cd = (camp && camp.data) || {};
+  const data = newVenueData();
+  const skip = new Set(['location_id','source_material','drive_link','docs','draft_doc','draft_open_questions','raw','raw_mode']);
+  for (const src of [ld, cd]){
+    for (const key of Object.keys(src)){
+      if (skip.has(key)) continue;
+      // Deep copy: one location with several campaigns becomes several venues,
+      // which must not share the same rooms/menus arrays.
+      data[key] = src[key] && typeof src[key] === 'object' ? JSON.parse(JSON.stringify(src[key])) : src[key];
+    }
+  }
+  data.source_material = [ld.source_material, cd.source_material].filter(Boolean).join('\n\n');
+  data.drive_link = ld.drive_link || cd.drive_link || '';
+  data.docs = [...(ld.docs || []), ...(cd.docs || [])];
+  data.draft_location_doc = ld.draft_doc || '';
+  data.draft_campaign_doc = cd.draft_doc || '';
+  data.draft_open_questions = [ld.draft_open_questions, cd.draft_open_questions].filter(Boolean).join('\n\n');
+
+  // Version history from both old records, kept in order and labelled.
+  const merged = [];
+  for (const [src, kind] of [[loc, 'location'], [camp, 'campaign']]){
+    if (!src) continue;
+    const versions = (await kvGet(`hermetic:versions:${src.id}`)) || [];
+    versions.forEach(v => merged.push({ ...v, legacyKind: kind }));
+  }
+  if (merged.length){
+    merged.sort((a,b) => (a.savedAt||0) - (b.savedAt||0));
+    await saveVersions(id, merged);
+  }
+  return {
+    id,
+    name,
+    lastEditedAt: Math.max((loc && loc.lastEditedAt) || 0, (camp && camp.lastEditedAt) || 0) || Date.now(),
+    data
+  };
+}
 
 function renderSyncPill(){
   const el = document.getElementById('syncStatusPill');
@@ -757,7 +852,6 @@ function renderSidebar(){
 }
 async function selectAccount(id){
   state.currentAccountId = id;
-  state.currentTab = 'locations';
   renderSidebar();
   await renderMain();
 }
@@ -804,8 +898,8 @@ async function renderMain(){
 
   if (!state.currentAccountId){
     title.textContent = 'Accounts';
-    meta.textContent = 'Add an account to configure locations and campaigns for Mia.';
-    content.innerHTML = `<div class="empty-state">${icon('building-2','icon-lg')}<div class="t-title">No account selected</div><div class="t-body">Add your first account on the left to start configuring locations and campaigns.</div></div>`;
+    meta.textContent = 'Add an account to set up venues for Mia.';
+    content.innerHTML = `<div class="empty-state">${icon('building-2','icon-lg')}<div class="t-title">No account selected</div><div class="t-body">Add your first account on the left to start setting up venues.</div></div>`;
     return;
   }
 
@@ -813,45 +907,27 @@ async function renderMain(){
   title.textContent = account.name;
   meta.innerHTML = `<span class="mono" style="font-size:11.5px;">${escapeHtml(state.settings.rootFolderName)}/${escapeHtml(account.name)}</span>`;
 
-  const locations = await loadLocations(account.id);
-  const campaigns = await loadCampaigns(account.id);
+  const venues = await loadVenues(account.id);
 
-  content.innerHTML = `
-    <div class="tabs">
-      <button class="tab ${state.currentTab==='locations'?'active':''}" data-tab="locations">Locations (${locations.length})</button>
-      <button class="tab ${state.currentTab==='campaigns'?'active':''}" data-tab="campaigns">Campaigns (${campaigns.length})</button>
-    </div>
-    <div id="tabBody"></div>`;
-  content.querySelectorAll('.tab').forEach(t=>{
-    t.addEventListener('click', async ()=>{ state.currentTab = t.dataset.tab; await renderMain(); });
-  });
+  // Load version history for every venue (small payloads, capped per item) so
+  // the "outdated" indicator shows even on collapsed cards.
+  await Promise.all(venues.map(v => loadVersions(v.id)));
 
-  const tabBody = document.getElementById('tabBody');
-  const kind = state.currentTab === 'locations' ? 'location' : 'campaign';
-  const items = state.currentTab === 'locations' ? locations : campaigns;
-
-  // Load version history for every item in this tab (small payloads, capped
-  // per item) so the "outdated" indicator can show even on collapsed cards.
-  await Promise.all(items.map(i => loadVersions(i.id)));
-
-  tabBody.innerHTML = renderItemsList(items, kind, locations);
-  wireItemsList(account, items, kind, locations);
+  content.innerHTML = `<div id="venueList"></div>`;
+  const listEl = document.getElementById('venueList');
+  listEl.innerHTML = renderVenuesList(venues);
+  wireVenuesList(account, venues);
 }
 
-function renderItemsList(items, kind, locations){
-  const label = kind === 'location' ? 'location' : 'campaign';
-  const iconName = kind === 'location' ? 'map-pin' : 'megaphone';
-  if (kind === 'campaign' && (!locations || locations.length === 0)){
-    return `<div class="empty-state">${icon('map-pin','icon-lg')}<div class="t-title">Add a location first</div><div class="t-body">Every campaign is tied to a location — add one on the Locations tab before creating a campaign.</div></div>`;
-  }
+function renderVenuesList(items){
   const addRow = `<div class="inline-add">
-      <input type="text" class="input" id="new${kind}Input" placeholder="New ${label} name">
-      <button class="btn btn-primary" id="btnAdd${kind}">${icon('plus')}Add ${label}</button>
+      <input type="text" class="input" id="newVenueInput" placeholder="New venue name">
+      <button class="btn btn-primary" id="btnAddVenue">${icon('plus')}Add venue</button>
     </div>`;
   if (items.length === 0){
-    return addRow + `<div class="empty-state">${icon(iconName,'icon-lg')}<div class="t-title">No ${label}s yet</div><div class="t-body">Add one above to start collecting the details Mia needs.</div></div>`;
+    return addRow + `<div class="empty-state">${icon('map-pin','icon-lg')}<div class="t-title">No venues yet</div><div class="t-body">Add one above. Each venue holds the facts and the behavior together, and produces both documents Mia needs.</div></div>`;
   }
-  return addRow + items.map(item => renderItem(item, kind, locations)).join('');
+  return addRow + items.map(item => renderVenue(item)).join('');
 }
 
 function renderField(itemId, value, fullPath, label, kind, full){
@@ -861,6 +937,13 @@ function renderField(itemId, value, fullPath, label, kind, full){
     return `<div class="${cls}"><label>${escapeHtml(label)}</label><textarea class="input" data-item="${itemId}" data-bind="${fullPath}">${val}</textarea></div>`;
   }
   return `<div class="${cls}"><label>${escapeHtml(label)}</label><input class="input" type="text" data-item="${itemId}" data-bind="${fullPath}" value="${val}"></div>`;
+}
+
+function modeToggle(itemId, key, raw){
+  return `<div class="mode-toggle">
+      <button class="mode-btn ${raw?'active':''}" data-item="${itemId}" data-raw-mode="${key}" data-value="1">Paste / from file</button>
+      <button class="mode-btn ${raw?'':'active'}" data-item="${itemId}" data-raw-mode="${key}" data-value="0">Fields</button>
+    </div>`;
 }
 
 function renderSchemaSection(itemId, data, sec){
@@ -876,55 +959,61 @@ function renderSchemaSection(itemId, data, sec){
     return `<div class="subsection"><div class="t-overline">${escapeHtml(sec.title)}</div>${rows}<button class="btn btn-ghost compact" data-item="${itemId}" data-add-list="${sec.key}">${icon('plus')}Add ${escapeHtml(sec.itemLabel)}</button></div>`;
   }
   if (sec.type === 'group'){
+    const raw = !!sec.allowRaw && isRawMode(data, sec.key);
+    const head = `<div class="section-head"><div class="t-overline">${escapeHtml(sec.title)}</div>${sec.allowRaw ? modeToggle(itemId, sec.key, raw) : ''}</div>`;
+    if (raw){
+      return `<div class="subsection">${head}
+        <textarea class="input raw-paste" data-item="${itemId}" data-bind="raw.${sec.key}" placeholder="${escapeAttr(sec.rawPlaceholder||'')}">${escapeHtml(getAtPath(data,'raw.'+sec.key)||'')}</textarea>
+        <div class="t-caption" style="margin-top:var(--space-1-5);">Paste it in any shape — Claude structures it. Leave blank if an attached file already covers it.</div>
+      </div>`;
+    }
     const arr = getAtPath(data, sec.key) || [];
     const rows = arr.map((row,i) => `<div class="group-row">
         <div class="group-row-fields">${sec.fields.map(f=>renderField(itemId, row[f.path], `${sec.key}[${i}].${f.path}`, f.label, f.kind, f.full)).join('')}</div>
         <button class="icon-btn" data-item="${itemId}" data-remove-group="${sec.key}" data-index="${i}" title="Remove">${icon('x')}</button>
       </div>`).join('');
-    return `<div class="subsection"><div class="t-overline">${escapeHtml(sec.title)}</div>${rows}<button class="btn btn-ghost compact" data-item="${itemId}" data-add-group="${sec.key}">${icon('plus')}Add ${escapeHtml(sec.itemLabel)}</button></div>`;
+    return `<div class="subsection">${head}${rows}<button class="btn btn-ghost compact" data-item="${itemId}" data-add-group="${sec.key}">${icon('plus')}Add ${escapeHtml(sec.itemLabel)}</button></div>`;
   }
   return '';
 }
 
-function renderItem(item, kind, locations){
-  const schema = kind === 'location' ? LOCATION_SCHEMA : CAMPAIGN_SCHEMA;
+/* Version entries hold both documents. Entries saved before the two tabs were
+   combined hold a single `doc` plus the kind it came from. */
+function versionDocs(v){
+  if (v.locationDoc !== undefined || v.campaignDoc !== undefined){
+    return [['Location Details', v.locationDoc || ''], ['Campaign Instructions', v.campaignDoc || '']];
+  }
+  const label = v.legacyKind === 'campaign' ? 'Campaign Instructions' : 'Location Details';
+  return [[`${label} (saved before venues were combined)`, v.doc || '']];
+}
+
+function renderVenue(item){
   const isOpen = state.openItemIds.has(item.id);
   const docs = item.data.docs || [];
   const versions = state.versionsByItem[item.id] || [];
   const latestVersion = versions.length ? versions[versions.length - 1] : null;
   const isStale = latestVersion && (item.lastEditedAt || 0) > latestVersion.savedAt;
-  const sections = schema.map(sec => renderSchemaSection(item.id, item.data, sec)).join('');
-  const linkedLocation = kind === 'campaign' ? (locations || []).find(l => l.id === item.data.location_id) : null;
-  const locationBadge = kind === 'campaign'
-    ? (linkedLocation
-        ? `<span class="badge badge-info">${icon('map-pin','icon',12)}${escapeHtml(linkedLocation.name)}</span>`
-        : `<span class="badge badge-warning">${icon('alert-triangle','icon',12)}No location assigned</span>`)
-    : '';
-  const locationPicker = kind === 'campaign' ? `
-      <div class="subsection">
-        <div class="t-overline">Location</div>
-        <select class="input" style="height:36px;" data-location-select="${item.id}">
-          <option value="">— Select a location —</option>
-          ${(locations||[]).map(l => `<option value="${escapeAttr(l.id)}" ${l.id===item.data.location_id?'selected':''}>${escapeHtml(l.name)}</option>`).join('')}
-        </select>
-      </div>
-      <hr class="section-divider">` : '';
+
+  const parts = VENUE_PARTS.map(part => `<div class="part">
+        <div class="part-head">
+          <div class="t-title">${escapeHtml(part.title)}</div>
+          <div class="t-caption">${escapeHtml(part.caption)}</div>
+        </div>
+        ${part.schema.map(sec => renderSchemaSection(item.id, item.data, sec)).join('')}
+      </div>`).join('<hr class="section-divider">');
+
   return `<div class="card ${isOpen?'open':''}" data-item-id="${item.id}">
     <div class="card-header" data-toggle="${item.id}">
       ${icon('chevron-right','icon chev')}
       <span class="name t-title">${escapeHtml(item.name)}</span>
-      ${locationBadge}
       ${isStale ? `<span class="badge badge-warning" title="Answers changed since the last saved version">${icon('alert-triangle','icon',12)}Outdated</span>` : (latestVersion ? `<span class="badge badge-success">${icon('check-circle','icon',12)}Up to date</span>` : `<span class="badge badge-slate">No version yet</span>`)}
       ${item.data.drive_link ? `<a href="${item.data.drive_link}" target="_blank" rel="noopener" class="badge badge-success" onclick="event.stopPropagation()">${icon('link-2','icon',12)}Folder</a>` : `<span class="badge badge-slate">No files yet</span>`}
-      <button class="icon-btn" data-delete="${item.id}" title="Delete ${kind}" onclick="event.stopPropagation()">${icon('trash-2')}</button>
+      <button class="icon-btn" data-delete="${item.id}" title="Delete venue" onclick="event.stopPropagation()">${icon('trash-2')}</button>
     </div>
     <div class="card-body">
-      ${locationPicker}
-      ${sections}
-      <hr class="section-divider">
       <div class="subsection">
-        <div class="t-overline">Documents</div>
-        <div class="t-caption" style="margin-bottom:var(--space-2);">Uploaded files are saved straight to the shared Drive folder for this ${kind} — no manual linking needed.</div>
+        <div class="t-overline">Client files — start here</div>
+        ${banner('info','paperclip','Upload the menus, private-dining packet and price sheets first, then attach the same files to the Claude chat. Claude reads the rooms, pricing and menus out of them, so you only type what the files do not cover.')}
         <div class="doc-list">${docs.map((d,i)=>`<span class="doc-chip">${icon('paperclip','icon',12)}<span class="badge badge-slate" style="height:18px; padding:0 6px; font-size:11px;">${escapeHtml(d.category||'Other')}</span><a href="${d.link||'#'}" target="_blank" rel="noopener" class="mono">${escapeHtml(d.name)}</a><button class="icon-btn" style="width:18px;height:18px;" data-remove-doc="${item.id}" data-index="${i}">${icon('x','icon',12)}</button></span>`).join('')}</div>
         <div style="display:flex; gap:var(--space-2); flex-wrap:wrap; align-items:center;">
           <select class="input" id="docCategory-${item.id}" style="height:36px; max-width:200px;">
@@ -936,25 +1025,31 @@ function renderItem(item, kind, locations){
         <div data-upload-status="${item.id}"></div>
       </div>
       <hr class="section-divider">
+      ${parts}
+      <hr class="section-divider">
       <div class="subsection">
         <div class="t-overline">Source material (optional)</div>
-        <textarea class="input" data-item="${item.id}" data-bind="source_material" placeholder="Paste call notes, transcript excerpts, or client documents here for extra context." style="min-height:80px;">${escapeHtml(item.data.source_material||'')}</textarea>
+        <textarea class="input" data-item="${item.id}" data-bind="source_material" placeholder="Paste call notes or transcript excerpts here for extra context." style="min-height:80px;">${escapeHtml(item.data.source_material||'')}</textarea>
       </div>
       <div class="row-actions" style="display:flex; gap:var(--space-2);">
         <button class="btn btn-primary" data-copy-claude="${item.id}">${icon('copy')}Copy for Claude</button>
       </div>
-      <div class="t-caption" style="margin-top:var(--space-2);">Paste this into a Claude.ai chat to generate the ${kind === 'location' ? 'Location Details' : 'Campaign Instructions'} text and open questions.</div>
+      <div class="t-caption" style="margin-top:var(--space-2);">Paste this into a Claude.ai chat, attach the client files listed above, and Claude returns the Location Details, the Campaign Instructions, and the open questions.</div>
 
       <hr class="section-divider">
       <div class="subsection">
         <div class="t-overline">Generated output</div>
         ${isStale ? banner('info', 'alert-triangle', `Answers changed since the last saved version (${formatTimestamp(latestVersion.savedAt)}). Consider regenerating and saving a new version.`) : ''}
         <div class="field">
-          <label>${kind === 'location' ? 'Location Details' : 'Campaign Instructions'} (paste Claude's output here)</label>
-          <textarea class="input" data-item="${item.id}" data-bind="draft_doc" data-no-touch="true" style="min-height:120px;">${escapeHtml(item.data.draft_doc||'')}</textarea>
+          <label>Location Details (paste Claude's first block here)</label>
+          <textarea class="input" data-item="${item.id}" data-bind="draft_location_doc" data-no-touch="true" style="min-height:120px;">${escapeHtml(item.data.draft_location_doc||'')}</textarea>
         </div>
         <div class="field">
-          <label>Open questions for the client (paste Claude's output here)</label>
+          <label>Campaign Instructions (paste Claude's second block here)</label>
+          <textarea class="input" data-item="${item.id}" data-bind="draft_campaign_doc" data-no-touch="true" style="min-height:120px;">${escapeHtml(item.data.draft_campaign_doc||'')}</textarea>
+        </div>
+        <div class="field">
+          <label>Open questions for the client (paste Claude's third block here)</label>
           <textarea class="input" data-item="${item.id}" data-bind="draft_open_questions" data-no-touch="true" style="min-height:80px;">${escapeHtml(item.data.draft_open_questions||'')}</textarea>
         </div>
         <button class="btn btn-outline" data-save-version="${item.id}">${icon('check-circle')}Save as new version</button>
@@ -965,7 +1060,9 @@ function renderItem(item, kind, locations){
             const idx = versions.length - 1 - ri;
             const key = `${item.id}:${idx}`;
             const expanded = state.openVersionKeys.has(key);
-            const preview = (v.doc||'').replace(/\s+/g,' ').trim().slice(0,90);
+            const blocks = versionDocs(v);
+            const previewSource = (blocks.find(b => (b[1]||'').trim()) || ['',''])[1];
+            const preview = previewSource.replace(/\s+/g,' ').trim().slice(0,90);
             return `<div class="version-row ${expanded?'expanded':''}" data-version-key="${key}">
               <div class="version-row-head">
                 <span class="t-caption" style="color:var(--night-ink); font-weight:500;">${formatTimestamp(v.savedAt)}${idx === versions.length-1 ? ' · latest' : ''}</span>
@@ -975,8 +1072,7 @@ function renderItem(item, kind, locations){
               </div>
               ${!expanded ? `<div class="version-preview">${escapeHtml(preview)}${preview.length===90?'…':''}</div>` : ''}
               <div class="version-full">
-                <div class="t-caption" style="margin-bottom:4px;">${kind === 'location' ? 'Location Details' : 'Campaign Instructions'}</div>
-                <pre>${escapeHtml(v.doc||'(empty)')}</pre>
+                ${blocks.map(([label, body]) => `<div class="t-caption" style="margin-bottom:4px;">${escapeHtml(label)}</div><pre>${escapeHtml(body||'(empty)')}</pre>`).join('')}
                 <div class="t-caption" style="margin-bottom:4px;">Open questions</div>
                 <pre>${escapeHtml(v.openQuestions||'(empty)')}</pre>
               </div>
@@ -995,7 +1091,7 @@ function banner(type, iconName, message, spin){
 /* =================================================================
    SERIALIZATION for "Copy for Claude"
 ================================================================= */
-function serializeItem(schema, data){
+function serializePart(schema, data){
   const out = [];
   for (const sec of schema){
     if (sec.type === 'section'){
@@ -1005,45 +1101,68 @@ function serializeItem(schema, data){
       const arr = (getAtPath(data, sec.key) || []).map(v => (v||'').trim()).filter(Boolean);
       out.push(`${sec.title}:\n` + (arr.length ? arr.map(v=>`- ${v}`).join('\n') : 'None.'));
     } else if (sec.type === 'group'){
+      if (sec.allowRaw && isRawMode(data, sec.key)){
+        const txt = rawText(data, sec.key);
+        out.push(`${sec.title} — pasted from the client's own material, unstructured:\n` + (txt || 'Not provided here. Take it from the attached files.'));
+        continue;
+      }
       const arr = getAtPath(data, sec.key) || [];
       const rows = arr.filter(row => sec.fields.some(f => (row[f.path]||'').trim()));
       if (!rows.length){ out.push(`${sec.title}:\nNone.`); continue; }
-      const rowTexts = rows.map((row,i) => sec.fields.map(f => { const v=(row[f.path]||'').trim(); return v?`${f.label}: ${v}`:null; }).filter(Boolean).join('\n'));
+      const rowTexts = rows.map(row => sec.fields.map(f => { const v=(row[f.path]||'').trim(); return v?`${f.label}: ${v}`:null; }).filter(Boolean).join('\n'));
       out.push(`${sec.title}:\n` + rowTexts.map((t,i)=>`${sec.itemLabel} ${i+1}:\n${t}`).join('\n\n'));
     }
   }
   return out.join('\n\n');
 }
 
-async function copyForClaude(kind, account, item, locations){
-  const schema = kind === 'location' ? LOCATION_SCHEMA : CAMPAIGN_SCHEMA;
-  const templateText = kind === 'location' ? LOCATION_TEMPLATE_TEXT : CAMPAIGN_TEMPLATE_TEXT;
-  const outputName = kind === 'location' ? 'LOCATION DETAILS' : 'CAMPAIGN INSTRUCTIONS';
-  const serialized = serializeItem(schema, item.data);
+async function copyForClaude(account, item){
+  const facts = serializePart(LOCATION_SCHEMA, item.data);
+  const behavior = serializePart(CAMPAIGN_SCHEMA, item.data);
+  const docs = item.data.docs || [];
+  const fileList = docs.length
+    ? docs.map(d => `- ${d.category || 'Other'}: ${d.name}${d.link ? ` (${d.link})` : ''}`).join('\n')
+    : 'None uploaded in the console.';
   const sourceMaterial = (item.data.source_material || '').trim();
-  const linkedLocation = kind === 'campaign' ? (locations || []).find(l => l.id === item.data.location_id) : null;
   const text = `${WRITER_INSTRUCTIONS_TEXT}
 
 ---
 
-TEMPLATE:
+TEMPLATE 1 — LOCATION DETAILS:
 
-${templateText}
+${LOCATION_TEMPLATE_TEXT}
+
+---
+
+TEMPLATE 2 — CAMPAIGN INSTRUCTIONS:
+
+${CAMPAIGN_TEMPLATE_TEXT}
 
 ---
 
 ACCOUNT: ${account.name}
-${kind === 'location' ? 'LOCATION' : 'CAMPAIGN'}: ${item.name}
-${linkedLocation ? `FOR LOCATION: ${linkedLocation.name}\n` : ''}
-COLLECTED ANSWERS:
+VENUE: ${item.name}
 
-${serialized}
+CLIENT FILES (attached to this chat):
+
+${fileList}
+
+How to use these sources: read the attached files as a primary source for rooms, pricing, menus, policies and FAQs. Where a section below is marked "pasted from the client's own material" or says the facts are in the files, take them from the files or the pasted text and structure them yourself. Where a typed answer below and a file disagree, the typed answer wins. Anything still missing, unconfirmed, or contradictory goes in Open Questions, never into the documents.
+
+COLLECTED ANSWERS — VENUE FACTS (for Location Details):
+
+${facts}
+
+COLLECTED ANSWERS — ASSISTANT BEHAVIOR (for Campaign Instructions):
+
+${behavior}
 ${sourceMaterial ? `\nRAW SOURCE MATERIAL (call notes, documents):\n\n${sourceMaterial}\n` : ''}
 ---
 
-Produce two fenced blocks only:
-1. ${outputName}
-2. OPEN QUESTIONS FOR THE CLIENT — limited to facts relevant to this ${kind} that are unconfirmed, conflicting, or missing.
+Produce three fenced blocks only:
+1. LOCATION DETAILS — Template 1. Facts only.
+2. CAMPAIGN INSTRUCTIONS — Template 2. Behavior only.
+3. OPEN QUESTIONS FOR THE CLIENT — every fact across both documents that is unconfirmed, conflicting, or missing.
 
 Follow every authoring rule and the self-check exactly before you output.`;
   await navigator.clipboard.writeText(text);
@@ -1052,27 +1171,17 @@ Follow every authoring rule and the self-check exactly before you output.`;
 /* =================================================================
    WIRING
 ================================================================= */
-function wireItemsList(account, items, kind, locations){
-  const saveFn = kind === 'location' ? ()=>saveLocations(account.id) : ()=>saveCampaigns(account.id);
+function wireVenuesList(account, items){
+  const saveFn = ()=>saveVenues(account.id);
+  items.forEach(item => { item.folderSegments = [account.name, item.name]; });
 
-  function folderSegmentsFor(item){
-    if (kind === 'location'){
-      return [account.name, 'Locations', item.name];
-    }
-    const loc = (locations || []).find(l => l.id === item.data.location_id);
-    return loc
-      ? [account.name, 'Locations', loc.name, 'Campaigns', item.name]
-      : [account.name, 'Campaigns (unassigned)', item.name];
-  }
-  items.forEach(item => { item.folderSegments = folderSegmentsFor(item); });
-
-  const addBtn = document.getElementById(`btnAdd${kind}`);
+  const addBtn = document.getElementById('btnAddVenue');
   if (addBtn){
     addBtn.addEventListener('click', async ()=>{
-      const input = document.getElementById(`new${kind}Input`);
+      const input = document.getElementById('newVenueInput');
       const name = input.value.trim();
       if (!name) return;
-      const newItem = { id: 'i_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), name, lastEditedAt: Date.now(), data: kind === 'location' ? newLocationData() : newCampaignData() };
+      const newItem = { id: 'i_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), name, lastEditedAt: Date.now(), data: newVenueData() };
       items.push(newItem);
       input.value = '';
       await saveFn();
@@ -1093,7 +1202,7 @@ function wireItemsList(account, items, kind, locations){
     el.addEventListener('click', async (e)=>{
       e.stopPropagation();
       const id = el.dataset.delete;
-      if (!confirm('Remove this ' + kind + ' from the console? Drive folders and files are not deleted.')) return;
+      if (!confirm('Remove this venue from the console? Drive folders and files are not deleted.')) return;
       const idx = items.findIndex(i=>i.id===id);
       if (idx > -1) items.splice(idx,1);
       await saveFn();
@@ -1108,6 +1217,19 @@ function wireItemsList(account, items, kind, locations){
       setAtPath(item.data, el.dataset.bind, el.value);
       if (el.dataset.noTouch !== 'true') touchItem(item);
       await saveFn();
+    });
+  });
+
+  document.querySelectorAll('[data-raw-mode]').forEach(el=>{
+    el.addEventListener('click', async ()=>{
+      const item = items.find(i => i.id === el.dataset.item);
+      if (!item) return;
+      item.data.raw_mode = item.data.raw_mode || {};
+      item.data.raw_mode[el.dataset.rawMode] = el.dataset.value === '1';
+      touchItem(item);
+      state.openItemIds.add(item.id);
+      await saveFn();
+      await renderMain();
     });
   });
 
@@ -1137,8 +1259,7 @@ function wireItemsList(account, items, kind, locations){
   document.querySelectorAll('[data-add-group]').forEach(el=>{
     el.addEventListener('click', async ()=>{
       const item = items.find(i => i.id === el.dataset.item);
-      const schema = kind === 'location' ? LOCATION_SCHEMA : CAMPAIGN_SCHEMA;
-      const sec = schema.find(s => s.key === el.dataset.addGroup);
+      const sec = VENUE_SCHEMA.find(s => s.key === el.dataset.addGroup);
       const arr = getAtPath(item.data, el.dataset.addGroup) || [];
       arr.push(emptyRow(sec.fields));
       setAtPath(item.data, el.dataset.addGroup, arr);
@@ -1157,18 +1278,6 @@ function wireItemsList(account, items, kind, locations){
       state.openItemIds.add(item.id);
       await saveFn();
       await renderMain();
-    });
-  });
-
-  document.querySelectorAll('[data-location-select]').forEach(el=>{
-    el.addEventListener('change', async ()=>{
-      const item = items.find(i => i.id === el.dataset.locationSelect);
-      if (!item) return;
-      item.data.location_id = el.value;
-      touchItem(item);
-      await saveFn();
-      await renderMain();
-      state.openItemIds.add(item.id);
     });
   });
 
@@ -1216,7 +1325,7 @@ function wireItemsList(account, items, kind, locations){
     el.addEventListener('click', async ()=>{
       const item = items.find(i => i.id === el.dataset.copyClaude);
       try{
-        await copyForClaude(kind, account, item, locations);
+        await copyForClaude(account, item);
         el.innerHTML = icon('check-circle') + 'Copied';
         setTimeout(()=>{ el.innerHTML = icon('copy') + 'Copy for Claude'; }, 1500);
       }catch(e){ alert('Could not copy: ' + e.message); }
@@ -1227,11 +1336,12 @@ function wireItemsList(account, items, kind, locations){
     el.addEventListener('click', async ()=>{
       const itemId = el.dataset.saveVersion;
       const item = items.find(i => i.id === itemId);
-      const doc = (item.data.draft_doc || '').trim();
+      const locationDoc = (item.data.draft_location_doc || '').trim();
+      const campaignDoc = (item.data.draft_campaign_doc || '').trim();
       const openQuestions = (item.data.draft_open_questions || '').trim();
-      if (!doc && !openQuestions){ alert('Paste the generated output above before saving a version.'); return; }
+      if (!locationDoc && !campaignDoc && !openQuestions){ alert('Paste the generated output above before saving a version.'); return; }
       const versions = state.versionsByItem[itemId] || [];
-      versions.push({ savedAt: Date.now(), doc, openQuestions });
+      versions.push({ savedAt: Date.now(), locationDoc, campaignDoc, openQuestions });
       await saveVersions(itemId, versions);
       await renderMain();
       state.openItemIds.add(itemId);
@@ -1251,7 +1361,8 @@ function wireItemsList(account, items, kind, locations){
       const [itemId, idxStr] = el.dataset.copyVersion.split(':');
       const v = (state.versionsByItem[itemId] || [])[parseInt(idxStr,10)];
       if (!v) return;
-      const text = `${kind === 'location' ? 'LOCATION DETAILS' : 'CAMPAIGN INSTRUCTIONS'}\n\n${v.doc}\n\nOPEN QUESTIONS FOR THE CLIENT\n\n${v.openQuestions}`;
+      const text = versionDocs(v).map(([label, body]) => `${label.toUpperCase()}\n\n${body}`).join('\n\n')
+        + `\n\nOPEN QUESTIONS FOR THE CLIENT\n\n${v.openQuestions || ''}`;
       try{ await navigator.clipboard.writeText(text); el.innerHTML = icon('check-circle'); setTimeout(()=>{ el.innerHTML = icon('copy'); }, 1200); }catch(e){}
     });
   });
@@ -1263,8 +1374,15 @@ function wireItemsList(account, items, kind, locations){
       const v = (state.versionsByItem[itemId] || [])[parseInt(idxStr,10)];
       if (!item || !v) return;
       if (!confirm('Replace the current draft fields with this saved version? This does not delete any version history.')) return;
-      item.data.draft_doc = v.doc;
-      item.data.draft_open_questions = v.openQuestions;
+      if (v.locationDoc !== undefined || v.campaignDoc !== undefined){
+        item.data.draft_location_doc = v.locationDoc || '';
+        item.data.draft_campaign_doc = v.campaignDoc || '';
+      } else if (v.legacyKind === 'campaign'){
+        item.data.draft_campaign_doc = v.doc || '';
+      } else {
+        item.data.draft_location_doc = v.doc || '';
+      }
+      item.data.draft_open_questions = v.openQuestions || '';
       await saveFn();
       await renderMain();
       state.openItemIds.add(itemId);
@@ -1304,7 +1422,7 @@ function renderSettings(){
         <div class="field">
           <label>Root Drive folder (URL or ID)</label>
           <input type="text" class="input" id="rootFolderIdInput" value="${escapeAttr(state.settings.rootFolderId||'')}" placeholder="https://drive.google.com/drive/folders/...">
-          <div class="t-caption" style="margin-top:var(--space-1);">Files upload into this folder, organized by account/location/campaign automatically. Leave blank to let the Apps Script create a top-level folder by name instead.</div>
+          <div class="t-caption" style="margin-top:var(--space-1);">Files upload into this folder, organized by account and venue automatically. Leave blank to let the Apps Script create a top-level folder by name instead.</div>
         </div>
         <div class="field">
           <label>Root folder name</label>
@@ -1354,11 +1472,10 @@ function renderSettings(){
   });
 
   document.getElementById('btnExport').addEventListener('click', async ()=>{
-    const bundle = { accounts: state.accounts, settings: state.settings, locations:{}, campaigns:{}, versions:{} };
+    const bundle = { accounts: state.accounts, settings: state.settings, venues:{}, versions:{} };
     for (const acc of state.accounts){
-      bundle.locations[acc.id] = await loadLocations(acc.id);
-      bundle.campaigns[acc.id] = await loadCampaigns(acc.id);
-      for (const item of [...bundle.locations[acc.id], ...bundle.campaigns[acc.id]]){
+      bundle.venues[acc.id] = await loadVenues(acc.id);
+      for (const item of bundle.venues[acc.id]){
         bundle.versions[item.id] = await loadVersions(item.id);
       }
     }
@@ -1380,13 +1497,17 @@ function renderSettings(){
       state.settings = bundle.settings || state.settings;
       await saveAccounts();
       await saveSettings();
+      for (const accId of Object.keys(bundle.venues || {})){
+        state.venuesByAccount[accId] = bundle.venues[accId];
+        await saveVenues(accId);
+      }
+      // Backups taken before the two tabs were combined: keep the raw records so
+      // loadVenues() folds them into venue records on the next read.
       for (const accId of Object.keys(bundle.locations || {})){
-        state.locationsByAccount[accId] = bundle.locations[accId];
-        await saveLocations(accId);
+        await kvSet(`hermetic:locations:${accId}`, bundle.locations[accId]);
       }
       for (const accId of Object.keys(bundle.campaigns || {})){
-        state.campaignsByAccount[accId] = bundle.campaigns[accId];
-        await saveCampaigns(accId);
+        await kvSet(`hermetic:campaigns:${accId}`, bundle.campaigns[accId]);
       }
       for (const itemId of Object.keys(bundle.versions || {})){
         await saveVersions(itemId, bundle.versions[itemId]);
