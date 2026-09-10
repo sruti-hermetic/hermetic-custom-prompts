@@ -141,13 +141,6 @@
 
   .part-head{ margin-bottom:var(--space-4); padding-bottom:var(--space-2); border-bottom:1px solid var(--border-subtle); }
   .part-head .t-caption{ margin-top:2px; }
-  .section-head{ display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); margin-bottom:var(--space-2); flex-wrap:wrap; }
-  .section-head .t-overline{ margin-bottom:0; }
-  .mode-toggle{ display:inline-flex; border:1px solid var(--border-default); border-radius:var(--radius-md); overflow:hidden; background:var(--canvas); flex-shrink:0; }
-  .mode-btn{ border:none; background:transparent; padding:0 var(--space-2-5); height:26px; font-size:12px; color:var(--mid-slate); white-space:nowrap; }
-  .mode-btn + .mode-btn{ border-left:1px solid var(--border-default); }
-  .mode-btn.active{ background:var(--venue-blue-tint); color:var(--venue-blue-deep); font-weight:500; }
-  textarea.raw-paste{ min-height:96px; }
 
   .empty-state{ display:flex; flex-direction:column; align-items:center; text-align:center; gap:var(--space-2); padding:var(--space-12) var(--space-6); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); color:var(--mid-slate); }
   .empty-state .icon-lg{ color:var(--mid-slate); margin-bottom:var(--space-1); }
@@ -289,7 +282,7 @@ function escapeAttr(str){ return escapeHtml(str); }
    FIELD SCHEMAS (mirrors the v2 Location / Campaign templates,
    per "Appendix A: Section map for engineering")
 ================================================================= */
-const DOC_TYPES = ['Menu', 'Private dining packet', 'Event deck', 'Venue guide', 'Inquiry form', 'Gallery photos', 'Policy', 'Other'];
+const DOC_TYPES = ['Menu', 'Private dining packet', 'Event deck', 'Venue guide', 'Inquiry form', 'Gallery photos', 'Policy', 'FAQs', 'TS room setup', 'Other'];
 
 const ROOM_FIELDS = [
   {path:'name', label:'Room name', kind:'text'},
@@ -357,16 +350,10 @@ const LOCATION_SCHEMA = [
     {path:'parking', label:'Parking', kind:'text'}
   ]},
   {type:'list', title:'Hours & blackout dates', key:'hours_notes', itemLabel:'note', placeholder:'e.g. Closed Thanksgiving and Christmas'},
-  {type:'group', title:'Rooms', key:'rooms', itemLabel:'room', fields: ROOM_FIELDS, allowRaw:true,
-   rawPlaceholder:'Paste the room list straight from the venue guide or private-dining packet — names, capacities, features, in whatever shape it comes in.'},
   {type:'list', title:'Availability policy', key:'availability_policy', itemLabel:'rule', placeholder:'e.g. For 1-60 guests, offer School Night only'},
-  {type:'group', title:'Pricing', key:'pricing_rows', itemLabel:'pricing row', fields: PRICING_FIELDS, allowRaw:true,
-   rawPlaceholder:'Paste the price sheet — F&B minimums, room fees, by day and guest count.'},
   {type:'section', title:'Per-unit activity pricing (if applicable)', fields:[
     {path:'activity_pricing', label:'e.g. Bowling: $75 per lane per hour Sun-Thu', kind:'textarea'}
   ]},
-  {type:'group', title:'Menus', key:'menus', itemLabel:'menu', fields: MENU_FIELDS, allowRaw:true,
-   rawPlaceholder:'Paste the menus — package names, per-person prices, courses, minimums, upcharges.'},
   {type:'section', title:'Fees & taxes', fields:[
     {path:'fees.service_charge', label:'Service charge (% on F&B)', kind:'text'},
     {path:'fees.sales_tax', label:'Sales tax (%)', kind:'text'},
@@ -391,10 +378,6 @@ const LOCATION_SCHEMA = [
     {path:'booking.headcount_due', label:'Headcount guarantee due', kind:'text'},
     {path:'booking.included', label:'Included in every rental', kind:'textarea'}
   ]},
-  {type:'group', title:'Policies', key:'policies', itemLabel:'policy', fields: POLICY_FIELDS, allowRaw:true,
-   rawPlaceholder:'Paste the policy section from the packet or contract — one topic per line is fine.'},
-  {type:'group', title:'FAQs', key:'faqs', itemLabel:'FAQ', fields: FAQ_FIELDS, allowRaw:true,
-   rawPlaceholder:'Paste any FAQ sheet, or the questions guests ask with their answers.'},
   {type:'group', title:'Sub-venues (only if one record covers multiple concepts)', key:'sub_venues', itemLabel:'sub-venue', fields: SUBVENUE_FIELDS}
 ];
 
@@ -427,13 +410,26 @@ const CAMPAIGN_SCHEMA = [
   ]}
 ];
 
+/* Rooms, pricing, menus, policies and FAQs are never typed in: they always come
+   from the uploaded client files. The section shapes stay here so that anything
+   a teammate typed before that change still rides along in the Claude prompt
+   instead of quietly disappearing. */
+const FILE_SOURCED_SECTIONS = [
+  {type:'group', title:'Rooms', key:'rooms', itemLabel:'room', fields: ROOM_FIELDS},
+  {type:'group', title:'Pricing', key:'pricing_rows', itemLabel:'pricing row', fields: PRICING_FIELDS},
+  {type:'group', title:'Menus', key:'menus', itemLabel:'menu', fields: MENU_FIELDS},
+  {type:'group', title:'Policies', key:'policies', itemLabel:'policy', fields: POLICY_FIELDS},
+  {type:'group', title:'FAQs', key:'faqs', itemLabel:'FAQ', fields: FAQ_FIELDS}
+];
+const FILE_SOURCED_LABEL = 'rooms and capacities, pricing, menus, policies and FAQs';
+
 /* One venue record covers both documents: the facts (Location Details) and the
    behavior (Campaign Instructions). Support fills it in one pass; "Copy for
    Claude" still asks for the two documents separately, so the extraction step
    downstream is unchanged. */
 const VENUE_PARTS = [
   { id:'facts', title:'Venue facts', schema: LOCATION_SCHEMA,
-    caption:'Everything a guest may be told, plus the availability rules. Becomes the Location Details document.' },
+    caption:'What the files do not carry, plus the availability rules. Becomes the Location Details document.' },
   { id:'behavior', title:'Assistant behavior', schema: CAMPAIGN_SCHEMA,
     caption:'How Mia talks, what she does in order, and when she hands off. Becomes the Campaign Instructions document.' }
 ];
@@ -450,18 +446,9 @@ function newVenueData(){
     handoff:{window:'',overrides:'',required_before:'',routing:'',bypass:'',after:''},
     steps:[], rules:[], links:[], vocabulary:[], ai_disclosure:'', legal_wording:'',
     cross_sell:{when:'',how:'',link:''},
-    raw:{}, raw_mode:{}, source_material:'', drive_link:'', docs:[],
+    source_material:'', drive_link:'', docs:[],
     draft_location_doc:'', draft_campaign_doc:'', draft_open_questions:'' };
 }
-
-/* A section that allows a pasted blob starts in paste mode and only switches to
-   field-by-field entry once someone asks for it (or already has rows there). */
-function isRawMode(data, key){
-  const modes = data.raw_mode || {};
-  if (modes[key] !== undefined) return !!modes[key];
-  return ((getAtPath(data, key) || []).length === 0);
-}
-function rawText(data, key){ return (getAtPath(data, 'raw.' + key) || '').trim(); }
 function emptyRow(fields){ const o = {}; fields.forEach(f => o[f.path] = ''); return o; }
 
 /* =================================================================
@@ -769,6 +756,7 @@ async function mergeLegacyPair(id, name, loc, camp){
   const cd = (camp && camp.data) || {};
   const data = newVenueData();
   const skip = new Set(['location_id','source_material','drive_link','docs','draft_doc','draft_open_questions','raw','raw_mode']);
+  // 'raw'/'raw_mode' were only ever written by the retired paste-mode toggle.
   for (const src of [ld, cd]){
     for (const key of Object.keys(src)){
       if (skip.has(key)) continue;
@@ -939,13 +927,6 @@ function renderField(itemId, value, fullPath, label, kind, full){
   return `<div class="${cls}"><label>${escapeHtml(label)}</label><input class="input" type="text" data-item="${itemId}" data-bind="${fullPath}" value="${val}"></div>`;
 }
 
-function modeToggle(itemId, key, raw){
-  return `<div class="mode-toggle">
-      <button class="mode-btn ${raw?'active':''}" data-item="${itemId}" data-raw-mode="${key}" data-value="1">Paste / from file</button>
-      <button class="mode-btn ${raw?'':'active'}" data-item="${itemId}" data-raw-mode="${key}" data-value="0">Fields</button>
-    </div>`;
-}
-
 function renderSchemaSection(itemId, data, sec){
   if (sec.type === 'section'){
     return `<div class="subsection"><div class="t-overline">${escapeHtml(sec.title)}</div><div class="field-pair">${sec.fields.map(f=>renderField(itemId, getAtPath(data,f.path), f.path, f.label, f.kind, sec.fields.length===1)).join('')}</div></div>`;
@@ -959,20 +940,12 @@ function renderSchemaSection(itemId, data, sec){
     return `<div class="subsection"><div class="t-overline">${escapeHtml(sec.title)}</div>${rows}<button class="btn btn-ghost compact" data-item="${itemId}" data-add-list="${sec.key}">${icon('plus')}Add ${escapeHtml(sec.itemLabel)}</button></div>`;
   }
   if (sec.type === 'group'){
-    const raw = !!sec.allowRaw && isRawMode(data, sec.key);
-    const head = `<div class="section-head"><div class="t-overline">${escapeHtml(sec.title)}</div>${sec.allowRaw ? modeToggle(itemId, sec.key, raw) : ''}</div>`;
-    if (raw){
-      return `<div class="subsection">${head}
-        <textarea class="input raw-paste" data-item="${itemId}" data-bind="raw.${sec.key}" placeholder="${escapeAttr(sec.rawPlaceholder||'')}">${escapeHtml(getAtPath(data,'raw.'+sec.key)||'')}</textarea>
-        <div class="t-caption" style="margin-top:var(--space-1-5);">Paste it in any shape — Claude structures it. Leave blank if an attached file already covers it.</div>
-      </div>`;
-    }
     const arr = getAtPath(data, sec.key) || [];
     const rows = arr.map((row,i) => `<div class="group-row">
         <div class="group-row-fields">${sec.fields.map(f=>renderField(itemId, row[f.path], `${sec.key}[${i}].${f.path}`, f.label, f.kind, f.full)).join('')}</div>
         <button class="icon-btn" data-item="${itemId}" data-remove-group="${sec.key}" data-index="${i}" title="Remove">${icon('x')}</button>
       </div>`).join('');
-    return `<div class="subsection">${head}${rows}<button class="btn btn-ghost compact" data-item="${itemId}" data-add-group="${sec.key}">${icon('plus')}Add ${escapeHtml(sec.itemLabel)}</button></div>`;
+    return `<div class="subsection"><div class="t-overline">${escapeHtml(sec.title)}</div>${rows}<button class="btn btn-ghost compact" data-item="${itemId}" data-add-group="${sec.key}">${icon('plus')}Add ${escapeHtml(sec.itemLabel)}</button></div>`;
   }
   return '';
 }
@@ -1013,7 +986,7 @@ function renderVenue(item){
     <div class="card-body">
       <div class="subsection">
         <div class="t-overline">Client files — start here</div>
-        ${banner('info','paperclip','Upload the menus, private-dining packet and price sheets first, then attach the same files to the Claude chat. Claude reads the rooms, pricing and menus out of them, so you only type what the files do not cover.')}
+        ${banner('info','paperclip', `Upload the files that carry ${FILE_SOURCED_LABEL} — menus, the private-dining packet, the price sheet, the FAQ sheet, the TS room setup screenshot — then attach the same files to the Claude chat. Claude reads those facts straight out of them; the fields below are only what a file cannot tell it.`)}
         <div class="doc-list">${docs.map((d,i)=>`<span class="doc-chip">${icon('paperclip','icon',12)}<span class="badge badge-slate" style="height:18px; padding:0 6px; font-size:11px;">${escapeHtml(d.category||'Other')}</span><a href="${d.link||'#'}" target="_blank" rel="noopener" class="mono">${escapeHtml(d.name)}</a><button class="icon-btn" style="width:18px;height:18px;" data-remove-doc="${item.id}" data-index="${i}">${icon('x','icon',12)}</button></span>`).join('')}</div>
         <div style="display:flex; gap:var(--space-2); flex-wrap:wrap; align-items:center;">
           <select class="input" id="docCategory-${item.id}" style="height:36px; max-width:200px;">
@@ -1101,11 +1074,6 @@ function serializePart(schema, data){
       const arr = (getAtPath(data, sec.key) || []).map(v => (v||'').trim()).filter(Boolean);
       out.push(`${sec.title}:\n` + (arr.length ? arr.map(v=>`- ${v}`).join('\n') : 'None.'));
     } else if (sec.type === 'group'){
-      if (sec.allowRaw && isRawMode(data, sec.key)){
-        const txt = rawText(data, sec.key);
-        out.push(`${sec.title} — pasted from the client's own material, unstructured:\n` + (txt || 'Not provided here. Take it from the attached files.'));
-        continue;
-      }
       const arr = getAtPath(data, sec.key) || [];
       const rows = arr.filter(row => sec.fields.some(f => (row[f.path]||'').trim()));
       if (!rows.length){ out.push(`${sec.title}:\nNone.`); continue; }
@@ -1116,8 +1084,18 @@ function serializePart(schema, data){
   return out.join('\n\n');
 }
 
+/* Rooms, pricing, menus, policies and FAQs come from the files now, but a
+   venue set up before that change may still hold typed rows. Pass those along
+   rather than dropping facts on the floor. */
+function serializeCarriedOver(data){
+  const kept = FILE_SOURCED_SECTIONS.filter(sec =>
+    (getAtPath(data, sec.key) || []).some(row => sec.fields.some(f => (row[f.path]||'').trim())));
+  return kept.length ? serializePart(kept, data) : '';
+}
+
 async function copyForClaude(account, item){
   const facts = serializePart(LOCATION_SCHEMA, item.data);
+  const carried = serializeCarriedOver(item.data);
   const behavior = serializePart(CAMPAIGN_SCHEMA, item.data);
   const docs = item.data.docs || [];
   const fileList = docs.length
@@ -1147,11 +1125,12 @@ CLIENT FILES (attached to this chat):
 
 ${fileList}
 
-How to use these sources: read the attached files as a primary source for rooms, pricing, menus, policies and FAQs. Where a section below is marked "pasted from the client's own material" or says the facts are in the files, take them from the files or the pasted text and structure them yourself. Where a typed answer below and a file disagree, the typed answer wins. Anything still missing, unconfirmed, or contradictory goes in Open Questions, never into the documents.
+How to use these sources: ${FILE_SOURCED_LABEL} are not collected in the console at all — take them from the attached files and structure them yourself against Template 1. The answers below cover everything else. Where a typed answer below and a file disagree, the typed answer wins. Anything still missing, unconfirmed, or contradictory goes in Open Questions, never into the documents.
 
 COLLECTED ANSWERS — VENUE FACTS (for Location Details):
 
 ${facts}
+${carried ? `\nFACTS TYPED IN BEFORE THESE SECTIONS MOVED TO FILE UPLOAD — treat them as typed answers:\n\n${carried}\n` : ''}
 
 COLLECTED ANSWERS — ASSISTANT BEHAVIOR (for Campaign Instructions):
 
@@ -1217,19 +1196,6 @@ function wireVenuesList(account, items){
       setAtPath(item.data, el.dataset.bind, el.value);
       if (el.dataset.noTouch !== 'true') touchItem(item);
       await saveFn();
-    });
-  });
-
-  document.querySelectorAll('[data-raw-mode]').forEach(el=>{
-    el.addEventListener('click', async ()=>{
-      const item = items.find(i => i.id === el.dataset.item);
-      if (!item) return;
-      item.data.raw_mode = item.data.raw_mode || {};
-      item.data.raw_mode[el.dataset.rawMode] = el.dataset.value === '1';
-      touchItem(item);
-      state.openItemIds.add(item.id);
-      await saveFn();
-      await renderMain();
     });
   });
 
