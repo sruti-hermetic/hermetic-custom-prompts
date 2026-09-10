@@ -986,7 +986,7 @@ function renderVenue(item){
     <div class="card-body">
       <div class="subsection">
         <div class="t-overline">Client files — start here</div>
-        ${banner('info','paperclip', `Upload the files that carry ${FILE_SOURCED_LABEL} — menus, the private-dining packet, the price sheet, the FAQ sheet, the TS room setup screenshot — then attach the same files to the Claude chat. Claude reads those facts straight out of them; the fields below are only what a file cannot tell it.`)}
+        ${banner('info','paperclip','Upload the menus, packet, price sheet, FAQ sheet and TS room setup screenshot, then attach the same files to the Claude chat. The fields below cover only what the files cannot.')}
         <div class="doc-list">${docs.map((d,i)=>`<span class="doc-chip">${icon('paperclip','icon',12)}<span class="badge badge-slate" style="height:18px; padding:0 6px; font-size:11px;">${escapeHtml(d.category||'Other')}</span><a href="${d.link||'#'}" target="_blank" rel="noopener" class="mono">${escapeHtml(d.name)}</a><button class="icon-btn" style="width:18px;height:18px;" data-remove-doc="${item.id}" data-index="${i}">${icon('x','icon',12)}</button></span>`).join('')}</div>
         <div style="display:flex; gap:var(--space-2); flex-wrap:wrap; align-items:center;">
           <select class="input" id="docCategory-${item.id}" style="height:36px; max-width:200px;">
