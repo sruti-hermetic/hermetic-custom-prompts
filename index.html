@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermetic AI — Account setup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.cdnfonts.com/css/general-sans">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --night-ink: oklch(0.198 0.017 257);
+    --evening-slate: oklch(0.375 0.039 257);
+    --mid-slate: oklch(0.556 0.040 257);
+    --border-default: oklch(0.859 0.025 255);
+    --border-subtle: oklch(0.926 0.013 255);
+    --clean-linen: oklch(0.984 0.003 248);
+    --canvas: oklch(1 0 0);
+
+    --venue-blue: oklch(0.432 0.193 267);
+    --venue-blue-hover: oklch(0.380 0.176 267);
+    --venue-blue-deep: oklch(0.320 0.149 267);
+    --venue-blue-tint: oklch(0.965 0.017 275);
+
+    --success-green: oklch(0.525 0.137 150);
+    --alert-red: oklch(0.531 0.218 29);
+    --warm-amber: oklch(0.554 0.130 59);
+
+    --badge-slate-bg: var(--border-subtle);
+    --badge-slate-border: var(--border-default);
+    --badge-slate-text: var(--evening-slate);
+    --badge-info-bg: var(--venue-blue-tint);
+    --badge-info-border: oklch(0.85 0.06 267);
+    --badge-info-text: var(--venue-blue-deep);
+    --badge-success-bg: oklch(0.965 0.03 150);
+    --badge-success-border: oklch(0.87 0.09 150);
+    --badge-success-text: oklch(0.40 0.10 150);
+    --badge-destructive-bg: oklch(0.96 0.03 25);
+    --badge-destructive-border: oklch(0.85 0.09 25);
+    --badge-destructive-text: var(--alert-red);
+    --badge-warning-bg: oklch(0.965 0.03 70);
+    --badge-warning-border: oklch(0.87 0.09 70);
+    --badge-warning-text: oklch(0.45 0.11 60);
+
+    --radius-sm: 4px; --radius-md: 6px; --radius-lg: 8px; --radius-xl: 12px; --radius-full: 9999px;
+    --space-1: 4px; --space-1-5: 6px; --space-2: 8px; --space-2-5: 10px;
+    --space-3: 12px; --space-4: 16px; --space-5: 20px; --space-6: 24px;
+    --space-8: 32px; --space-10: 40px; --space-12: 48px; --space-14: 56px;
+
+    --shadow-hover: 0 1px 3px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.05);
+  }
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } .icon.spin{ animation:none !important; } }
+  *{ box-sizing:border-box; }
+  html, body{ height:100%; }
+  body{ margin:0; background:var(--clean-linen); color:var(--night-ink); font-family:'General Sans', -apple-system, BlinkMacSystemFont, sans-serif; letter-spacing:-0.01em; font-size:14px; line-height:1.5; }
+  button, input, textarea{ font-family:inherit; letter-spacing:-0.01em; }
+  button{ cursor:pointer; }
+  a{ color:var(--venue-blue); text-decoration:none; }
+  a:hover{ text-decoration:underline; }
+  :focus-visible{ outline:2px solid var(--venue-blue); outline-offset:2px; }
+  .mono{ font-family:'JetBrains Mono', monospace; letter-spacing:0; }
+
+  .t-display{ font-size:24px; font-weight:600; line-height:1.3; }
+  .t-title{ font-size:16px; font-weight:600; line-height:1.5; }
+  .t-caption{ font-size:12px; font-weight:400; line-height:1.5; color:var(--mid-slate); }
+  .t-overline{ font-size:12px; font-weight:600; line-height:1.5; letter-spacing:0.03em; text-transform:uppercase; color:var(--mid-slate); margin-bottom:var(--space-2); }
+
+  .icon{ width:16px; height:16px; flex-shrink:0; display:inline-block; vertical-align:middle; }
+  .icon-lg{ width:20px; height:20px; flex-shrink:0; display:inline-block; }
+  @keyframes icon-spin{ to{ transform:rotate(360deg); } }
+  .icon.spin{ animation: icon-spin 0.8s linear infinite; }
+
+  .app{ display:flex; height:100%; min-height:100vh; }
+
+  .sidebar{ width:232px; flex-shrink:0; background:var(--clean-linen); border-right:1px solid var(--border-default); display:flex; flex-direction:column; transition:width 150ms ease-out; }
+  .sidebar.collapsed{ width:64px; }
+  .sidebar-header{ display:flex; align-items:center; justify-content:space-between; padding:var(--space-4) var(--space-4) var(--space-3); }
+  .wordmark{ font-size:16px; font-weight:600; color:var(--night-ink); white-space:nowrap; overflow:hidden; }
+  .wordmark span{ color:var(--venue-blue); }
+  .icon-btn{ display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:var(--radius-md); border:none; background:transparent; color:var(--evening-slate); flex-shrink:0; }
+  .icon-btn:hover{ background:oklch(0.926 0.013 255 / 0.6); }
+  .sidebar-section{ padding:var(--space-2) var(--space-3) var(--space-1); }
+  .hide-collapsed{ overflow:hidden; white-space:nowrap; }
+  .sidebar.collapsed .hide-collapsed{ display:none; }
+  .collapsed-only{ display:none; }
+  .sidebar.collapsed .collapsed-only{ display:block !important; }
+
+  .add-account-btn{ display:flex; align-items:center; gap:var(--space-2); width:100%; height:32px; padding:0 var(--space-2); border:none; background:transparent; border-radius:var(--radius-md); color:var(--evening-slate); font-size:14px; font-weight:500; }
+  .add-account-btn:hover{ background:oklch(0.926 0.013 255 / 0.6); color:var(--venue-blue-deep); }
+
+  .new-account-row{ padding:var(--space-1) var(--space-3) var(--space-2); }
+  .new-account-row input{ width:100%; height:32px; padding:0 var(--space-2-5); border:1px solid var(--border-default); border-radius:var(--radius-md); background:var(--canvas); font-size:13px; }
+  .new-account-row input:focus{ outline:none; border-color:var(--venue-blue); box-shadow:0 0 0 2px var(--venue-blue-tint), 0 0 0 3px oklch(0.432 0.193 267 / 0.25); }
+  .nav-list{ flex:1; overflow-y:auto; padding:var(--space-1) var(--space-2); }
+  .nav-item{ display:flex; align-items:center; gap:var(--space-2); height:34px; padding:0 var(--space-2); border-radius:var(--radius-md); color:var(--evening-slate); font-size:14px; margin-bottom:1px; }
+  .nav-item:hover{ background:oklch(0.926 0.013 255 / 0.6); }
+  .nav-item.active{ background:var(--venue-blue); color:#fff; font-weight:600; box-shadow:var(--shadow-hover); }
+  .nav-item .name{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .nav-empty{ padding:var(--space-4) var(--space-3); color:var(--mid-slate); font-size:12.5px; }
+  .sync-pill{ margin:0 var(--space-3) var(--space-3); }
+
+  .main{ flex:1; min-width:0; display:flex; flex-direction:column; background:var(--canvas); }
+  .topbar{ display:flex; align-items:flex-start; justify-content:space-between; padding:var(--space-5) var(--space-8); border-bottom:1px solid var(--border-subtle); gap:var(--space-4); }
+  .topbar-meta{ margin-top:2px; }
+  .content{ flex:1; padding:var(--space-6) var(--space-8) var(--space-12); max-width:920px; }
+
+  .btn{ display:inline-flex; align-items:center; gap:var(--space-1-5); height:36px; padding:0 var(--space-4); border-radius:var(--radius-md); font-size:14px; font-weight:500; border:1px solid transparent; background:var(--canvas); color:var(--evening-slate); white-space:nowrap; }
+  .btn.compact{ height:32px; padding:0 var(--space-3); font-size:13px; }
+  .btn:disabled{ background:var(--border-subtle) !important; color:oklch(0.7 0.02 255) !important; border-color:transparent !important; cursor:not-allowed; }
+  .btn-primary{ background:var(--venue-blue); color:var(--clean-linen); }
+  .btn-primary:hover{ background:var(--venue-blue-hover); box-shadow:var(--shadow-hover); }
+  .btn-primary:active{ background:var(--venue-blue-deep); transform:scale(0.98); }
+  .btn-outline{ background:var(--canvas); color:var(--evening-slate); border-color:var(--mid-slate); }
+  .btn-outline:hover{ background:oklch(0.984 0.003 248); border-color:var(--evening-slate); }
+  .btn-ghost{ background:transparent; color:var(--evening-slate); }
+  .btn-ghost:hover{ background:oklch(0.926 0.013 255 / 0.6); }
+
+  .badge{ display:inline-flex; align-items:center; gap:5px; height:22px; padding:0 var(--space-2); border-radius:var(--radius-full); font-size:12px; font-weight:500; border:1px solid; white-space:nowrap; }
+  .badge-slate{ background:var(--badge-slate-bg); border-color:var(--badge-slate-border); color:var(--badge-slate-text); }
+  .badge-info{ background:var(--badge-info-bg); border-color:var(--badge-info-border); color:var(--badge-info-text); }
+  .badge-success{ background:var(--badge-success-bg); border-color:var(--badge-success-border); color:var(--badge-success-text); }
+  .badge-destructive{ background:var(--badge-destructive-bg); border-color:var(--badge-destructive-border); color:var(--badge-destructive-text); }
+  .badge-warning{ background:var(--badge-warning-bg); border-color:var(--badge-warning-border); color:var(--badge-warning-text); }
+
+  .version-row{ border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:var(--space-3); margin-bottom:var(--space-2); background:var(--clean-linen); }
+  .version-row-head{ display:flex; align-items:center; gap:var(--space-2); }
+  .version-row-head .t-caption{ flex:1; }
+  .version-preview{ font-size:12.5px; color:var(--evening-slate); margin-top:var(--space-1); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .version-full{ display:none; margin-top:var(--space-2); }
+  .version-row.expanded .version-full{ display:block; }
+  .version-full pre{ white-space:pre-wrap; font-size:12.5px; background:var(--canvas); border:1px solid var(--border-default); border-radius:var(--radius-md); padding:var(--space-3); margin:0 0 var(--space-2); font-family:inherit; }
+
+  .field{ margin-bottom:var(--space-4); }
+  .field label{ display:block; font-size:13px; font-weight:500; margin-bottom:var(--space-1-5); color:var(--night-ink); }
+  input[type=text].input, textarea.input{ width:100%; padding:0 var(--space-2-5); border:1px solid var(--border-default); border-radius:var(--radius-md); background:var(--canvas); color:var(--night-ink); font-size:13.5px; }
+  input[type=text].input{ height:36px; }
+  textarea.input{ padding:var(--space-2-5); min-height:44px; resize:vertical; line-height:1.5; }
+  input.input:focus, textarea.input:focus{ outline:none; border-color:var(--venue-blue); box-shadow:0 0 0 2px var(--canvas), 0 0 0 4px oklch(0.432 0.193 267 / 0.35); }
+  .inline-add{ display:flex; gap:var(--space-2); margin-bottom:var(--space-5); }
+  .inline-add input{ flex:1; }
+
+  .tabs{ display:flex; gap:var(--space-6); border-bottom:1px solid var(--border-subtle); margin-bottom:var(--space-5); }
+  .tab{ background:none; border:none; padding:var(--space-2-5) var(--space-1) var(--space-3); font-size:14px; color:var(--mid-slate); border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .tab.active{ color:var(--night-ink); border-bottom-color:var(--venue-blue); font-weight:500; }
+
+  .empty-state{ display:flex; flex-direction:column; align-items:center; text-align:center; gap:var(--space-2); padding:var(--space-12) var(--space-6); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); color:var(--mid-slate); }
+  .empty-state .icon-lg{ color:var(--mid-slate); margin-bottom:var(--space-1); }
+  .empty-state .t-title{ color:var(--night-ink); }
+
+  .card{ border:1px solid var(--border-default); border-radius:var(--radius-lg); background:var(--canvas); margin-bottom:var(--space-3); }
+  .card-header{ display:flex; align-items:center; gap:var(--space-2); padding:var(--space-4); cursor:pointer; }
+  .card-header .chev{ color:var(--mid-slate); transition:transform 150ms ease-out; flex-shrink:0; }
+  .card.open .chev{ transform:rotate(90deg); }
+  .card-header .name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .card-body{ display:none; padding:0 var(--space-6) var(--space-6); border-top:1px solid var(--border-subtle); }
+  .card.open .card-body{ display:block; padding-top:var(--space-5); }
+
+  .subsection{ margin-bottom:var(--space-5); }
+  .section-divider{ border:none; border-top:1px solid var(--border-subtle); margin:var(--space-5) 0; }
+  .field-pair{ display:grid; grid-template-columns:1fr 1fr; gap:var(--space-3); }
+  @media (max-width:600px){ .field-pair{ grid-template-columns:1fr; } }
+
+  .list-row, .group-row{ display:flex; gap:var(--space-2); align-items:flex-start; margin-bottom:var(--space-2); }
+  .list-row textarea{ flex:1; }
+  .group-row{ border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:var(--space-3); background:var(--clean-linen); }
+  .group-row-fields{ flex:1; display:grid; gap:var(--space-3); grid-template-columns:1fr 1fr; }
+  .group-row-fields .field{ margin-bottom:0; }
+  .group-row-fields .field.full{ grid-column:1 / -1; }
+  @media (max-width:600px){ .group-row-fields{ grid-template-columns:1fr; } }
+
+  .doc-list{ display:flex; flex-wrap:wrap; gap:var(--space-2); margin:var(--space-2) 0 var(--space-3); }
+  .doc-chip{ display:inline-flex; align-items:center; gap:5px; font-size:12.5px; padding:5px var(--space-2-5); background:var(--clean-linen); border:1px solid var(--border-default); border-radius:var(--radius-full); }
+
+  .banner{ display:flex; align-items:flex-start; gap:var(--space-2); padding:var(--space-2-5) var(--space-3); border-radius:var(--radius-md); border:1px solid; font-size:13px; margin-top:var(--space-2); }
+  .banner-info{ background:var(--badge-info-bg); border-color:var(--badge-info-border); color:var(--badge-info-text); }
+  .banner-success{ background:var(--badge-success-bg); border-color:var(--badge-success-border); color:var(--badge-success-text); }
+  .banner-destructive{ background:var(--badge-destructive-bg); border-color:var(--badge-destructive-border); color:var(--badge-destructive-text); }
+
+  .settings-grid{ display:grid; gap:var(--space-5); }
+
+  ::-webkit-scrollbar{ width:9px; }
+  ::-webkit-scrollbar-thumb{ background:var(--border-default); border-radius:var(--radius-full); }
+
+  @media (max-width:760px){
+    .app{ flex-direction:column; }
+    .sidebar{ width:100% !important; }
+    .content{ padding:var(--space-4); }
+    .topbar{ padding:var(--space-4); }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="wordmark hide-collapsed">Hermetic<span> AI</span></div>
+      <button class="icon-btn" id="btnCollapse" title="Collapse sidebar"></button>
+    </div>
+    <div class="sidebar-section hide-collapsed"><span class="t-overline" style="margin-bottom:0;">Accounts</span></div>
+    <div class="hide-collapsed" style="padding:0 var(--space-3) var(--space-2);">
+      <button class="add-account-btn" id="btnAddAccountTop"></button>
+    </div>
+    <div class="collapsed-only" style="padding:0 var(--space-2) var(--space-2);">
+      <button class="icon-btn" id="btnAddAccountCollapsed" title="Add account" style="width:100%;"></button>
+    </div>
+    <div class="new-account-row hide-collapsed" id="newAccountRow" style="display:none;">
+      <input type="text" id="newAccountInput" placeholder="Account name">
+    </div>
+    <div class="nav-list" id="accountsList"></div>
+    <div class="hide-collapsed sync-pill" id="syncStatusPill"></div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="t-display" id="pageTitle">Accounts</div>
+        <div class="t-caption topbar-meta" id="pageMeta">Add an account to configure locations and campaigns for Mia.</div>
+      </div>
+      <button class="btn btn-outline" id="btnSettings"></button>
+    </div>
+    <div class="content" id="content"></div>
+  </main>
+</div>
+
+<script>
+/* =================================================================
+   INLINE ICON SYSTEM (no external CDN)
+================================================================= */
+const ICONS = {
+  'plus': '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  'x': '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+  'chevron-right': '<polyline points="9 18 15 12 9 6"/>',
+  'chevrons-left': '<polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/>',
+  'chevrons-right': '<polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/>',
+  'arrow-left': '<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>',
+  'settings': '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+  'building-2': '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>',
+  'map-pin': '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  'megaphone': '<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>',
+  'trash-2': '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>',
+  'paperclip': '<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
+  'copy': '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  'check-circle': '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+  'alert-triangle': '<path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  'loader-2': '<path d="M21 12a9 9 0 1 1-6.219-8.56"/>',
+  'info': '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+  'link-2': '<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/>',
+  'download': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+  'upload': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>'
+};
+function icon(name, cls, sizePx){
+  const inner = ICONS[name] || '';
+  const style = sizePx ? ` style="width:${sizePx}px;height:${sizePx}px;"` : '';
+  return `<svg class="${cls || 'icon'}"${style} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+}
+
+/* =================================================================
+   PATH GET/SET (generic form binding)
+================================================================= */
+function getAtPath(obj, path){
+  const parts = String(path).replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
+  let cur = obj;
+  for (const p of parts){ if (cur == null) return undefined; cur = cur[p]; }
+  return cur;
+}
+function setAtPath(obj, path, value){
+  const parts = String(path).replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
+  let cur = obj;
+  for (let i = 0; i < parts.length - 1; i++){
+    const p = parts[i];
+    if (cur[p] === undefined) cur[p] = /^\d+$/.test(parts[i+1]) ? [] : {};
+    cur = cur[p];
+  }
+  cur[parts[parts.length - 1]] = value;
+}
+function escapeHtml(str){
+  if (str === undefined || str === null) return '';
+  return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function escapeAttr(str){ return escapeHtml(str); }
+
+/* =================================================================
+   FIELD SCHEMAS (mirrors the v2 Location / Campaign templates,
+   per "Appendix A: Section map for engineering")
+================================================================= */
+const DOC_TYPES = ['Menu', 'Private dining packet', 'Event deck', 'Venue guide', 'Inquiry form', 'Gallery photos', 'Policy', 'Other'];
+
+const ROOM_FIELDS = [
+  {path:'name', label:'Room name', kind:'text'},
+  {path:'system_name', label:'Name in booking system (if different)', kind:'text'},
+  {path:'privacy', label:'Privacy (private / semi-private / open dining)', kind:'text'},
+  {path:'capacity', label:'Capacity (seated / standing / theater)', kind:'text'},
+  {path:'features', label:'Features', kind:'textarea', full:true},
+  {path:'av', label:'AV', kind:'text'},
+  {path:'notes', label:'Notes (combinable with, duration, seasonal)', kind:'textarea', full:true}
+];
+const PRICING_FIELDS = [
+  {path:'space', label:'Space / item', kind:'text'},
+  {path:'guest_count', label:'Guest count', kind:'text'},
+  {path:'days', label:'Days', kind:'text'},
+  {path:'time', label:'Time', kind:'text'},
+  {path:'fb_minimum', label:'F&B minimum', kind:'text'},
+  {path:'room_fee', label:'Room fee', kind:'text'},
+  {path:'notes', label:'Notes', kind:'text', full:true}
+];
+const MENU_FIELDS = [
+  {path:'name', label:'Menu name', kind:'text'},
+  {path:'format', label:'Format (plated / buffet / stations / passed / beverage)', kind:'text'},
+  {path:'price', label:'Price', kind:'text'},
+  {path:'min_guests', label:'Minimum guests', kind:'text'},
+  {path:'items', label:'Items / tiers (one per line with price)', kind:'textarea', full:true},
+  {path:'notes', label:'Notes (upcharges, timing, attendant fees)', kind:'textarea', full:true}
+];
+const POLICY_FIELDS = [
+  {path:'topic', label:'Topic', kind:'text'},
+  {path:'policy', label:'Policy', kind:'textarea', full:true}
+];
+const FAQ_FIELDS = [
+  {path:'question', label:'Question guests ask', kind:'text', full:true},
+  {path:'answer', label:'Fact / answer', kind:'textarea', full:true}
+];
+const SUBVENUE_FIELDS = [
+  {path:'name', label:'Name', kind:'text'},
+  {path:'description', label:'One-line description & how it differs', kind:'textarea', full:true}
+];
+const STEP_FIELDS = [
+  {path:'name', label:'Step name', kind:'text'},
+  {path:'trigger', label:'Trigger (a condition, never "after Step N")', kind:'text'},
+  {path:'do', label:'Do (what the assistant does)', kind:'textarea', full:true},
+  {path:'skip_if', label:'Skip if (optional)', kind:'text', full:true}
+];
+const LINK_FIELDS = [
+  {path:'name', label:'Name', kind:'text'},
+  {path:'url', label:'URL', kind:'text'},
+  {path:'share_when', label:'Share when', kind:'text', full:true}
+];
+const VOCAB_FIELDS = [
+  {path:'say', label:'Say', kind:'text'},
+  {path:'instead_of', label:'Instead of', kind:'text'},
+  {path:'notes', label:'Notes', kind:'text'}
+];
+
+const LOCATION_SCHEMA = [
+  {type:'section', title:'Venue overview', fields:[
+    {path:'overview', label:'Concept, ambiance, what makes it different (1-3 sentences)', kind:'textarea'}
+  ]},
+  {type:'section', title:'Address & contact', fields:[
+    {path:'address', label:'Address', kind:'text'},
+    {path:'phone', label:'Phone (general)', kind:'text'},
+    {path:'website', label:'Website', kind:'text'},
+    {path:'parking', label:'Parking', kind:'text'}
+  ]},
+  {type:'list', title:'Hours & blackout dates', key:'hours_notes', itemLabel:'note', placeholder:'e.g. Closed Thanksgiving and Christmas'},
+  {type:'group', title:'Rooms', key:'rooms', itemLabel:'room', fields: ROOM_FIELDS},
+  {type:'list', title:'Availability policy', key:'availability_policy', itemLabel:'rule', placeholder:'e.g. For 1-60 guests, offer School Night only'},
+  {type:'group', title:'Pricing', key:'pricing_rows', itemLabel:'pricing row', fields: PRICING_FIELDS},
+  {type:'section', title:'Per-unit activity pricing (if applicable)', fields:[
+    {path:'activity_pricing', label:'e.g. Bowling: $75 per lane per hour Sun-Thu', kind:'textarea'}
+  ]},
+  {type:'group', title:'Menus', key:'menus', itemLabel:'menu', fields: MENU_FIELDS},
+  {type:'section', title:'Fees & taxes', fields:[
+    {path:'fees.service_charge', label:'Service charge (% on F&B)', kind:'text'},
+    {path:'fees.sales_tax', label:'Sales tax (%)', kind:'text'},
+    {path:'fees.admin_fee', label:'Admin fee (%, taxable, not gratuity)', kind:'text'},
+    {path:'fees.gratuity', label:'Gratuity policy', kind:'text'}
+  ]},
+  {type:'list', title:'Other fees', key:'other_fees', itemLabel:'fee', placeholder:'e.g. Cake-cutting fee: $2 per guest'},
+  {type:'section', title:'Deposit & payment', fields:[
+    {path:'deposit', label:'Deposit (amount or %, and when due)', kind:'text'},
+    {path:'final_payment', label:'Final payment due', kind:'text'},
+    {path:'payment_methods', label:'Accepted payment methods', kind:'text'},
+    {path:'refundability', label:'Refund policy', kind:'text'}
+  ]},
+  {type:'section', title:'Cancellation', fields:[
+    {path:'cancellation', label:'Cancellation policy', kind:'textarea'}
+  ]},
+  {type:'section', title:'Booking rules', fields:[
+    {path:'booking.min_guests', label:'Minimum guests for a private event', kind:'text'},
+    {path:'booking.max_guests', label:'Maximum guests', kind:'text'},
+    {path:'booking.min_lead_time', label:'Minimum lead time', kind:'text'},
+    {path:'booking.duration', label:'Standard event duration', kind:'text'},
+    {path:'booking.headcount_due', label:'Headcount guarantee due', kind:'text'},
+    {path:'booking.included', label:'Included in every rental', kind:'textarea'}
+  ]},
+  {type:'group', title:'Policies', key:'policies', itemLabel:'policy', fields: POLICY_FIELDS},
+  {type:'group', title:'FAQs', key:'faqs', itemLabel:'FAQ', fields: FAQ_FIELDS},
+  {type:'group', title:'Sub-venues (only if one record covers multiple concepts)', key:'sub_venues', itemLabel:'sub-venue', fields: SUBVENUE_FIELDS}
+];
+
+const CAMPAIGN_SCHEMA = [
+  {type:'section', title:'Persona & tone', fields:[
+    {path:'personality', label:'Personality (one sentence)', kind:'textarea'},
+    {path:'salutation', label:'Non-standard salutation (if any)', kind:'text'}
+  ]},
+  {type:'list', title:'Tone rules (only where this differs from the default)', key:'tone_rules', itemLabel:'tone rule', placeholder:'e.g. Say "our team", never "sales"'},
+  {type:'section', title:'Handoff', fields:[
+    {path:'handoff.window', label:'Follow-up window quoted to the guest', kind:'text'},
+    {path:'handoff.overrides', label:'Overrides by day/time', kind:'text'},
+    {path:'handoff.required_before', label:'Required before handoff (beyond name, date, guest count)', kind:'text'},
+    {path:'handoff.routing', label:'Coordinator routing (if multiple coordinators)', kind:'textarea'},
+    {path:'handoff.bypass', label:'Skip qualification and hand off immediately when', kind:'textarea'},
+    {path:'handoff.after', label:'After handoff, if the guest keeps texting', kind:'textarea'}
+  ]},
+  {type:'group', title:'Workflow steps (only where this differs from or adds to the default flow)', key:'steps', itemLabel:'step', fields: STEP_FIELDS},
+  {type:'list', title:'Rules (one line per situation: "When X: do Y, never Z")', key:'rules', itemLabel:'rule', placeholder:'When the guest asks about pricing: never quote a figure; say the coordinator follows up with a tailored quote.'},
+  {type:'group', title:'Links', key:'links', itemLabel:'link', fields: LINK_FIELDS},
+  {type:'group', title:'Vocabulary', key:'vocabulary', itemLabel:'substitution', fields: VOCAB_FIELDS},
+  {type:'section', title:'Required wording', fields:[
+    {path:'ai_disclosure', label:'AI disclosure (exact approved wording, if any)', kind:'textarea'},
+    {path:'legal_wording', label:'Legal / compliance wording (exact text and when required)', kind:'textarea'}
+  ]},
+  {type:'section', title:'Cross-sell (only if enabled for this campaign)', fields:[
+    {path:'cross_sell.when', label:'Offer alternatives when', kind:'text'},
+    {path:'cross_sell.how', label:'How to introduce them', kind:'text'},
+    {path:'cross_sell.link', label:'Venue guide link', kind:'text'}
+  ]}
+];
+
+function newLocationData(){
+  return { overview:'', address:'', phone:'', website:'', parking:'',
+    hours_notes:[], rooms:[], availability_policy:[], pricing_rows:[], activity_pricing:'',
+    menus:[], fees:{service_charge:'',sales_tax:'',admin_fee:'',gratuity:''}, other_fees:[],
+    deposit:'', final_payment:'', payment_methods:'', refundability:'', cancellation:'',
+    booking:{min_guests:'',max_guests:'',min_lead_time:'',duration:'',headcount_due:'',included:''},
+    policies:[], faqs:[], sub_venues:[], source_material:'', drive_link:'', docs:[],
+    draft_doc:'', draft_open_questions:'' };
+}
+function newCampaignData(){
+  return { location_id:'', personality:'', tone_rules:[], salutation:'',
+    handoff:{window:'',overrides:'',required_before:'',routing:'',bypass:'',after:''},
+    steps:[], rules:[], links:[], vocabulary:[], ai_disclosure:'', legal_wording:'',
+    cross_sell:{when:'',how:'',link:''}, source_material:'', drive_link:'', docs:[],
+    draft_doc:'', draft_open_questions:'' };
+}
+function emptyRow(fields){ const o = {}; fields.forEach(f => o[f.path] = ''); return o; }
+
+/* =================================================================
+   VERBATIM REFERENCE TEXT — embedded so "Copy for Claude" is
+   fully self-contained (no need to dig up the source docs each time)
+================================================================= */
+const WRITER_INSTRUCTIONS_TEXT = `LLM Writer Instructions
+
+Role
+You write configuration documents for an SMS assistant that qualifies private-event leads for a venue. You will receive a template and raw onboarding material (collected answers, and possibly raw notes/transcripts). You produce outputs, each in its own fenced block, exactly as requested at the end of this prompt.
+
+How your output is consumed
+Understand this before writing a word:
+Your documents are not read by the assistant. An extraction step converts them into a structured config (workflow steps, rules, rooms, links, etc.). Each sentence lands in one slot. Headings tell the extractor which slot.
+The assistant is rebuilt from scratch on every incoming text. It has no memory of earlier versions of these documents. Anything that describes change over time is noise.
+A base prompt already handles the texting basics and the standard flow (confirm name -> confirm details -> collect missing date and guest count -> check availability -> hand off). Your job is to describe where this venue differs, and to supply the facts the base prompt cannot know.
+The opening message is fixed by the platform ("Hi, this is {AI name} from {venue}. Is this {first name}?"). Do not write it.
+Coordinators' names and titles are injected from account settings. Only mention a coordinator when something is special (two coordinators routed by lead type, a non-standard follow-up window).
+The assistant has no concept of a CRM. Never write "check TripleSeat", "Prospect / Tentative / Definite", or "the system shows". Write "availability".
+
+Authoring rules
+These are absolute. Check every one before you output.
+Present tense only. Never write new, revised, updated, retired, no longer, previously, now, unchanged, corrected, or any comparison to an earlier version. Describe the current state as the only state.
+No uncertainty in the documents. If a fact is unconfirmed, conflicting between sources, or missing, it does not appear in the main document at all. It appears in Open Questions with the specific question to ask. Never write CONFIRM, NOT CONFIRMED, TBD, pending, "Doc 1 says", "worth checking", "note for the team", or brackets holding two candidate values.
+No process residue. No notes to the team, no explanations of why a section exists, no references to tickets, calls, or documents, no "see CAMPAIGN doc". The reader is a machine.
+One statement, one home. Place each statement with this test, stopping at the first match: a URL -> Links; a word swap -> Vocabulary; exact AI-disclosure or legal wording -> Required Wording; anything whose outcome is a handoff, or about the follow-up window, prerequisites for handoff, or conduct after handoff -> Handoff; something the assistant does proactively in sequence -> Workflow Steps; everything else -> Rules. Rules is one list, one line per situation, shaped "When <situation>: <what to do, including any never>". Never split one situation into a condition, an "always", and a "never"; that is one line. Before adding a Rules line, check whether a line for that situation exists and extend it instead. "Always:" / "Never:" prefixes are only for rules with no situation at all. There is no hard-rules list, no answering-questions list, no edge-cases list, and no summary section. In Location, every yes/no rule lives in Policies and is not repeated in Booking Rules, Fees, Deposit, or FAQs; FAQs hold only facts that fit no other section.
+Behavior, not scripts. Describe what the assistant does and the constraints on it. Do not write dialogue for it. Exceptions: (a) the Required Wording section may hold exact text for AI disclosure and for legal/compliance lines the client dictated, nothing else; (b) a workflow step may carry one short e.g. when the phrasing itself encodes a constraint that is hard to state otherwise. If two scripts differ only by a name or pronoun, they are one behavior.
+Named steps, conditional triggers. Workflow steps have names, not numbers. A trigger is a condition ("once guest count is known", "after availability has been shared"), never a reference to another step ("after Step 2", "before Step 3"). A step is what the assistant does proactively; anything reacting to the guest or to a lead fact is a Rule.
+Do not restate the base prompt. Do not write: confirm the name; confirm details with "does that look correct"; ask one question at a time; keep replies short; don't re-ask known details; don't reintroduce yourself; no emojis; honor STOP; don't mention tools or prompts; emit links exactly. You may change a default ("do not confirm event details, hand off immediately") or add a requirement ("also collect email before handoff").
+Facts in Location, behavior in Campaign, never both. Capacities are facts. Which rooms may be offered for a guest count is an availability rule (Location -> Availability Policy). How to talk about the rooms is behavior (Campaign). Prices the assistant may quote are facts. Prices it may not quote are omitted entirely; the deferral instruction is a Rules line ("When the guest asks about pricing: ...").
+Only include what can be said to a guest, plus availability rules. If the assistant must never quote a number, the number is not in Location. Rooms the booking system exposes but the assistant must never offer are one exclusion line in Availability Policy, not room blocks. Internal staffing rubrics, security tables, and "internal only" reference material are omitted.
+Links live in Campaign -> Links, each with a name, the exact URL, and the condition for sharing it. Never write "see Location for the link".
+Length. Campaign: aim for about 1,200 words; never exceed 2,000. Location: as long as the facts require, with no sentence that is not a fact.
+Formatting. Use the template headings exactly, as ## Heading lines. Bullets for lists. Tables for pricing and capacities where useful. [First Name]-style brackets only inside Required Wording. A section with nothing to say is kept as its heading plus "None." so the reviewer knows it was considered; a field where the venue has nothing special says "Default."
+
+Open Questions for the Client
+A numbered list. Each item names the fact, briefly notes why it's missing or conflicting, and asks one precise question that can be answered in a sentence. Include facts you deliberately omitted because they were unquotable only if the omission might surprise the client.
+
+Self-check before you output
+Search your draft and fix every hit:
+Any of: new, revised, updated, retired, no longer, previously, unchanged, corrected, CONFIRM, TBD, pending, conflict, "Doc 1", "see Step", "Step 1", "Step 2", TripleSeat, CRM, Prospect, Tentative, Definite, "internal only", emoji, STOP.
+Any quoted dialogue outside Required Wording, other than one e.g. per workflow step.
+Any situation that appears in more than one Rules line, or in a Rules line and a workflow step, or in a Rules line and Handoff.
+Any dollar figure, menu item, or room that the source material says must never be quoted or offered.
+Any sentence that tells the assistant how to behave inside a facts-only document, or states a venue fact inside a behavior-only document.
+Campaign word count over 2,000.
+Then produce the requested output(s).`;
+
+const LOCATION_TEMPLATE_TEXT = `Location Details Template (v2)
+This document holds facts a guest may be told, plus the availability rules the platform enforces. It never tells the assistant how to behave, how to phrase things, or what to say; that is the Campaign document. It never contains a price, menu item, or room the assistant is forbidden to mention: if it can't be said, it isn't here. It never contains notes to the team, unconfirmed values, or comparisons to earlier versions.
+
+Location Details - <Venue name>
+
+## Venue Overview
+<one to three sentences: concept, ambiance, what makes it different>
+
+## Address & Contact
+Address: <street, city, state, zip>
+Phone (general): <number>
+Website: <URL>
+Parking: <one line>
+
+## Hours & Blackout Dates
+<closures, seasonal hours, kitchen cut-offs, curfews, event-time limits that apply to every space>
+
+## Rooms
+<one block per space the assistant may offer or describe: room name (and system name if different), privacy, capacity by layout, features, AV, notes>
+
+## Availability Policy
+<plain, testable rules for which rooms may be offered for which guest counts; rooms that must never be offered even if the system shows them free; whole-day blocks; turnover and time-of-day limits>
+
+## Pricing
+<only prices the assistant may quote; table with space/item, guest count, days, time, F&B minimum, room fee, notes; per-unit activity pricing if applicable>
+
+## Menus
+<only menus and items the assistant may discuss; one line per item or tier with its price>
+
+## Fees & Taxes
+Service charge: <N% on F&B>
+Sales tax: <N%>
+Admin fee: <N%, taxable, not a gratuity>
+Gratuity: <policy>
+Other fees: <one per line>
+
+## Deposit & Payment
+Deposit: <amount or percentage, and when due>
+Final payment: <when due>
+Accepted methods: <list>
+Refundability: <policy>
+
+## Cancellation
+<the client's policy as a fact>
+
+## Booking Rules
+Minimum guests for a private event: <N>
+Maximum guests: <N>
+Minimum lead time: <e.g. 72 hours>
+Standard event duration: <e.g. 3 hours>
+Headcount guarantee due: <e.g. 48 hours before>
+Included in every rental: <one line>
+
+## Policies
+<every yes/no rule the venue applies, one row each, stated as a fact: outside food/catering, outside beverages, decor and open flame, entertainment, AV, age restrictions, bar service, planner requirement, etc.>
+
+## FAQs
+<plain facts, one to two sentences each, for questions whose answer does not already live in another section>
+
+## Sub-Venues
+<only when one location record covers more than one restaurant or concept; otherwise "None.">`;
+
+const CAMPAIGN_TEMPLATE_TEXT = `Campaign Instructions Template (v2)
+This document describes behavior. Venue facts (rooms, capacities, pricing, menus, hours, policies) belong in Location Details. Do not write the opening message, the coordinator's name or title, or anything the base prompt already does.
+
+Campaign Instructions - <Venue / Campaign name>
+
+## Persona & Tone
+Personality: <one sentence>
+Tone rules: <only where this venue differs from the default, one per line>
+Salutation: <only if non-standard>
+
+## Handoff
+Follow-up window quoted to the guest: <e.g. "within 24 business hours">
+Overrides: <e.g. Friday after 5 PM through Sunday: "first thing Monday morning">
+Required before handoff: <fields beyond name, date, guest count>
+Coordinator routing: <None, or the rule: which lead types go to which coordinator>
+Skip qualification and hand off immediately when: <conditions>
+After handoff: <what the assistant does if the guest keeps texting>
+
+## Workflow Steps
+<only the steps where this venue differs from the default flow (confirm name -> confirm details -> collect missing date and guest count -> check availability -> hand off), plus any steps the default does not have. Each step: name, trigger (a condition), do, optional skip-if>
+
+## Rules
+<the single home for every behavior that is not a step, a link, a word swap, required wording, or a handoff. One line per situation: "When <situation>: <what to do, and what not to do>">
+
+## Links
+<every URL the assistant may send, with a plain name and the condition for sending it>
+
+## Vocabulary
+<word-for-word substitutions only, not a place for rules>
+
+## Required Wording
+AI disclosure: "<exact text, or None>"
+Legal / compliance: "<exact text and when it must be included, or None>"
+
+## Cross-Sell
+<only if cross-sell is enabled for this campaign; when alternatives may be offered and how to introduce them, otherwise "None.">`;
+
+/* =================================================================
+   STORAGE — Google Sheet sync (via Apps Script web app) with
+   automatic localStorage fallback/mirror
+================================================================= */
+let syncUrl = localStorage.getItem('hermetic:syncUrl') || '';
+
+async function kvGet(key){
+  if (syncUrl){
+    try{
+      const res = await fetch(`${syncUrl}?action=get&key=${encodeURIComponent(key)}`);
+      const data = await res.json();
+      if (data.value !== undefined && data.value !== null){
+        localStorage.setItem(key, data.value);
+        return JSON.parse(data.value);
+      }
+      return null;
+    }catch(e){ console.warn('Sheet get failed, using local cache:', e); }
+  }
+  const raw = localStorage.getItem(key);
+  return raw ? JSON.parse(raw) : null;
+}
+async function kvSet(key, value){
+  const json = JSON.stringify(value);
+  localStorage.setItem(key, json);
+  if (syncUrl){
+    try{
+      await fetch(syncUrl, {
+        method:'POST',
+        headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action:'set', key, value: json })
+      });
+    }catch(e){ console.warn('Sheet set failed, saved locally only:', e); }
+  }
+  return true;
+}
+async function testSyncConnection(url){
+  try{
+    const res = await fetch(`${url}?action=list&prefix=hermetic:`);
+    const data = await res.json();
+    return Array.isArray(data.keys);
+  }catch(e){ return false; }
+}
+function extractFolderId(input){
+  const s = (input || '').trim();
+  const m = s.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  return s;
+}
+function fileToBase64(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = () => reject(new Error('Could not read file'));
+    reader.readAsDataURL(file);
+  });
+}
+async function uploadDocumentToDrive({ segments, category, file }){
+  if (!syncUrl) throw new Error('Set up Google Sheet sync in Settings first — file upload uses the same connection.');
+  const base64 = await fileToBase64(file);
+  const res = await fetch(syncUrl, {
+    method:'POST',
+    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+    body: JSON.stringify({
+      action:'uploadFile',
+      rootFolderId: extractFolderId(state.settings.rootFolderId),
+      rootFolderName: state.settings.rootFolderName,
+      segments,
+      category,
+      filename: file.name,
+      mimeType: file.type || 'application/octet-stream',
+      base64
+    })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data; // { fileId, link, folderId, folderLink }
+}
+
+/* =================================================================
+   STATE
+================================================================= */
+let state = {
+  accounts: [],
+  currentAccountId: null,
+  currentTab: 'locations',
+  locationsByAccount: {},
+  campaignsByAccount: {},
+  versionsByItem: {},
+  settings: { rootFolderName: "Hermetic AI - Customer Setup", rootFolderId: "" },
+  openItemIds: new Set(),
+  openVersionKeys: new Set(),
+  sidebarCollapsed: false
+};
+
+const MAX_VERSIONS_PER_ITEM = 8;
+function touchItem(item){ item.lastEditedAt = Date.now(); }
+async function loadVersions(itemId){
+  if (state.versionsByItem[itemId]) return state.versionsByItem[itemId];
+  const data = await kvGet(`hermetic:versions:${itemId}`);
+  state.versionsByItem[itemId] = data || [];
+  return state.versionsByItem[itemId];
+}
+async function saveVersions(itemId, versions){
+  const trimmed = versions.slice(-MAX_VERSIONS_PER_ITEM);
+  state.versionsByItem[itemId] = trimmed;
+  await kvSet(`hermetic:versions:${itemId}`, trimmed);
+}
+function formatTimestamp(ms){
+  if (!ms) return '';
+  return new Date(ms).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+}
+
+async function saveAccounts(){ await kvSet('hermetic:accounts', state.accounts); }
+async function saveSettings(){ await kvSet('hermetic:settings', state.settings); }
+async function loadLocations(accountId){
+  if (state.locationsByAccount[accountId]) return state.locationsByAccount[accountId];
+  const data = await kvGet(`hermetic:locations:${accountId}`);
+  state.locationsByAccount[accountId] = data || [];
+  return state.locationsByAccount[accountId];
+}
+async function saveLocations(accountId){ await kvSet(`hermetic:locations:${accountId}`, state.locationsByAccount[accountId]); }
+async function loadCampaigns(accountId){
+  if (state.campaignsByAccount[accountId]) return state.campaignsByAccount[accountId];
+  const data = await kvGet(`hermetic:campaigns:${accountId}`);
+  state.campaignsByAccount[accountId] = data || [];
+  return state.campaignsByAccount[accountId];
+}
+async function saveCampaigns(accountId){ await kvSet(`hermetic:campaigns:${accountId}`, state.campaignsByAccount[accountId]); }
+
+function renderSyncPill(){
+  const el = document.getElementById('syncStatusPill');
+  el.innerHTML = syncUrl
+    ? `<span class="badge badge-success" style="width:100%; justify-content:center;">${icon('check-circle','icon',12)}Synced to Sheet</span>`
+    : `<span class="badge badge-slate" style="width:100%; justify-content:center;">${icon('info','icon',12)}This browser only</span>`;
+}
+
+/* =================================================================
+   INIT
+================================================================= */
+async function init(){
+  document.getElementById('btnCollapse').innerHTML = icon('chevrons-left');
+  document.getElementById('btnAddAccountTop').innerHTML = icon('plus') + '<span>Add account</span>';
+  document.getElementById('btnAddAccountCollapsed').innerHTML = icon('plus');
+  document.getElementById('btnSettings').innerHTML = icon('settings') + '<span>Settings</span>';
+
+  const [accounts, settings] = await Promise.all([
+    kvGet('hermetic:accounts'),
+    kvGet('hermetic:settings')
+  ]);
+  state.accounts = accounts || [];
+  state.settings = settings || { rootFolderName: "Hermetic AI - Customer Setup", rootFolderId: "" };
+  renderSyncPill();
+  renderSidebar();
+  renderMain();
+}
+
+/* =================================================================
+   SIDEBAR
+================================================================= */
+function renderSidebar(){
+  const list = document.getElementById('accountsList');
+  if (state.accounts.length === 0){
+    list.innerHTML = `<div class="nav-empty hide-collapsed">No accounts yet.</div>`;
+    return;
+  }
+  list.innerHTML = state.accounts.map(acc => {
+    const active = acc.id === state.currentAccountId ? 'active' : '';
+    return `<div class="nav-item ${active}" data-id="${acc.id}" title="${escapeAttr(acc.name)}">
+      ${icon('building-2')}
+      <span class="name hide-collapsed">${escapeHtml(acc.name)}</span>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.nav-item').forEach(el=>{
+    el.addEventListener('click', ()=> selectAccount(el.dataset.id));
+  });
+}
+async function selectAccount(id){
+  state.currentAccountId = id;
+  state.currentTab = 'locations';
+  renderSidebar();
+  await renderMain();
+}
+document.getElementById('btnCollapse').addEventListener('click', ()=>{
+  state.sidebarCollapsed = !state.sidebarCollapsed;
+  document.getElementById('sidebar').classList.toggle('collapsed', state.sidebarCollapsed);
+  document.getElementById('btnCollapse').innerHTML = icon(state.sidebarCollapsed ? 'chevrons-right' : 'chevrons-left');
+});
+function openNewAccountRow(){
+  if (state.sidebarCollapsed){
+    state.sidebarCollapsed = false;
+    document.getElementById('sidebar').classList.remove('collapsed');
+    document.getElementById('btnCollapse').innerHTML = icon('chevrons-left');
+  }
+  document.getElementById('newAccountRow').style.display = 'block';
+  document.getElementById('newAccountInput').focus();
+}
+document.getElementById('btnAddAccountTop').addEventListener('click', ()=>{
+  const row = document.getElementById('newAccountRow');
+  if (row.style.display === 'block'){ row.style.display = 'none'; } else { openNewAccountRow(); }
+});
+document.getElementById('btnAddAccountCollapsed').addEventListener('click', openNewAccountRow);
+document.getElementById('newAccountInput').addEventListener('keydown', async (e)=>{
+  if (e.key === 'Enter'){
+    const name = e.target.value.trim();
+    if (!name) return;
+    const acc = { id: 'a_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), name, drive_link:'' };
+    state.accounts.push(acc);
+    e.target.value = '';
+    document.getElementById('newAccountRow').style.display = 'none';
+    await saveAccounts();
+    renderSidebar();
+    await selectAccount(acc.id);
+  }
+});
+
+/* =================================================================
+   MAIN RENDER
+================================================================= */
+async function renderMain(){
+  const content = document.getElementById('content');
+  const title = document.getElementById('pageTitle');
+  const meta = document.getElementById('pageMeta');
+
+  if (!state.currentAccountId){
+    title.textContent = 'Accounts';
+    meta.textContent = 'Add an account to configure locations and campaigns for Mia.';
+    content.innerHTML = `<div class="empty-state">${icon('building-2','icon-lg')}<div class="t-title">No account selected</div><div class="t-body">Add your first account on the left to start configuring locations and campaigns.</div></div>`;
+    return;
+  }
+
+  const account = state.accounts.find(a => a.id === state.currentAccountId);
+  title.textContent = account.name;
+  meta.innerHTML = `<span class="mono" style="font-size:11.5px;">${escapeHtml(state.settings.rootFolderName)}/${escapeHtml(account.name)}</span>`;
+
+  const locations = await loadLocations(account.id);
+  const campaigns = await loadCampaigns(account.id);
+
+  content.innerHTML = `
+    <div class="tabs">
+      <button class="tab ${state.currentTab==='locations'?'active':''}" data-tab="locations">Locations (${locations.length})</button>
+      <button class="tab ${state.currentTab==='campaigns'?'active':''}" data-tab="campaigns">Campaigns (${campaigns.length})</button>
+    </div>
+    <div id="tabBody"></div>`;
+  content.querySelectorAll('.tab').forEach(t=>{
+    t.addEventListener('click', async ()=>{ state.currentTab = t.dataset.tab; await renderMain(); });
+  });
+
+  const tabBody = document.getElementById('tabBody');
+  const kind = state.currentTab === 'locations' ? 'location' : 'campaign';
+  const items = state.currentTab === 'locations' ? locations : campaigns;
+
+  // Load version history for every item in this tab (small payloads, capped
+  // per item) so the "outdated" indicator can show even on collapsed cards.
+  await Promise.all(items.map(i => loadVersions(i.id)));
+
+  tabBody.innerHTML = renderItemsList(items, kind, locations);
+  wireItemsList(account, items, kind, locations);
+}
+
+function renderItemsList(items, kind, locations){
+  const label = kind === 'location' ? 'location' : 'campaign';
+  const iconName = kind === 'location' ? 'map-pin' : 'megaphone';
+  if (kind === 'campaign' && (!locations || locations.length === 0)){
+    return `<div class="empty-state">${icon('map-pin','icon-lg')}<div class="t-title">Add a location first</div><div class="t-body">Every campaign is tied to a location — add one on the Locations tab before creating a campaign.</div></div>`;
+  }
+  const addRow = `<div class="inline-add">
+      <input type="text" class="input" id="new${kind}Input" placeholder="New ${label} name">
+      <button class="btn btn-primary" id="btnAdd${kind}">${icon('plus')}Add ${label}</button>
+    </div>`;
+  if (items.length === 0){
+    return addRow + `<div class="empty-state">${icon(iconName,'icon-lg')}<div class="t-title">No ${label}s yet</div><div class="t-body">Add one above to start collecting the details Mia needs.</div></div>`;
+  }
+  return addRow + items.map(item => renderItem(item, kind, locations)).join('');
+}
+
+function renderField(itemId, value, fullPath, label, kind, full){
+  const val = escapeHtml(value || '');
+  const cls = full ? 'field full' : 'field';
+  if (kind === 'textarea'){
+    return `<div class="${cls}"><label>${escapeHtml(label)}</label><textarea class="input" data-item="${itemId}" data-bind="${fullPath}">${val}</textarea></div>`;
+  }
+  return `<div class="${cls}"><label>${escapeHtml(label)}</label><input class="input" type="text" data-item="${itemId}" data-bind="${fullPath}" value="${val}"></div>`;
+}
+
+function renderSchemaSection(itemId, data, sec){
+  if (sec.type === 'section'){
+    return `<div class="subsection"><div class="t-overline">${escapeHtml(sec.title)}</div><div class="field-pair">${sec.fields.map(f=>renderField(itemId, getAtPath(data,f.path), f.path, f.label, f.kind, sec.fields.length===1)).join('')}</div></div>`;
+  }
+  if (sec.type === 'list'){
+    const arr = getAtPath(data, sec.key) || [];
+    const rows = arr.map((val,i) => `<div class="list-row">
+        <textarea class="input" data-item="${itemId}" data-bind="${sec.key}[${i}]" placeholder="${escapeAttr(sec.placeholder||'')}">${escapeHtml(val||'')}</textarea>
+        <button class="icon-btn" data-item="${itemId}" data-remove-list="${sec.key}" data-index="${i}" title="Remove">${icon('x')}</button>
+      </div>`).join('');
+    return `<div class="subsection"><div class="t-overline">${escapeHtml(sec.title)}</div>${rows}<button class="btn btn-ghost compact" data-item="${itemId}" data-add-list="${sec.key}">${icon('plus')}Add ${escapeHtml(sec.itemLabel)}</button></div>`;
+  }
+  if (sec.type === 'group'){
+    const arr = getAtPath(data, sec.key) || [];
+    const rows = arr.map((row,i) => `<div class="group-row">
+        <div class="group-row-fields">${sec.fields.map(f=>renderField(itemId, row[f.path], `${sec.key}[${i}].${f.path}`, f.label, f.kind, f.full)).join('')}</div>
+        <button class="icon-btn" data-item="${itemId}" data-remove-group="${sec.key}" data-index="${i}" title="Remove">${icon('x')}</button>
+      </div>`).join('');
+    return `<div class="subsection"><div class="t-overline">${escapeHtml(sec.title)}</div>${rows}<button class="btn btn-ghost compact" data-item="${itemId}" data-add-group="${sec.key}">${icon('plus')}Add ${escapeHtml(sec.itemLabel)}</button></div>`;
+  }
+  return '';
+}
+
+function renderItem(item, kind, locations){
+  const schema = kind === 'location' ? LOCATION_SCHEMA : CAMPAIGN_SCHEMA;
+  const isOpen = state.openItemIds.has(item.id);
+  const docs = item.data.docs || [];
+  const versions = state.versionsByItem[item.id] || [];
+  const latestVersion = versions.length ? versions[versions.length - 1] : null;
+  const isStale = latestVersion && (item.lastEditedAt || 0) > latestVersion.savedAt;
+  const sections = schema.map(sec => renderSchemaSection(item.id, item.data, sec)).join('');
+  const linkedLocation = kind === 'campaign' ? (locations || []).find(l => l.id === item.data.location_id) : null;
+  const locationBadge = kind === 'campaign'
+    ? (linkedLocation
+        ? `<span class="badge badge-info">${icon('map-pin','icon',12)}${escapeHtml(linkedLocation.name)}</span>`
+        : `<span class="badge badge-warning">${icon('alert-triangle','icon',12)}No location assigned</span>`)
+    : '';
+  const locationPicker = kind === 'campaign' ? `
+      <div class="subsection">
+        <div class="t-overline">Location</div>
+        <select class="input" style="height:36px;" data-location-select="${item.id}">
+          <option value="">— Select a location —</option>
+          ${(locations||[]).map(l => `<option value="${escapeAttr(l.id)}" ${l.id===item.data.location_id?'selected':''}>${escapeHtml(l.name)}</option>`).join('')}
+        </select>
+      </div>
+      <hr class="section-divider">` : '';
+  return `<div class="card ${isOpen?'open':''}" data-item-id="${item.id}">
+    <div class="card-header" data-toggle="${item.id}">
+      ${icon('chevron-right','icon chev')}
+      <span class="name t-title">${escapeHtml(item.name)}</span>
+      ${locationBadge}
+      ${isStale ? `<span class="badge badge-warning" title="Answers changed since the last saved version">${icon('alert-triangle','icon',12)}Outdated</span>` : (latestVersion ? `<span class="badge badge-success">${icon('check-circle','icon',12)}Up to date</span>` : `<span class="badge badge-slate">No version yet</span>`)}
+      ${item.data.drive_link ? `<a href="${item.data.drive_link}" target="_blank" rel="noopener" class="badge badge-success" onclick="event.stopPropagation()">${icon('link-2','icon',12)}Folder</a>` : `<span class="badge badge-slate">No files yet</span>`}
+      <button class="icon-btn" data-delete="${item.id}" title="Delete ${kind}" onclick="event.stopPropagation()">${icon('trash-2')}</button>
+    </div>
+    <div class="card-body">
+      ${locationPicker}
+      ${sections}
+      <hr class="section-divider">
+      <div class="subsection">
+        <div class="t-overline">Documents</div>
+        <div class="t-caption" style="margin-bottom:var(--space-2);">Uploaded files are saved straight to the shared Drive folder for this ${kind} — no manual linking needed.</div>
+        <div class="doc-list">${docs.map((d,i)=>`<span class="doc-chip">${icon('paperclip','icon',12)}<span class="badge badge-slate" style="height:18px; padding:0 6px; font-size:11px;">${escapeHtml(d.category||'Other')}</span><a href="${d.link||'#'}" target="_blank" rel="noopener" class="mono">${escapeHtml(d.name)}</a><button class="icon-btn" style="width:18px;height:18px;" data-remove-doc="${item.id}" data-index="${i}">${icon('x','icon',12)}</button></span>`).join('')}</div>
+        <div style="display:flex; gap:var(--space-2); flex-wrap:wrap; align-items:center;">
+          <select class="input" id="docCategory-${item.id}" style="height:36px; max-width:200px;">
+            ${DOC_TYPES.map(t=>`<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('')}
+          </select>
+          <input type="file" id="docFile-${item.id}" style="flex:1; min-width:180px; font-size:12.5px;">
+          <button class="btn btn-outline compact" data-upload-doc="${item.id}">${icon('upload')}Upload</button>
+        </div>
+        <div data-upload-status="${item.id}"></div>
+      </div>
+      <hr class="section-divider">
+      <div class="subsection">
+        <div class="t-overline">Source material (optional)</div>
+        <textarea class="input" data-item="${item.id}" data-bind="source_material" placeholder="Paste call notes, transcript excerpts, or client documents here for extra context." style="min-height:80px;">${escapeHtml(item.data.source_material||'')}</textarea>
+      </div>
+      <div class="row-actions" style="display:flex; gap:var(--space-2);">
+        <button class="btn btn-primary" data-copy-claude="${item.id}">${icon('copy')}Copy for Claude</button>
+      </div>
+      <div class="t-caption" style="margin-top:var(--space-2);">Paste this into a Claude.ai chat to generate the ${kind === 'location' ? 'Location Details' : 'Campaign Instructions'} text and open questions.</div>
+
+      <hr class="section-divider">
+      <div class="subsection">
+        <div class="t-overline">Generated output</div>
+        ${isStale ? banner('info', 'alert-triangle', `Answers changed since the last saved version (${formatTimestamp(latestVersion.savedAt)}). Consider regenerating and saving a new version.`) : ''}
+        <div class="field">
+          <label>${kind === 'location' ? 'Location Details' : 'Campaign Instructions'} (paste Claude's output here)</label>
+          <textarea class="input" data-item="${item.id}" data-bind="draft_doc" data-no-touch="true" style="min-height:120px;">${escapeHtml(item.data.draft_doc||'')}</textarea>
+        </div>
+        <div class="field">
+          <label>Open questions for the client (paste Claude's output here)</label>
+          <textarea class="input" data-item="${item.id}" data-bind="draft_open_questions" data-no-touch="true" style="min-height:80px;">${escapeHtml(item.data.draft_open_questions||'')}</textarea>
+        </div>
+        <button class="btn btn-outline" data-save-version="${item.id}">${icon('check-circle')}Save as new version</button>
+
+        <div style="margin-top:var(--space-4);">
+          <div class="t-overline">Version history${versions.length ? ` (${versions.length})` : ''}</div>
+          ${versions.length === 0 ? `<div class="t-caption">No versions saved yet — paste output above and save it.</div>` : versions.slice().reverse().map((v, ri) => {
+            const idx = versions.length - 1 - ri;
+            const key = `${item.id}:${idx}`;
+            const expanded = state.openVersionKeys.has(key);
+            const preview = (v.doc||'').replace(/\s+/g,' ').trim().slice(0,90);
+            return `<div class="version-row ${expanded?'expanded':''}" data-version-key="${key}">
+              <div class="version-row-head">
+                <span class="t-caption" style="color:var(--night-ink); font-weight:500;">${formatTimestamp(v.savedAt)}${idx === versions.length-1 ? ' · latest' : ''}</span>
+                <button class="btn btn-ghost compact" data-toggle-version="${key}">${expanded ? 'Hide' : 'View'}</button>
+                <button class="icon-btn" data-copy-version="${key}" title="Copy this version">${icon('copy')}</button>
+                <button class="icon-btn" data-restore-version="${key}" title="Restore into the fields above">${icon('upload')}</button>
+              </div>
+              ${!expanded ? `<div class="version-preview">${escapeHtml(preview)}${preview.length===90?'…':''}</div>` : ''}
+              <div class="version-full">
+                <div class="t-caption" style="margin-bottom:4px;">${kind === 'location' ? 'Location Details' : 'Campaign Instructions'}</div>
+                <pre>${escapeHtml(v.doc||'(empty)')}</pre>
+                <div class="t-caption" style="margin-bottom:4px;">Open questions</div>
+                <pre>${escapeHtml(v.openQuestions||'(empty)')}</pre>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function banner(type, iconName, message, spin){
+  return `<div class="banner banner-${type}">${icon(iconName, spin ? 'icon spin' : 'icon')}<span>${escapeHtml(message)}</span></div>`;
+}
+
+/* =================================================================
+   SERIALIZATION for "Copy for Claude"
+================================================================= */
+function serializeItem(schema, data){
+  const out = [];
+  for (const sec of schema){
+    if (sec.type === 'section'){
+      const lines = sec.fields.map(f => { const v = (getAtPath(data,f.path)||'').trim(); return v ? `${f.label}: ${v}` : null; }).filter(Boolean);
+      out.push(`${sec.title}:\n` + (lines.length ? lines.join('\n') : 'None.'));
+    } else if (sec.type === 'list'){
+      const arr = (getAtPath(data, sec.key) || []).map(v => (v||'').trim()).filter(Boolean);
+      out.push(`${sec.title}:\n` + (arr.length ? arr.map(v=>`- ${v}`).join('\n') : 'None.'));
+    } else if (sec.type === 'group'){
+      const arr = getAtPath(data, sec.key) || [];
+      const rows = arr.filter(row => sec.fields.some(f => (row[f.path]||'').trim()));
+      if (!rows.length){ out.push(`${sec.title}:\nNone.`); continue; }
+      const rowTexts = rows.map((row,i) => sec.fields.map(f => { const v=(row[f.path]||'').trim(); return v?`${f.label}: ${v}`:null; }).filter(Boolean).join('\n'));
+      out.push(`${sec.title}:\n` + rowTexts.map((t,i)=>`${sec.itemLabel} ${i+1}:\n${t}`).join('\n\n'));
+    }
+  }
+  return out.join('\n\n');
+}
+
+async function copyForClaude(kind, account, item, locations){
+  const schema = kind === 'location' ? LOCATION_SCHEMA : CAMPAIGN_SCHEMA;
+  const templateText = kind === 'location' ? LOCATION_TEMPLATE_TEXT : CAMPAIGN_TEMPLATE_TEXT;
+  const outputName = kind === 'location' ? 'LOCATION DETAILS' : 'CAMPAIGN INSTRUCTIONS';
+  const serialized = serializeItem(schema, item.data);
+  const sourceMaterial = (item.data.source_material || '').trim();
+  const linkedLocation = kind === 'campaign' ? (locations || []).find(l => l.id === item.data.location_id) : null;
+  const text = `${WRITER_INSTRUCTIONS_TEXT}
+
+---
+
+TEMPLATE:
+
+${templateText}
+
+---
+
+ACCOUNT: ${account.name}
+${kind === 'location' ? 'LOCATION' : 'CAMPAIGN'}: ${item.name}
+${linkedLocation ? `FOR LOCATION: ${linkedLocation.name}\n` : ''}
+COLLECTED ANSWERS:
+
+${serialized}
+${sourceMaterial ? `\nRAW SOURCE MATERIAL (call notes, documents):\n\n${sourceMaterial}\n` : ''}
+---
+
+Produce two fenced blocks only:
+1. ${outputName}
+2. OPEN QUESTIONS FOR THE CLIENT — limited to facts relevant to this ${kind} that are unconfirmed, conflicting, or missing.
+
+Follow every authoring rule and the self-check exactly before you output.`;
+  await navigator.clipboard.writeText(text);
+}
+
+/* =================================================================
+   WIRING
+================================================================= */
+function wireItemsList(account, items, kind, locations){
+  const saveFn = kind === 'location' ? ()=>saveLocations(account.id) : ()=>saveCampaigns(account.id);
+
+  function folderSegmentsFor(item){
+    if (kind === 'location'){
+      return [account.name, 'Locations', item.name];
+    }
+    const loc = (locations || []).find(l => l.id === item.data.location_id);
+    return loc
+      ? [account.name, 'Locations', loc.name, 'Campaigns', item.name]
+      : [account.name, 'Campaigns (unassigned)', item.name];
+  }
+  items.forEach(item => { item.folderSegments = folderSegmentsFor(item); });
+
+  const addBtn = document.getElementById(`btnAdd${kind}`);
+  if (addBtn){
+    addBtn.addEventListener('click', async ()=>{
+      const input = document.getElementById(`new${kind}Input`);
+      const name = input.value.trim();
+      if (!name) return;
+      const newItem = { id: 'i_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), name, lastEditedAt: Date.now(), data: kind === 'location' ? newLocationData() : newCampaignData() };
+      items.push(newItem);
+      input.value = '';
+      await saveFn();
+      state.openItemIds.add(newItem.id);
+      await renderMain();
+    });
+  }
+
+  document.querySelectorAll('[data-toggle]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const id = el.dataset.toggle;
+      if (state.openItemIds.has(id)) state.openItemIds.delete(id); else state.openItemIds.add(id);
+      renderMain();
+    });
+  });
+
+  document.querySelectorAll('[data-delete]').forEach(el=>{
+    el.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      const id = el.dataset.delete;
+      if (!confirm('Remove this ' + kind + ' from the console? Drive folders and files are not deleted.')) return;
+      const idx = items.findIndex(i=>i.id===id);
+      if (idx > -1) items.splice(idx,1);
+      await saveFn();
+      await renderMain();
+    });
+  });
+
+  document.querySelectorAll('[data-bind]').forEach(el=>{
+    el.addEventListener('change', async ()=>{
+      const item = items.find(i => i.id === el.dataset.item);
+      if (!item) return;
+      setAtPath(item.data, el.dataset.bind, el.value);
+      if (el.dataset.noTouch !== 'true') touchItem(item);
+      await saveFn();
+    });
+  });
+
+  document.querySelectorAll('[data-add-list]').forEach(el=>{
+    el.addEventListener('click', async ()=>{
+      const item = items.find(i => i.id === el.dataset.item);
+      const arr = getAtPath(item.data, el.dataset.addList) || [];
+      arr.push('');
+      setAtPath(item.data, el.dataset.addList, arr);
+      touchItem(item);
+      state.openItemIds.add(item.id);
+      await saveFn();
+      await renderMain();
+    });
+  });
+  document.querySelectorAll('[data-remove-list]').forEach(el=>{
+    el.addEventListener('click', async ()=>{
+      const item = items.find(i => i.id === el.dataset.item);
+      const arr = getAtPath(item.data, el.dataset.removeList) || [];
+      arr.splice(parseInt(el.dataset.index,10), 1);
+      touchItem(item);
+      state.openItemIds.add(item.id);
+      await saveFn();
+      await renderMain();
+    });
+  });
+  document.querySelectorAll('[data-add-group]').forEach(el=>{
+    el.addEventListener('click', async ()=>{
+      const item = items.find(i => i.id === el.dataset.item);
+      const schema = kind === 'location' ? LOCATION_SCHEMA : CAMPAIGN_SCHEMA;
+      const sec = schema.find(s => s.key === el.dataset.addGroup);
+      const arr = getAtPath(item.data, el.dataset.addGroup) || [];
+      arr.push(emptyRow(sec.fields));
+      setAtPath(item.data, el.dataset.addGroup, arr);
+      touchItem(item);
+      state.openItemIds.add(item.id);
+      await saveFn();
+      await renderMain();
+    });
+  });
+  document.querySelectorAll('[data-remove-group]').forEach(el=>{
+    el.addEventListener('click', async ()=>{
+      const item = items.find(i => i.id === el.dataset.item);
+      const arr = getAtPath(item.data, el.dataset.removeGroup) || [];
+      arr.splice(parseInt(el.dataset.index,10), 1);
+      touchItem(item);
+      state.openItemIds.add(item.id);
+      await saveFn();
+      await renderMain();
+    });
+  });
+
+  document.querySelectorAll('[data-location-select]').forEach(el=>{
+    el.addEventListener('change', async ()=>{
+      const item = items.find(i => i.id === el.dataset.locationSelect);
+      if (!item) return;
+      item.data.location_id = el.value;
+      touchItem(item);
+      await saveFn();
+      await renderMain();
+      state.openItemIds.add(item.id);
+    });
+  });
+
+  document.querySelectorAll('[data-upload-doc]').forEach(el=>{
+    el.addEventListener('click', async ()=>{
+      const itemId = el.dataset.uploadDoc;
+      const item = items.find(i => i.id === itemId);
+      const fileEl = document.getElementById(`docFile-${itemId}`);
+      const categoryEl = document.getElementById(`docCategory-${itemId}`);
+      const statusEl = document.querySelector(`[data-upload-status="${itemId}"]`);
+      const file = fileEl.files[0];
+      if (!file){ statusEl.innerHTML = banner('destructive','alert-triangle','Choose a file first.'); return; }
+      if (file.size > 8 * 1024 * 1024){
+        statusEl.innerHTML = banner('destructive','alert-triangle','File is over 8MB — upload it to Drive manually and paste the link into a note instead.');
+        return;
+      }
+      statusEl.innerHTML = banner('info','loader-2','Uploading…', true);
+      try{
+        const result = await uploadDocumentToDrive({ segments: item.folderSegments, category: categoryEl.value, file });
+        item.data.docs = item.data.docs || [];
+        item.data.docs.push({ name: file.name, link: result.link, category: categoryEl.value, fileId: result.fileId });
+        if (result.folderLink) item.data.drive_link = result.folderLink;
+        touchItem(item);
+        await saveFn();
+        fileEl.value = '';
+        await renderMain();
+        state.openItemIds.add(itemId);
+      }catch(err){
+        statusEl.innerHTML = banner('destructive','alert-triangle','Upload failed: ' + err.message);
+      }
+    });
+  });
+  document.querySelectorAll('[data-remove-doc]').forEach(el=>{
+    el.addEventListener('click', async ()=>{
+      const item = items.find(i => i.id === el.dataset.removeDoc);
+      item.data.docs.splice(parseInt(el.dataset.index,10), 1);
+      touchItem(item);
+      await saveFn();
+      await renderMain();
+      state.openItemIds.add(item.id);
+    });
+  });
+
+  document.querySelectorAll('[data-copy-claude]').forEach(el=>{
+    el.addEventListener('click', async ()=>{
+      const item = items.find(i => i.id === el.dataset.copyClaude);
+      try{
+        await copyForClaude(kind, account, item, locations);
+        el.innerHTML = icon('check-circle') + 'Copied';
+        setTimeout(()=>{ el.innerHTML = icon('copy') + 'Copy for Claude'; }, 1500);
+      }catch(e){ alert('Could not copy: ' + e.message); }
+    });
+  });
+
+  document.querySelectorAll('[data-save-version]').forEach(el=>{
+    el.addEventListener('click', async ()=>{
+      const itemId = el.dataset.saveVersion;
+      const item = items.find(i => i.id === itemId);
+      const doc = (item.data.draft_doc || '').trim();
+      const openQuestions = (item.data.draft_open_questions || '').trim();
+      if (!doc && !openQuestions){ alert('Paste the generated output above before saving a version.'); return; }
+      const versions = state.versionsByItem[itemId] || [];
+      versions.push({ savedAt: Date.now(), doc, openQuestions });
+      await saveVersions(itemId, versions);
+      await renderMain();
+      state.openItemIds.add(itemId);
+    });
+  });
+
+  document.querySelectorAll('[data-toggle-version]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const key = el.dataset.toggleVersion;
+      if (state.openVersionKeys.has(key)) state.openVersionKeys.delete(key); else state.openVersionKeys.add(key);
+      renderMain();
+    });
+  });
+
+  document.querySelectorAll('[data-copy-version]').forEach(el=>{
+    el.addEventListener('click', async ()=>{
+      const [itemId, idxStr] = el.dataset.copyVersion.split(':');
+      const v = (state.versionsByItem[itemId] || [])[parseInt(idxStr,10)];
+      if (!v) return;
+      const text = `${kind === 'location' ? 'LOCATION DETAILS' : 'CAMPAIGN INSTRUCTIONS'}\n\n${v.doc}\n\nOPEN QUESTIONS FOR THE CLIENT\n\n${v.openQuestions}`;
+      try{ await navigator.clipboard.writeText(text); el.innerHTML = icon('check-circle'); setTimeout(()=>{ el.innerHTML = icon('copy'); }, 1200); }catch(e){}
+    });
+  });
+
+  document.querySelectorAll('[data-restore-version]').forEach(el=>{
+    el.addEventListener('click', async ()=>{
+      const [itemId, idxStr] = el.dataset.restoreVersion.split(':');
+      const item = items.find(i => i.id === itemId);
+      const v = (state.versionsByItem[itemId] || [])[parseInt(idxStr,10)];
+      if (!item || !v) return;
+      if (!confirm('Replace the current draft fields with this saved version? This does not delete any version history.')) return;
+      item.data.draft_doc = v.doc;
+      item.data.draft_open_questions = v.openQuestions;
+      await saveFn();
+      await renderMain();
+      state.openItemIds.add(itemId);
+    });
+  });
+}
+
+/* =================================================================
+   SETTINGS
+================================================================= */
+document.getElementById('btnSettings').addEventListener('click', renderSettings);
+
+function renderSettings(){
+  const content = document.getElementById('content');
+  document.getElementById('pageTitle').textContent = 'Settings';
+  document.getElementById('pageMeta').textContent = 'Sync, Drive naming, and backup for your whole team.';
+
+  content.innerHTML = `
+    <button class="btn btn-ghost compact" id="btnBackFromSettings" style="margin-bottom:var(--space-5);">${icon('arrow-left')}Back</button>
+    <div class="settings-grid">
+      <div class="card" style="padding:var(--space-6);">
+        <div class="t-title" style="margin-bottom:var(--space-3);">Google Sheet sync</div>
+        <div class="field">
+          <label>Apps Script web app URL</label>
+          <input type="text" class="input" id="syncUrlInput" value="${escapeAttr(syncUrl)}" placeholder="https://script.google.com/macros/s/.../exec">
+          <div class="t-caption" style="margin-top:var(--space-1);">Without this, data is saved to this browser only.</div>
+        </div>
+        <div class="row-actions" style="display:flex; gap:var(--space-2);">
+          <button class="btn btn-outline" id="btnSaveSyncUrl">Save</button>
+          <button class="btn btn-ghost" id="btnTestSync">Test connection</button>
+        </div>
+        <div id="syncTestStatus"></div>
+      </div>
+
+      <div class="card" style="padding:var(--space-6);">
+        <div class="t-title" style="margin-bottom:var(--space-3);">Drive uploads</div>
+        <div class="field">
+          <label>Root Drive folder (URL or ID)</label>
+          <input type="text" class="input" id="rootFolderIdInput" value="${escapeAttr(state.settings.rootFolderId||'')}" placeholder="https://drive.google.com/drive/folders/...">
+          <div class="t-caption" style="margin-top:var(--space-1);">Files upload into this folder, organized by account/location/campaign automatically. Leave blank to let the Apps Script create a top-level folder by name instead.</div>
+        </div>
+        <div class="field">
+          <label>Root folder name</label>
+          <input type="text" class="input" id="rootFolderInput" value="${escapeAttr(state.settings.rootFolderName)}">
+          <div class="t-caption" style="margin-top:var(--space-1);">Used only when no folder ID is set above.</div>
+        </div>
+        <button class="btn btn-primary" id="saveFolderBtn">Save</button>
+        <span id="folderSaveStatus"></span>
+      </div>
+
+      <div class="card" style="padding:var(--space-6);">
+        <div class="t-title" style="margin-bottom:var(--space-3);">Backup</div>
+        <div class="t-caption" style="margin-bottom:var(--space-3);">Export everything as a JSON file, or restore from one.</div>
+        <div class="row-actions" style="display:flex; gap:var(--space-2);">
+          <button class="btn btn-outline" id="btnExport">${icon('download')}Export JSON</button>
+          <button class="btn btn-outline" id="btnImportTrigger">${icon('upload')}Import JSON</button>
+          <input type="file" id="importFile" accept="application/json" style="display:none;">
+        </div>
+        <div id="importStatus"></div>
+      </div>
+    </div>`;
+
+  document.getElementById('btnBackFromSettings').addEventListener('click', renderMain);
+
+  document.getElementById('btnSaveSyncUrl').addEventListener('click', ()=>{
+    syncUrl = document.getElementById('syncUrlInput').value.trim();
+    localStorage.setItem('hermetic:syncUrl', syncUrl);
+    renderSyncPill();
+    document.getElementById('syncTestStatus').innerHTML = banner('success','check-circle','Saved. Click "Test connection" to verify it works.');
+  });
+  document.getElementById('btnTestSync').addEventListener('click', async ()=>{
+    const url = document.getElementById('syncUrlInput').value.trim();
+    const statusEl = document.getElementById('syncTestStatus');
+    if (!url){ statusEl.innerHTML = banner('destructive','alert-triangle','Paste a URL first.'); return; }
+    statusEl.innerHTML = banner('info','loader-2','Testing…', true);
+    const ok = await testSyncConnection(url);
+    statusEl.innerHTML = ok
+      ? banner('success','check-circle','Connected. Your Sheet is ready to sync.')
+      : banner('destructive','alert-triangle','Could not reach that URL. Double-check the deployment is set to "Anyone" access and re-copy the URL.');
+  });
+
+  document.getElementById('saveFolderBtn').addEventListener('click', async ()=>{
+    state.settings.rootFolderId = document.getElementById('rootFolderIdInput').value.trim();
+    state.settings.rootFolderName = document.getElementById('rootFolderInput').value.trim() || 'Hermetic AI - Customer Setup';
+    await saveSettings();
+    document.getElementById('folderSaveStatus').innerHTML = banner('success','check-circle','Saved.');
+  });
+
+  document.getElementById('btnExport').addEventListener('click', async ()=>{
+    const bundle = { accounts: state.accounts, settings: state.settings, locations:{}, campaigns:{}, versions:{} };
+    for (const acc of state.accounts){
+      bundle.locations[acc.id] = await loadLocations(acc.id);
+      bundle.campaigns[acc.id] = await loadCampaigns(acc.id);
+      for (const item of [...bundle.locations[acc.id], ...bundle.campaigns[acc.id]]){
+        bundle.versions[item.id] = await loadVersions(item.id);
+      }
+    }
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'hermetic-cs-data.json'; a.click();
+    URL.revokeObjectURL(url);
+  });
+  document.getElementById('btnImportTrigger').addEventListener('click', ()=> document.getElementById('importFile').click());
+  document.getElementById('importFile').addEventListener('change', async (e)=>{
+    const file = e.target.files[0];
+    if (!file) return;
+    const statusEl = document.getElementById('importStatus');
+    try{
+      const text = await file.text();
+      const bundle = JSON.parse(text);
+      state.accounts = bundle.accounts || [];
+      state.settings = bundle.settings || state.settings;
+      await saveAccounts();
+      await saveSettings();
+      for (const accId of Object.keys(bundle.locations || {})){
+        state.locationsByAccount[accId] = bundle.locations[accId];
+        await saveLocations(accId);
+      }
+      for (const accId of Object.keys(bundle.campaigns || {})){
+        state.campaignsByAccount[accId] = bundle.campaigns[accId];
+        await saveCampaigns(accId);
+      }
+      for (const itemId of Object.keys(bundle.versions || {})){
+        await saveVersions(itemId, bundle.versions[itemId]);
+      }
+      statusEl.innerHTML = banner('success','check-circle','Imported. Reloading…');
+      setTimeout(()=> location.reload(), 900);
+    }catch(err){
+      statusEl.innerHTML = banner('destructive','alert-triangle','Import failed: ' + err.message);
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>
