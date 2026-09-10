@@ -155,6 +155,9 @@
   .card.open .card-body{ display:block; padding-top:var(--space-5); }
 
   .subsection{ margin-bottom:var(--space-5); }
+  .outline{ margin:0 0 var(--space-2); padding-left:17px; color:var(--mid-slate); font-size:12.5px; line-height:1.55; }
+  .outline li{ margin-bottom:1px; }
+  textarea.input.block-input{ min-height:96px; }
   .section-divider{ border:none; border-top:1px solid var(--border-subtle); margin:var(--space-5) 0; }
   .field-pair{ display:grid; grid-template-columns:1fr 1fr; gap:var(--space-3); }
   @media (max-width:600px){ .field-pair{ grid-template-columns:1fr; } }
@@ -318,96 +321,122 @@ const FAQ_FIELDS = [
   {path:'question', label:'Question guests ask', kind:'text', full:true},
   {path:'answer', label:'Fact / answer', kind:'textarea', full:true}
 ];
-const SUBVENUE_FIELDS = [
-  {path:'name', label:'Name', kind:'text'},
-  {path:'description', label:'One-line description & how it differs', kind:'textarea', full:true}
-];
-const STEP_FIELDS = [
-  {path:'name', label:'Step name', kind:'text'},
-  {path:'trigger', label:'Trigger (a condition, never "after Step N")', kind:'text'},
-  {path:'do', label:'Do (what the assistant does)', kind:'textarea', full:true},
-  {path:'skip_if', label:'Skip if (optional)', kind:'text', full:true}
-];
-const LINK_FIELDS = [
-  {path:'name', label:'Name', kind:'text'},
-  {path:'url', label:'URL', kind:'text'},
-  {path:'share_when', label:'Share when', kind:'text', full:true}
-];
-const VOCAB_FIELDS = [
-  {path:'say', label:'Say', kind:'text'},
-  {path:'instead_of', label:'Instead of', kind:'text'},
-  {path:'notes', label:'Notes', kind:'text'}
-];
-
+/* One box per template section. `hint` is the outline of what belongs in the
+   box — it mirrors the matching heading in the Location Details template. */
 const LOCATION_SCHEMA = [
-  {type:'section', title:'Venue overview', fields:[
-    {path:'overview', label:'Concept, ambiance, what makes it different (1-3 sentences)', kind:'textarea'}
+  {type:'block', key:'overview', title:'Venue overview', hint:[
+    'Concept and cuisine',
+    'Ambiance',
+    'What makes it different from other venues'
+  ], placeholder:'One to three sentences.'},
+
+  {type:'block', key:'address_contact', title:'Address & contact', hint:[
+    'Street, city, state, zip',
+    'General phone number',
+    'Website URL',
+    'Parking, in one line'
   ]},
-  {type:'section', title:'Address & contact', fields:[
-    {path:'address', label:'Address', kind:'text'},
-    {path:'phone', label:'Phone (general)', kind:'text'},
-    {path:'website', label:'Website', kind:'text'},
-    {path:'parking', label:'Parking', kind:'text'}
+
+  {type:'block', key:'hours_text', title:'Hours & blackout dates', hint:[
+    'Closures and blackout dates',
+    'Seasonal hours',
+    'Kitchen cut-offs and curfews',
+    'Event-time limits that apply to every space'
+  ], placeholder:'e.g. Closed Thanksgiving and Christmas.'},
+
+  {type:'block', key:'availability_text', title:'Availability policy', hint:[
+    'Which rooms may be offered for which guest counts',
+    'Rooms that must never be offered, even when the booking system shows them free',
+    'Whole-day blocks',
+    'Turnover and time-of-day limits'
+  ], placeholder:'One rule per line, e.g. For 1-60 guests, offer School Night only.'},
+
+  {type:'block', key:'pricing_text', title:'Per-unit activity pricing (if applicable)', hint:[
+    'Only prices the assistant is allowed to quote',
+    'Rate, the unit it applies to, and the days or times it holds'
+  ], placeholder:'e.g. Bowling: $75 per lane per hour Sun-Thu.'},
+
+  {type:'block', key:'fees_text', title:'Fees & taxes', hint:[
+    'Service charge (% on F&B)',
+    'Sales tax (%)',
+    'Admin fee (%, taxable, not a gratuity)',
+    'Gratuity policy',
+    'Other fees, one per line'
+  ], placeholder:'e.g. Cake-cutting fee: $2 per guest.'},
+
+  {type:'block', key:'deposit_text', title:'Deposit & payment', hint:[
+    'Deposit amount or percentage, and when it is due',
+    'When final payment is due',
+    'Accepted payment methods',
+    'Refund policy'
   ]},
-  {type:'list', title:'Hours & blackout dates', key:'hours_notes', itemLabel:'note', placeholder:'e.g. Closed Thanksgiving and Christmas'},
-  {type:'list', title:'Availability policy', key:'availability_policy', itemLabel:'rule', placeholder:'e.g. For 1-60 guests, offer School Night only'},
-  {type:'section', title:'Per-unit activity pricing (if applicable)', fields:[
-    {path:'activity_pricing', label:'e.g. Bowling: $75 per lane per hour Sun-Thu', kind:'textarea'}
+
+  {type:'block', key:'cancellation', title:'Cancellation', hint:[
+    'The cancellation policy, stated as a fact'
   ]},
-  {type:'section', title:'Fees & taxes', fields:[
-    {path:'fees.service_charge', label:'Service charge (% on F&B)', kind:'text'},
-    {path:'fees.sales_tax', label:'Sales tax (%)', kind:'text'},
-    {path:'fees.admin_fee', label:'Admin fee (%, taxable, not gratuity)', kind:'text'},
-    {path:'fees.gratuity', label:'Gratuity policy', kind:'text'}
+
+  {type:'block', key:'booking_text', title:'Booking rules', hint:[
+    'Minimum guests for a private event',
+    'Maximum guests',
+    'Minimum lead time',
+    'Standard event duration',
+    'When the headcount guarantee is due',
+    'What is included in every rental'
   ]},
-  {type:'list', title:'Other fees', key:'other_fees', itemLabel:'fee', placeholder:'e.g. Cake-cutting fee: $2 per guest'},
-  {type:'section', title:'Deposit & payment', fields:[
-    {path:'deposit', label:'Deposit (amount or %, and when due)', kind:'text'},
-    {path:'final_payment', label:'Final payment due', kind:'text'},
-    {path:'payment_methods', label:'Accepted payment methods', kind:'text'},
-    {path:'refundability', label:'Refund policy', kind:'text'}
-  ]},
-  {type:'section', title:'Cancellation', fields:[
-    {path:'cancellation', label:'Cancellation policy', kind:'textarea'}
-  ]},
-  {type:'section', title:'Booking rules', fields:[
-    {path:'booking.min_guests', label:'Minimum guests for a private event', kind:'text'},
-    {path:'booking.max_guests', label:'Maximum guests', kind:'text'},
-    {path:'booking.min_lead_time', label:'Minimum lead time', kind:'text'},
-    {path:'booking.duration', label:'Standard event duration', kind:'text'},
-    {path:'booking.headcount_due', label:'Headcount guarantee due', kind:'text'},
-    {path:'booking.included', label:'Included in every rental', kind:'textarea'}
-  ]},
-  {type:'group', title:'Sub-venues (only if one record covers multiple concepts)', key:'sub_venues', itemLabel:'sub-venue', fields: SUBVENUE_FIELDS}
+
+  {type:'block', key:'sub_venues_text', title:'Sub-venues', hint:[
+    'Only when one venue record covers more than one restaurant or concept',
+    'Each name, plus one line on how it differs'
+  ], placeholder:'Leave blank if this venue is a single concept.'}
 ];
 
+/* Same shape for the behavior half — one box per Campaign Instructions heading. */
 const CAMPAIGN_SCHEMA = [
-  {type:'section', title:'Persona & tone', fields:[
-    {path:'personality', label:'Personality (one sentence)', kind:'textarea'},
-    {path:'salutation', label:'Non-standard salutation (if any)', kind:'text'}
+  {type:'block', key:'persona_text', title:'Persona & tone', hint:[
+    'Personality, in one sentence',
+    'Tone rules, only where this venue differs from the default',
+    'Salutation, only if non-standard'
+  ], placeholder:'e.g. Say "our team", never "sales".'},
+
+  {type:'block', key:'handoff_text', title:'Handoff', hint:[
+    'Follow-up window quoted to the guest',
+    'Overrides by day or time',
+    'What is required before handoff, beyond name, date and guest count',
+    'Coordinator routing, if there is more than one coordinator',
+    'When to skip qualification and hand off immediately',
+    'What the assistant does if the guest keeps texting after handoff'
+  ], placeholder:'e.g. Follow-up window: within 24 business hours.'},
+
+  {type:'block', key:'steps_text', title:'Workflow steps', hint:[
+    'Only steps that differ from the default flow (confirm name, confirm details, collect date and guest count, check availability, hand off), plus any the default does not have',
+    'For each step: a name, a trigger that is a condition (never "after Step 2"), what the assistant does, and an optional skip-if'
   ]},
-  {type:'list', title:'Tone rules (only where this differs from the default)', key:'tone_rules', itemLabel:'tone rule', placeholder:'e.g. Say "our team", never "sales"'},
-  {type:'section', title:'Handoff', fields:[
-    {path:'handoff.window', label:'Follow-up window quoted to the guest', kind:'text'},
-    {path:'handoff.overrides', label:'Overrides by day/time', kind:'text'},
-    {path:'handoff.required_before', label:'Required before handoff (beyond name, date, guest count)', kind:'text'},
-    {path:'handoff.routing', label:'Coordinator routing (if multiple coordinators)', kind:'textarea'},
-    {path:'handoff.bypass', label:'Skip qualification and hand off immediately when', kind:'textarea'},
-    {path:'handoff.after', label:'After handoff, if the guest keeps texting', kind:'textarea'}
+
+  {type:'block', key:'rules_text', title:'Rules', hint:[
+    'Everything that is not a step, a link, a word swap, required wording, or a handoff',
+    'One line per situation: "When X: do Y, never Z"'
+  ], placeholder:'When the guest asks about pricing: never quote a figure; say the coordinator follows up with a tailored quote.'},
+
+  {type:'block', key:'links_text', title:'Links', hint:[
+    'Every URL the assistant may send',
+    'A plain name for each',
+    'The condition for sending it'
   ]},
-  {type:'group', title:'Workflow steps (only where this differs from or adds to the default flow)', key:'steps', itemLabel:'step', fields: STEP_FIELDS},
-  {type:'list', title:'Rules (one line per situation: "When X: do Y, never Z")', key:'rules', itemLabel:'rule', placeholder:'When the guest asks about pricing: never quote a figure; say the coordinator follows up with a tailored quote.'},
-  {type:'group', title:'Links', key:'links', itemLabel:'link', fields: LINK_FIELDS},
-  {type:'group', title:'Vocabulary', key:'vocabulary', itemLabel:'substitution', fields: VOCAB_FIELDS},
-  {type:'section', title:'Required wording', fields:[
-    {path:'ai_disclosure', label:'AI disclosure (exact approved wording, if any)', kind:'textarea'},
-    {path:'legal_wording', label:'Legal / compliance wording (exact text and when required)', kind:'textarea'}
+
+  {type:'block', key:'vocabulary_text', title:'Vocabulary', hint:[
+    'Word-for-word substitutions only, not rules'
+  ], placeholder:'Say "celebration" instead of "party".'},
+
+  {type:'block', key:'wording_text', title:'Required wording', hint:[
+    'AI disclosure — the exact approved wording, if any',
+    'Legal or compliance wording — the exact text, and when it is required'
   ]},
-  {type:'section', title:'Cross-sell (only if enabled for this campaign)', fields:[
-    {path:'cross_sell.when', label:'Offer alternatives when', kind:'text'},
-    {path:'cross_sell.how', label:'How to introduce them', kind:'text'},
-    {path:'cross_sell.link', label:'Venue guide link', kind:'text'}
-  ]}
+
+  {type:'block', key:'cross_sell_text', title:'Cross-sell', hint:[
+    'Only if cross-sell is enabled for this campaign',
+    'When alternatives may be offered',
+    'How to introduce them'
+  ], placeholder:'Leave blank if cross-sell is off.'}
 ];
 
 /* Rooms, pricing, menus, policies and FAQs are never typed in: they always come
@@ -433,23 +462,69 @@ const VENUE_PARTS = [
   { id:'behavior', title:'Assistant behavior', schema: CAMPAIGN_SCHEMA,
     caption:'How Mia talks, what she does in order, and when she hands off. Becomes the Campaign Instructions document.' }
 ];
-const VENUE_SCHEMA = [...LOCATION_SCHEMA, ...CAMPAIGN_SCHEMA];
 
 function newVenueData(){
-  return { overview:'', address:'', phone:'', website:'', parking:'',
-    hours_notes:[], rooms:[], availability_policy:[], pricing_rows:[], activity_pricing:'',
-    menus:[], fees:{service_charge:'',sales_tax:'',admin_fee:'',gratuity:''}, other_fees:[],
-    deposit:'', final_payment:'', payment_methods:'', refundability:'', cancellation:'',
-    booking:{min_guests:'',max_guests:'',min_lead_time:'',duration:'',headcount_due:'',included:''},
-    policies:[], faqs:[], sub_venues:[],
-    personality:'', tone_rules:[], salutation:'',
-    handoff:{window:'',overrides:'',required_before:'',routing:'',bypass:'',after:''},
-    steps:[], rules:[], links:[], vocabulary:[], ai_disclosure:'', legal_wording:'',
-    cross_sell:{when:'',how:'',link:''},
-    source_material:'', drive_link:'', docs:[],
+  const data = { source_material:'', drive_link:'', docs:[],
     draft_location_doc:'', draft_campaign_doc:'', draft_open_questions:'' };
+  [...LOCATION_SCHEMA, ...CAMPAIGN_SCHEMA].forEach(sec => data[sec.key] = '');
+  return data;
 }
-function emptyRow(fields){ const o = {}; fields.forEach(f => o[f.path] = ''); return o; }
+
+/* Venues answered when each section was a grid of small fields keep their
+   answers under the old structured keys. Fold them into the one-box-per-section
+   text the first time such a venue loads, so nothing typed before disappears.
+   A box the teammate has already filled is never overwritten. */
+function foldLegacyBlocks(data){
+  const kv = (label, v) => { v = (v || '').trim(); return v ? `${label}: ${v}` : ''; };
+  const bullets = arr => (arr || []).map(v => (v||'').trim()).filter(Boolean).map(v => `- ${v}`).join('\n');
+  const rows = (arr, pairs) => (arr || [])
+    .map(row => pairs.map(([label, path]) => kv(label, row && row[path])).filter(Boolean).join('\n'))
+    .filter(Boolean).join('\n\n');
+  const set = (key, parts) => {
+    if ((data[key] || '').trim()) return;
+    const text = parts.filter(t => (t || '').trim()).join('\n').trim();
+    if (text) data[key] = text;
+  };
+  const fees = data.fees || {}, booking = data.booking || {},
+        handoff = data.handoff || {}, cross = data.cross_sell || {};
+
+  set('address_contact', [kv('Address', data.address), kv('Phone', data.phone),
+    kv('Website', data.website), kv('Parking', data.parking)]);
+  set('hours_text', [bullets(data.hours_notes)]);
+  set('availability_text', [bullets(data.availability_policy)]);
+  set('pricing_text', [data.activity_pricing]);
+  set('fees_text', [kv('Service charge', fees.service_charge), kv('Sales tax', fees.sales_tax),
+    kv('Admin fee', fees.admin_fee), kv('Gratuity', fees.gratuity), bullets(data.other_fees)]);
+  set('deposit_text', [kv('Deposit', data.deposit), kv('Final payment', data.final_payment),
+    kv('Accepted methods', data.payment_methods), kv('Refundability', data.refundability)]);
+  set('booking_text', [kv('Minimum guests for a private event', booking.min_guests),
+    kv('Maximum guests', booking.max_guests), kv('Minimum lead time', booking.min_lead_time),
+    kv('Standard event duration', booking.duration), kv('Headcount guarantee due', booking.headcount_due),
+    kv('Included in every rental', booking.included)]);
+  set('sub_venues_text', [rows(data.sub_venues, [['Name','name'], ['Description','description']])]);
+
+  set('persona_text', [kv('Personality', data.personality), bullets(data.tone_rules),
+    kv('Salutation', data.salutation)]);
+  set('handoff_text', [kv('Follow-up window', handoff.window), kv('Overrides', handoff.overrides),
+    kv('Required before handoff', handoff.required_before), kv('Coordinator routing', handoff.routing),
+    kv('Skip qualification and hand off immediately when', handoff.bypass),
+    kv('After handoff', handoff.after)]);
+  set('steps_text', [rows(data.steps, [['Step','name'], ['Trigger','trigger'], ['Do','do'], ['Skip if','skip_if']])]);
+  set('rules_text', [bullets(data.rules)]);
+  set('links_text', [rows(data.links, [['Name','name'], ['URL','url'], ['Share when','share_when']])]);
+  set('vocabulary_text', [rows(data.vocabulary, [['Say','say'], ['Instead of','instead_of']])]);
+  set('wording_text', [kv('AI disclosure', data.ai_disclosure), kv('Legal / compliance', data.legal_wording)]);
+  set('cross_sell_text', [kv('Offer alternatives when', cross.when), kv('How to introduce them', cross.how)]);
+
+  // Drop the folded-from keys so an intentionally emptied box stays empty on the
+  // next load. `overview` and `cancellation` keep their names and are untouched,
+  // as are the file-sourced sections that serializeCarriedOver still reads.
+  ['address','phone','website','parking','hours_notes','availability_policy','activity_pricing',
+   'fees','other_fees','deposit','final_payment','payment_methods','refundability','booking',
+   'sub_venues','personality','tone_rules','salutation','handoff','steps','rules','links',
+   'vocabulary','ai_disclosure','legal_wording','cross_sell'].forEach(k => delete data[k]);
+  return data;
+}
 
 /* =================================================================
    VERBATIM REFERENCE TEXT — embedded so "Copy for Claude" is
@@ -714,12 +789,14 @@ async function loadVenues(accountId){
   if (!data){
     const migrated = await migrateLegacyVenues(accountId);
     if (migrated){
+      migrated.forEach(v => foldLegacyBlocks(v.data));
       state.venuesByAccount[accountId] = migrated;
       await saveVenues(accountId);
       return migrated;
     }
   }
   state.venuesByAccount[accountId] = data || [];
+  state.venuesByAccount[accountId].forEach(v => foldLegacyBlocks(v.data));
   return state.venuesByAccount[accountId];
 }
 async function saveVenues(accountId){ await kvSet(`hermetic:venues:${accountId}`, state.venuesByAccount[accountId]); }
@@ -918,36 +995,14 @@ function renderVenuesList(items){
   return addRow + items.map(item => renderVenue(item)).join('');
 }
 
-function renderField(itemId, value, fullPath, label, kind, full){
-  const val = escapeHtml(value || '');
-  const cls = full ? 'field full' : 'field';
-  if (kind === 'textarea'){
-    return `<div class="${cls}"><label>${escapeHtml(label)}</label><textarea class="input" data-item="${itemId}" data-bind="${fullPath}">${val}</textarea></div>`;
-  }
-  return `<div class="${cls}"><label>${escapeHtml(label)}</label><input class="input" type="text" data-item="${itemId}" data-bind="${fullPath}" value="${val}"></div>`;
-}
-
 function renderSchemaSection(itemId, data, sec){
-  if (sec.type === 'section'){
-    return `<div class="subsection"><div class="t-overline">${escapeHtml(sec.title)}</div><div class="field-pair">${sec.fields.map(f=>renderField(itemId, getAtPath(data,f.path), f.path, f.label, f.kind, sec.fields.length===1)).join('')}</div></div>`;
-  }
-  if (sec.type === 'list'){
-    const arr = getAtPath(data, sec.key) || [];
-    const rows = arr.map((val,i) => `<div class="list-row">
-        <textarea class="input" data-item="${itemId}" data-bind="${sec.key}[${i}]" placeholder="${escapeAttr(sec.placeholder||'')}">${escapeHtml(val||'')}</textarea>
-        <button class="icon-btn" data-item="${itemId}" data-remove-list="${sec.key}" data-index="${i}" title="Remove">${icon('x')}</button>
-      </div>`).join('');
-    return `<div class="subsection"><div class="t-overline">${escapeHtml(sec.title)}</div>${rows}<button class="btn btn-ghost compact" data-item="${itemId}" data-add-list="${sec.key}">${icon('plus')}Add ${escapeHtml(sec.itemLabel)}</button></div>`;
-  }
-  if (sec.type === 'group'){
-    const arr = getAtPath(data, sec.key) || [];
-    const rows = arr.map((row,i) => `<div class="group-row">
-        <div class="group-row-fields">${sec.fields.map(f=>renderField(itemId, row[f.path], `${sec.key}[${i}].${f.path}`, f.label, f.kind, f.full)).join('')}</div>
-        <button class="icon-btn" data-item="${itemId}" data-remove-group="${sec.key}" data-index="${i}" title="Remove">${icon('x')}</button>
-      </div>`).join('');
-    return `<div class="subsection"><div class="t-overline">${escapeHtml(sec.title)}</div>${rows}<button class="btn btn-ghost compact" data-item="${itemId}" data-add-group="${sec.key}">${icon('plus')}Add ${escapeHtml(sec.itemLabel)}</button></div>`;
-  }
-  return '';
+  if (sec.type !== 'block') return '';
+  const outline = (sec.hint || []).map(h => `<li>${escapeHtml(h)}</li>`).join('');
+  return `<div class="subsection">
+      <div class="t-overline">${escapeHtml(sec.title)}</div>
+      ${outline ? `<ul class="outline">${outline}</ul>` : ''}
+      <textarea class="input block-input" data-item="${itemId}" data-bind="${sec.key}" placeholder="${escapeAttr(sec.placeholder || '')}">${escapeHtml(getAtPath(data, sec.key) || '')}</textarea>
+    </div>`;
 }
 
 /* Version entries hold both documents. Entries saved before the two tabs were
@@ -986,14 +1041,14 @@ function renderVenue(item){
     <div class="card-body">
       <div class="subsection">
         <div class="t-overline">Client files — start here</div>
-        ${banner('info','paperclip','Upload the menus, packet, price sheet, FAQ sheet and TS room setup screenshot, then attach the same files to the Claude chat. The fields below cover only what the files cannot.')}
+        ${banner('info','paperclip','Upload knowledge base files, then attach the same files to the Claude chat. The fields below cover only what the files cannot.')}
         <div class="doc-list">${docs.map((d,i)=>`<span class="doc-chip">${icon('paperclip','icon',12)}<span class="badge badge-slate" style="height:18px; padding:0 6px; font-size:11px;">${escapeHtml(d.category||'Other')}</span><a href="${d.link||'#'}" target="_blank" rel="noopener" class="mono">${escapeHtml(d.name)}</a><button class="icon-btn" style="width:18px;height:18px;" data-remove-doc="${item.id}" data-index="${i}">${icon('x','icon',12)}</button></span>`).join('')}</div>
         <div style="display:flex; gap:var(--space-2); flex-wrap:wrap; align-items:center;">
           <select class="input" id="docCategory-${item.id}" style="height:36px; max-width:200px;">
             ${DOC_TYPES.map(t=>`<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('')}
           </select>
           <input type="file" id="docFile-${item.id}" style="flex:1; min-width:180px; font-size:12.5px;">
-          <button class="btn btn-outline compact" data-upload-doc="${item.id}">${icon('upload')}Upload</button>
+          <button class="btn btn-outline compact" data-upload-doc="${item.id}">${icon('upload')}Upload to Google Drive</button>
         </div>
         <div data-upload-status="${item.id}"></div>
       </div>
@@ -1067,7 +1122,10 @@ function banner(type, iconName, message, spin){
 function serializePart(schema, data){
   const out = [];
   for (const sec of schema){
-    if (sec.type === 'section'){
+    if (sec.type === 'block'){
+      const v = (getAtPath(data, sec.key) || '').trim();
+      out.push(`${sec.title}:\n` + (v || 'None.'));
+    } else if (sec.type === 'section'){
       const lines = sec.fields.map(f => { const v = (getAtPath(data,f.path)||'').trim(); return v ? `${f.label}: ${v}` : null; }).filter(Boolean);
       out.push(`${sec.title}:\n` + (lines.length ? lines.join('\n') : 'None.'));
     } else if (sec.type === 'list'){
@@ -1125,7 +1183,7 @@ CLIENT FILES (attached to this chat):
 
 ${fileList}
 
-How to use these sources: ${FILE_SOURCED_LABEL} are not collected in the console at all — take them from the attached files and structure them yourself against Template 1. The answers below cover everything else. Where a typed answer below and a file disagree, the typed answer wins. Anything still missing, unconfirmed, or contradictory goes in Open Questions, never into the documents.
+How to use these sources: ${FILE_SOURCED_LABEL} are not collected in the console at all — take them from the attached files and structure them yourself against Template 1. The answers below cover everything else; each heading holds one free-form note, so read it for the facts it contains rather than expecting a fixed field order, and treat an empty one as "nothing special here." Where a typed answer below and a file disagree, the typed answer wins. Anything still missing, unconfirmed, or contradictory goes in Open Questions, never into the documents.
 
 COLLECTED ANSWERS — VENUE FACTS (for Location Details):
 
@@ -1199,53 +1257,6 @@ function wireVenuesList(account, items){
     });
   });
 
-  document.querySelectorAll('[data-add-list]').forEach(el=>{
-    el.addEventListener('click', async ()=>{
-      const item = items.find(i => i.id === el.dataset.item);
-      const arr = getAtPath(item.data, el.dataset.addList) || [];
-      arr.push('');
-      setAtPath(item.data, el.dataset.addList, arr);
-      touchItem(item);
-      state.openItemIds.add(item.id);
-      await saveFn();
-      await renderMain();
-    });
-  });
-  document.querySelectorAll('[data-remove-list]').forEach(el=>{
-    el.addEventListener('click', async ()=>{
-      const item = items.find(i => i.id === el.dataset.item);
-      const arr = getAtPath(item.data, el.dataset.removeList) || [];
-      arr.splice(parseInt(el.dataset.index,10), 1);
-      touchItem(item);
-      state.openItemIds.add(item.id);
-      await saveFn();
-      await renderMain();
-    });
-  });
-  document.querySelectorAll('[data-add-group]').forEach(el=>{
-    el.addEventListener('click', async ()=>{
-      const item = items.find(i => i.id === el.dataset.item);
-      const sec = VENUE_SCHEMA.find(s => s.key === el.dataset.addGroup);
-      const arr = getAtPath(item.data, el.dataset.addGroup) || [];
-      arr.push(emptyRow(sec.fields));
-      setAtPath(item.data, el.dataset.addGroup, arr);
-      touchItem(item);
-      state.openItemIds.add(item.id);
-      await saveFn();
-      await renderMain();
-    });
-  });
-  document.querySelectorAll('[data-remove-group]').forEach(el=>{
-    el.addEventListener('click', async ()=>{
-      const item = items.find(i => i.id === el.dataset.item);
-      const arr = getAtPath(item.data, el.dataset.removeGroup) || [];
-      arr.splice(parseInt(el.dataset.index,10), 1);
-      touchItem(item);
-      state.openItemIds.add(item.id);
-      await saveFn();
-      await renderMain();
-    });
-  });
 
   document.querySelectorAll('[data-upload-doc]').forEach(el=>{
     el.addEventListener('click', async ()=>{
