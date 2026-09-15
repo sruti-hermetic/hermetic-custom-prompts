@@ -82,7 +82,7 @@ function sheet_() {
  * nothing on a script that predates it -- which is exactly the failure you
  * would not notice until two people had overwritten each other.
  */
-var SERVER_VERSION = 5;
+var SERVER_VERSION = 6;
 
 function findRow_(sh, key) {
   var last = sh.getLastRow();
@@ -527,6 +527,266 @@ function checkFiles_(body) {
     }
   }
   return json_({ files: out });
+}
+
+/* ==================================================================
+   THE READABLE VIEW
+
+   The kv tab is a protocol, not a report. Every row is one JSON
+   record because that is what makes concurrent editing safe: a
+   revision to compare, a stamp per field to merge on. It is also
+   unreadable, and the people who live in this spreadsheet are not the
+   people who wrote it.
+
+   So rather than change kv, this builds a tab per account beside it:
+   one row per section, one column per location, with the times things
+   were created and last touched at the top. Generated, disposable,
+   and rebuilt from kv every time -- kv stays the single source of
+   truth and nothing here can drift from it.
+
+   The section names come from the console, published into a
+   hermetic:schema row, so renaming a section there renames the row
+   here without anyone maintaining a second list.
+================================================================== */
+var VIEW_REGISTRY_KEY = 'hermetic.viewTabs';
+var VIEW_CELL_LIMIT = 2000;   // keep one long transcript from swallowing a row
+var VIEW_NOTE = 'Generated from the console. Anything typed on this tab is replaced the next time it refreshes, so make changes in the tool.';
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('Hermetic')
+    .addItem('Refresh readable view', 'rebuildViews')
+    .addSeparator()
+    .addItem('Refresh automatically every hour', 'installViewRefresh')
+    .addItem('Stop refreshing automatically', 'removeViewRefresh')
+    .addToUi();
+}
+
+function installViewRefresh() {
+  removeViewRefresh();
+  ScriptApp.newTrigger('rebuildViews').timeBased().everyHours(1).create();
+  rebuildViews();
+  SpreadsheetApp.getActive().toast('The readable view will refresh every hour.', 'Hermetic', 5);
+}
+
+function removeViewRefresh() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'rebuildViews') ScriptApp.deleteTrigger(t);
+  });
+}
+
+/** Everything in kv, parsed into accounts, their locations, and saved prompts. */
+function readModel_() {
+  var model = { accounts: [], venues: {}, versions: {}, schema: null };
+  readAll_().forEach(function (r) {
+    var o;
+    try { o = JSON.parse(r.value); } catch (err) { return; }
+    if (!o || typeof o !== 'object') return;
+
+    if (r.key === 'hermetic:schema') { model.schema = o; return; }
+    if (r.key.indexOf('hermetic:account:') === 0) {
+      if (!o.deleted) model.accounts.push(o);
+      return;
+    }
+    if (r.key.indexOf('hermetic:venue:') === 0) {
+      if (o.deleted) return;
+      var accountId = r.key.split(':')[2];
+      (model.venues[accountId] = model.venues[accountId] || []).push(o);
+      return;
+    }
+    if (r.key.indexOf('hermetic:versions:') === 0) {
+      model.versions[r.key.substring('hermetic:versions:'.length)] = o.entries || [];
+    }
+  });
+
+  var byCreated = function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); };
+  model.accounts.sort(byCreated);
+  Object.keys(model.venues).forEach(function (k) { model.venues[k].sort(byCreated); });
+  return model;
+}
+
+function rebuildViews() {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);       // never read kv half way through a write
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var model = readModel_();
+    var built = [];
+    for (var i = 0; i < model.accounts.length; i++) {
+      built.push(buildAccountView_(ss, model.accounts[i], model));
+    }
+    dropStaleViews_(ss, built);
+    PropertiesService.getDocumentProperties().setProperty(VIEW_REGISTRY_KEY, JSON.stringify(built));
+    SpreadsheetApp.flush();
+    return built.length;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/* Tabs this script made last time that no account answers for any more, which
+   is how a deleted or renamed account stops leaving a tab behind. Only tabs in
+   the registry are ever removed, so a tab somebody else made is safe. */
+function dropStaleViews_(ss, keep) {
+  var previous = [];
+  try {
+    previous = JSON.parse(PropertiesService.getDocumentProperties().getProperty(VIEW_REGISTRY_KEY) || '[]');
+  } catch (err) { previous = []; }
+  previous.forEach(function (name) {
+    if (keep.indexOf(name) !== -1) return;
+    var sh = ss.getSheetByName(name);
+    if (sh && ss.getSheets().length > 1) ss.deleteSheet(sh);
+  });
+}
+
+/** A tab name Sheets will accept, and that is not already spoken for. */
+function safeSheetName_(name, ss, taken) {
+  var base = String(name || 'Account').replace(/[\[\]\*\/\\\?:]/g, ' ').trim().substring(0, 90) || 'Account';
+  if (base.toLowerCase() === SHEET_NAME) base = base + ' (account)';
+  var candidate = base, n = 2;
+  while (taken.indexOf(candidate) !== -1) candidate = base + ' ' + (n++);
+  return candidate;
+}
+
+function when_(ms, tz) {
+  if (!ms) return '';
+  return Utilities.formatDate(new Date(Number(ms)), tz, 'd MMM yyyy, h:mm a');
+}
+
+function cellText_(value) {
+  if (value === null || value === undefined) return '';
+  var s = String(value).trim();
+  if (s.length <= VIEW_CELL_LIMIT) return s;
+  return s.substring(0, VIEW_CELL_LIMIT) + '\n\n[Shortened for this view. The whole answer is in the tool.]';
+}
+
+/* The section list the console published. Falling back to the keys the data
+   happens to carry keeps the view useful on a spreadsheet whose console has
+   not loaded since this was added, rather than showing nothing at all. */
+function viewParts_(model, locations) {
+  if (model.schema && model.schema.parts && model.schema.parts.length) return model.schema.parts;
+  var skip = { docs: 1, drive_link: 1, source_material: 1, draft_location_doc: 1, draft_campaign_doc: 1, draft_open_questions: 1 };
+  var keys = {};
+  locations.forEach(function (l) {
+    Object.keys(l.data || {}).forEach(function (k) { if (!skip[k]) keys[k] = true; });
+  });
+  return [{ title: 'Answers', sections: Object.keys(keys).sort().map(function (k) {
+    var title = k.replace(/_/g, ' ').replace(/ text$/, '');
+    return { key: k, title: title.charAt(0).toUpperCase() + title.slice(1) };
+  }) }];
+}
+
+function fileSummary_(location) {
+  var docs = (location.data || {}).docs || [];
+  if (!docs.length) return '';
+  return docs.map(function (d) {
+    var state = d.gone === 'trashed' ? '  [in Drive trash]' : (d.gone === 'deleted' ? '  [deleted from Drive]' : '');
+    return '- ' + (d.category || 'Other') + ': ' + (d.name || 'file') + state;
+  }).join('\n');
+}
+
+function buildAccountView_(ss, account, model) {
+  var tz = ss.getSpreadsheetTimeZone();
+  var locations = model.venues[account.id] || [];
+  var taken = ss.getSheets().map(function (s) { return s.getName(); });
+  var existing = null;
+
+  // Reuse the tab this account had last time, whatever it is called now.
+  var previous = [];
+  try { previous = JSON.parse(PropertiesService.getDocumentProperties().getProperty(VIEW_REGISTRY_KEY) || '[]'); } catch (err) {}
+  var wanted = safeSheetName_(account.name, ss, taken.filter(function (n) { return n !== account.name; }));
+  existing = ss.getSheetByName(wanted);
+  var sh = existing || ss.insertSheet(wanted);
+  sh.clear();
+  sh.clearFormats();
+
+  var header = [''].concat(locations.map(function (l) { return l.name || 'Untitled'; }));
+  var grid = [];
+  var groupRows = [];      // rows to style as a section heading
+  var push = function (row) { grid.push(row); return grid.length; };
+  var group = function (title) { groupRows.push(push([title].concat(locations.map(function () { return ''; })))); };
+  var line = function (label, valueOf) {
+    push([label].concat(locations.map(valueOf)));
+  };
+
+  push([account.name || 'Account'].concat(locations.map(function () { return ''; })));
+  push([VIEW_NOTE].concat(locations.map(function () { return ''; })));
+  push(['Refreshed ' + when_(Date.now(), tz)].concat(locations.map(function () { return ''; })));
+  push([''].concat(locations.map(function () { return ''; })));
+  var headerRow = push(header);
+
+  group('WHEN');
+  line('Location created', function (l) { return when_(l.createdAt, tz); });
+  line('Answers last edited', function (l) { return when_(l.lastEditedAt, tz); });
+  line('Last edited by', function (l) { return l.lastWriterName || ''; });
+  line('Last saved to this sheet', function (l) { return when_(l.updatedAt, tz); });
+  line('Prompts saved', function (l) {
+    var v = model.versions[l.id] || [];
+    return v.length ? String(v.length) : '';
+  });
+  line('Latest prompt saved', function (l) {
+    var v = model.versions[l.id] || [];
+    return v.length ? when_(v[v.length - 1].savedAt, tz) : '';
+  });
+
+  group('FILES');
+  line('Uploaded files', function (l) { return fileSummary_(l); });
+  line('Drive folder', function (l) { return (l.data || {}).drive_link || ''; });
+
+  viewParts_(model, locations).forEach(function (part) {
+    group(String(part.title || 'Answers').toUpperCase());
+    (part.sections || []).forEach(function (section) {
+      line(section.title, function (l) { return cellText_((l.data || {})[section.key]); });
+    });
+  });
+
+  group('EXTRA CONTEXT');
+  line('Source material', function (l) { return cellText_((l.data || {}).source_material); });
+
+  if (!locations.length) push(['This account has no locations yet.']);
+
+  var width = Math.max(header.length, 1);
+  grid = grid.map(function (row) {
+    while (row.length < width) row.push('');
+    return row;
+  });
+  sh.getRange(1, 1, grid.length, width).setValues(grid);
+  styleAccountView_(sh, grid.length, width, headerRow, groupRows);
+  return sh.getName();
+}
+
+function styleAccountView_(sh, rows, width, headerRow, groupRows) {
+  var all = sh.getRange(1, 1, rows, width);
+  all.setVerticalAlignment('top').setFontFamily('Arial').setFontSize(10).setWrap(true);
+
+  sh.getRange(1, 1).setFontSize(16).setFontWeight('bold');
+  sh.getRange(2, 1, 1, width).merge().setFontSize(9).setFontStyle('italic').setFontColor('#8a6d1f')
+    .setBackground('#fff7e0').setWrap(true);
+  sh.getRange(3, 1).setFontSize(9).setFontColor('#6b7280');
+
+  sh.getRange(headerRow, 1, 1, width).setFontWeight('bold').setBackground('#1f2a44').setFontColor('#ffffff')
+    .setVerticalAlignment('middle');
+  sh.getRange(1, 1, rows, 1).setFontWeight('bold').setFontColor('#1f2a44');
+
+  groupRows.forEach(function (r) {
+    sh.getRange(r, 1, 1, width).setBackground('#eef1f6').setFontWeight('bold').setFontColor('#3b4a63')
+      .setFontSize(9);
+  });
+
+  sh.setColumnWidth(1, 210);
+  for (var c = 2; c <= width; c++) sh.setColumnWidth(c, 340);
+  sh.setFrozenRows(headerRow);
+  sh.setFrozenColumns(1);
+  if (rows > headerRow) {
+    sh.getRange(headerRow, 1, rows - headerRow + 1, width)
+      .setBorder(true, true, true, true, true, true, '#d7dce5', SpreadsheetApp.BorderStyle.SOLID);
+  }
+
+  // A warning rather than a lock: people need to copy out of this tab, and a
+  // dismissible prompt says "your typing will be replaced" better than a
+  // permission error does.
+  var existing = sh.getProtections(SpreadsheetApp.ProtectionType.SHEET);
+  existing.forEach(function (p) { p.remove(); });
+  sh.protect().setDescription(VIEW_NOTE).setWarningOnly(true);
 }
 
 function folderByName_(parent, name) {

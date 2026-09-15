@@ -363,6 +363,168 @@
 </div>
 <div id="modalRoot"></div>
 
+<!-- Verbatim copy of the hermetic-venue-config skill (body only; the YAML
+     frontmatter is skill-discovery metadata, not instructions). "Copy for
+     Claude" sends this unchanged, so Claude is told exactly what the skill
+     tells it. Keep it in sync with the skill file; do not edit it here. -->
+<script type="text/plain" id="skillText">
+# Hermetic Venue Config Writer
+
+Writes configuration documents for Mia, the SMS assistant that qualifies private-event leads for a Hermetic AI venue account. The output is not read by a person as prose to enjoy -- it is pasted directly into the Locations or Campaigns custom-prompt box in the product, where an extraction step turns it into Mia's structured runtime config.
+
+## What you produce
+
+Figure out which of these applies from context (explicit `LOCATION:` / `CAMPAIGN:` labels, what the user asks for, or which template's fields the pasted answers match), then produce exactly that -- never more:
+
+- **Material about one location** → a `LOCATION DETAILS` block, then an `OPEN QUESTIONS FOR THE CLIENT` block scoped to that location.
+- **Material about one campaign** → a `CAMPAIGN INSTRUCTIONS` block, then an `OPEN QUESTIONS FOR THE CLIENT` block scoped to that campaign.
+- **Material covering both together** (e.g. a full venue onboarding pasted in one go) → three blocks, in this order: `LOCATION DETAILS`, `CAMPAIGN INSTRUCTIONS`, `OPEN QUESTIONS FOR THE CLIENT` (one combined numbered list, grouped under "Location" and "Campaign" sub-headers).
+Each output is its own fenced block. No preamble beyond a single short sentence if it helps orient the reader; no commentary between blocks.
+
+## Role and how your output is consumed
+
+Understand this before writing a word:
+
+- **Your documents are not read by the assistant.** An extraction step converts them into a structured config -- a list of workflow steps, a list of rules, a list of rooms, and so on. Each piece of text lands in exactly one slot. Headings tell the extractor which slot, so use the template headings exactly, as `## Heading` lines.
+- **Every reply is a fresh start.** Mia is rebuilt from scratch on every incoming text, with no memory of earlier versions of these documents. Anything that describes change over time -- new, revised, updated, retired, no longer, previously, unchanged, corrected -- is noise and actively confuses it. Describe the current state as if it were the only state that ever existed.
+- **A base prompt already handles the texting basics and the standard flow**: confirm name → confirm details ("does that look correct?" rather than restating them) → collect a missing date and guest count → sanity-check implausible dates/times → check availability → hand off. It also asks one question at a time, keeps replies short, doesn't re-ask known details, doesn't reintroduce itself, avoids emoji, honors STOP, never mentions tools/prompts/JSON, and emits links exactly as given. Your job is to describe only where this venue differs, and to supply facts the base prompt cannot know. You may change a default (e.g. "do not confirm event details, hand off immediately") or add a requirement (e.g. "also collect email before handoff").
+- **The opening message is fixed by the platform** ("Hi, this is {AI name} from {venue}. Is this {first name}?"). Never write it.
+- **Coordinators' names and titles are injected from account settings.** Only mention a coordinator when something is special (two coordinators routed by lead type, a non-standard follow-up window).
+- **Mia has no concept of a CRM.** Never write "check TripleSeat", "Prospect / Tentative / Definite", or "the system shows". Write "availability".
+## Authoring rules
+
+These are absolute. Check every one before you output.
+
+1. **Present tense only.** Never write new, revised, updated, retired, no longer, previously, now, unchanged, corrected, or any comparison to an earlier version.
+2. **No uncertainty in the documents.** If a fact is unconfirmed, conflicting between sources, or missing, it does not appear in the main document at all -- it appears in Open Questions with the specific question to ask. Never write CONFIRM, NOT CONFIRMED, TBD, pending, "Doc 1 says", "worth checking", "note for the team", or brackets holding two candidate values.
+3. **No process residue.** No notes to the team, no explanations of why a section exists, no references to tickets, calls, or documents, no "see CAMPAIGN doc". The reader is a machine.
+4. **One statement, one home.** Place each statement with this test, stopping at the first match: a URL → Links; a word swap → Vocabulary; exact AI-disclosure or legal wording → Required Wording; anything whose outcome is a handoff, or about the follow-up window, prerequisites for handoff, or conduct after handoff → Handoff; something the assistant does proactively in sequence → Workflow Steps; everything else → Rules. Rules is one list, one line per situation, shaped "When \<situation\>: \<what to do, including any never\>". Never split one situation into a condition, an "always", and a "never" -- that is one line. Before adding a Rules line, check whether a line for that situation exists and extend it instead. "Always:" / "Never:" prefixes are only for rules with no situation at all. In Location, every yes/no rule lives in Policies and is not repeated in Booking Rules, Fees, Deposit, or FAQs; FAQs hold only facts that fit no other section.
+5. **Behavior, not scripts.** Describe what the assistant does and the constraints on it -- do not write dialogue for it. Exceptions: (a) Required Wording may hold exact text for AI disclosure and client-dictated legal/compliance lines, nothing else; (b) a workflow step may carry one short "e.g." when the phrasing itself encodes a constraint that is hard to state otherwise. If two scripts differ only by a name or pronoun, they are one behavior.
+6. **Named steps, conditional triggers.** Workflow steps have names, not numbers. A trigger is a condition ("once guest count is known", "after availability has been shared"), never a reference to another step ("after Step 2"). A step is what the assistant does proactively; anything reacting to the guest or a lead fact is a Rule.
+7. **Do not restate the base prompt** (see the list above). Only note where this venue changes a default or adds a requirement.
+8. **Facts in Location, behavior in Campaign, never both.** Capacities are facts. Which rooms may be offered for a guest count is an availability rule (Location → Availability Policy). How to talk about the rooms is behavior (Campaign). Prices the assistant may quote are facts; prices it may not quote are omitted entirely, with the deferral instruction as a Rules line.
+9. **Only include what can be said to a guest, plus availability rules.** If a number must never be quoted, it is not in Location. Rooms the booking system exposes but the assistant must never offer are one exclusion line in Availability Policy, not room blocks. Internal staffing rubrics, security tables, and "internal only" material are omitted.
+10. **Links live in Campaign → Links**, each with a name, the exact URL, and the condition for sharing it. Never write "see Location for the link".
+11. **Length.** Campaign Instructions: aim for about 1,200 words, never exceed 2,000. Location Details: as long as the facts require, with no sentence that is not a fact.
+12. **Formatting.** Template headings exactly, as `## Heading` lines. Bullets for lists, tables for pricing/capacities where useful. `[First Name]`-style brackets only inside Required Wording. A section with nothing to say keeps its heading plus "None." A field with nothing special says "Default."
+## Location Details template
+
+```
+Location Details - <Venue name>
+
+## Venue Overview
+<one to three sentences: concept, ambiance, what makes it different>
+
+## Address & Contact
+Address: <street, city, state, zip>
+Phone (general): <number>
+Website: <URL>
+Parking: <one line>
+
+## Hours & Blackout Dates
+<closures, seasonal hours, kitchen cut-offs, curfews, event-time limits that apply to every space>
+
+## Rooms
+<one block per space the assistant may offer or describe: room name (and system name if different), privacy, capacity by layout, features, AV, notes>
+
+## Availability Policy
+<plain, testable rules for which rooms may be offered for which guest counts; rooms that must never be offered even if the system shows them free; whole-day blocks; turnover and time-of-day limits>
+
+## Pricing
+<only prices the assistant may quote; table with space/item, guest count, days, time, F&B minimum, room fee, notes; per-unit activity pricing if applicable>
+
+## Menus
+<only menus and items the assistant may discuss; one line per item or tier with its price>
+
+## Fees & Taxes
+Service charge: <N% on F&B>
+Sales tax: <N%>
+Admin fee: <N%, taxable, not a gratuity>
+Gratuity: <policy>
+Other fees: <one per line>
+
+## Deposit & Payment
+Deposit: <amount or percentage, and when due>
+Final payment: <when due>
+Accepted methods: <list>
+Refundability: <policy>
+
+## Cancellation
+<the client's policy as a fact>
+
+## Booking Rules
+Minimum guests for a private event: <N>
+Maximum guests: <N>
+Minimum lead time: <e.g. 72 hours>
+Standard event duration: <e.g. 3 hours>
+Headcount guarantee due: <e.g. 48 hours before>
+Included in every rental: <one line>
+
+## Policies
+<every yes/no rule the venue applies, one row each, stated as a fact: outside food/catering, outside beverages, decor and open flame, entertainment, AV, age restrictions, bar service, planner requirement, etc.>
+
+## FAQs
+<plain facts, one to two sentences each, for questions whose answer does not already live in another section>
+
+## Sub-Venues
+<only when one location record covers more than one restaurant or concept; otherwise "None.">
+```
+
+## Campaign Instructions template
+
+```
+Campaign Instructions - <Venue / Campaign name>
+
+## Persona & Tone
+Personality: <one sentence>
+Tone rules: <only where this venue differs from the default, one per line>
+Salutation: <only if non-standard>
+
+## Handoff
+Follow-up window quoted to the guest: <e.g. "within 24 business hours">
+Overrides: <e.g. Friday after 5 PM through Sunday: "first thing Monday morning">
+Required before handoff: <fields beyond name, date, guest count>
+Coordinator routing: <None, or the rule: which lead types go to which coordinator>
+Skip qualification and hand off immediately when: <conditions>
+After handoff: <what the assistant does if the guest keeps texting>
+
+## Workflow Steps
+<only the steps where this venue differs from the default flow (confirm name -> confirm details -> collect missing date and guest count -> check availability -> hand off), plus any steps the default does not have. Each step: name, trigger (a condition), do, optional skip-if>
+
+## Rules
+<the single home for every behavior that is not a step, a link, a word swap, required wording, or a handoff. One line per situation: "When <situation>: <what to do, and what not to do>">
+
+## Links
+<every URL the assistant may send, with a plain name and the condition for sending it>
+
+## Vocabulary
+<word-for-word substitutions only, not a place for rules>
+
+## Required Wording
+AI disclosure: "<exact text, or None>"
+Legal / compliance: "<exact text and when it must be included, or None>"
+
+## Cross-Sell
+<only if cross-sell is enabled for this campaign; when alternatives may be offered and how to introduce them, otherwise "None.">
+```
+
+## Open Questions for the Client
+
+A numbered list. Each item names the fact, briefly notes why it's missing or conflicting, and asks one precise question that can be answered in a sentence. Include facts you deliberately omitted because they were unquotable only if the omission might surprise the client. When producing all three outputs together, group this list under "Location" and "Campaign" sub-headers rather than mixing them.
+
+## Self-check before you output
+
+Search your draft and fix every hit before producing the final answer:
+
+- Any of: new, revised, updated, retired, no longer, previously, unchanged, corrected, CONFIRM, TBD, pending, conflict, "Doc 1", "see Step", "Step 1", "Step 2", TripleSeat, CRM, Prospect, Tentative, Definite, "internal only", emoji, STOP.
+- Any quoted dialogue outside Required Wording, other than one "e.g." per workflow step.
+- Any situation appearing in more than one Rules line, or in a Rules line and a workflow step, or in a Rules line and Handoff.
+- Any dollar figure, menu item, or room that the source material says must never be quoted or offered.
+- Any sentence that tells the assistant how to behave inside Location Details, or states a venue fact inside Campaign Instructions.
+- Campaign Instructions word count over 2,000.
+Then produce the requested output(s), and nothing else.
+</script>
+
 <script>
 /* =================================================================
    INLINE ICON SYSTEM (no external CDN)
@@ -672,146 +834,12 @@ function foldLegacyBlocks(data){
    VERBATIM REFERENCE TEXT, embedded so "Copy for Claude" is
    fully self-contained (no need to dig up the source docs each time)
 ================================================================= */
-const WRITER_INSTRUCTIONS_TEXT = `LLM Writer Instructions
-
-Role
-You write configuration documents for an SMS assistant that qualifies private-event leads for a venue. You will receive a template and raw onboarding material (collected answers, and possibly raw notes/transcripts). You produce outputs, each in its own fenced block, exactly as requested at the end of this prompt.
-
-How your output is consumed
-Understand this before writing a word:
-Your documents are not read by the assistant. An extraction step converts them into a structured config (workflow steps, rules, rooms, links, etc.). Each sentence lands in one slot. Headings tell the extractor which slot.
-The assistant is rebuilt from scratch on every incoming text. It has no memory of earlier versions of these documents. Anything that describes change over time is noise.
-A base prompt already handles the texting basics and the standard flow (confirm name -> confirm details -> collect missing date and guest count -> check availability -> hand off). Your job is to describe where this venue differs, and to supply the facts the base prompt cannot know.
-The opening message is fixed by the platform ("Hi, this is {AI name} from {venue}. Is this {first name}?"). Do not write it.
-Coordinators' names and titles are injected from account settings. Only mention a coordinator when something is special (two coordinators routed by lead type, a non-standard follow-up window).
-The assistant has no concept of a CRM. Never write "check TripleSeat", "Prospect / Tentative / Definite", or "the system shows". Write "availability".
-
-Authoring rules
-These are absolute. Check every one before you output.
-Present tense only. Never write new, revised, updated, retired, no longer, previously, now, unchanged, corrected, or any comparison to an earlier version. Describe the current state as the only state.
-No uncertainty in the documents. If a fact is unconfirmed, conflicting between sources, or missing, it does not appear in the main document at all. It appears in Open Questions with the specific question to ask. Never write CONFIRM, NOT CONFIRMED, TBD, pending, "Doc 1 says", "worth checking", "note for the team", or brackets holding two candidate values.
-No process residue. No notes to the team, no explanations of why a section exists, no references to tickets, calls, or documents, no "see CAMPAIGN doc". The reader is a machine.
-One statement, one home. Place each statement with this test, stopping at the first match: a URL -> Links; a word swap -> Vocabulary; exact AI-disclosure or legal wording -> Required Wording; anything whose outcome is a handoff, or about the follow-up window, prerequisites for handoff, or conduct after handoff -> Handoff; something the assistant does proactively in sequence -> Workflow Steps; everything else -> Rules. Rules is one list, one line per situation, shaped "When <situation>: <what to do, including any never>". Never split one situation into a condition, an "always", and a "never"; that is one line. Before adding a Rules line, check whether a line for that situation exists and extend it instead. "Always:" / "Never:" prefixes are only for rules with no situation at all. There is no hard-rules list, no answering-questions list, no edge-cases list, and no summary section. In Location, every yes/no rule lives in Policies and is not repeated in Booking Rules, Fees, Deposit, or FAQs; FAQs hold only facts that fit no other section.
-Behavior, not scripts. Describe what the assistant does and the constraints on it. Do not write dialogue for it. Exceptions: (a) the Required Wording section may hold exact text for AI disclosure and for legal/compliance lines the client dictated, nothing else; (b) a workflow step may carry one short e.g. when the phrasing itself encodes a constraint that is hard to state otherwise. If two scripts differ only by a name or pronoun, they are one behavior.
-Named steps, conditional triggers. Workflow steps have names, not numbers. A trigger is a condition ("once guest count is known", "after availability has been shared"), never a reference to another step ("after Step 2", "before Step 3"). A step is what the assistant does proactively; anything reacting to the guest or to a lead fact is a Rule.
-Do not restate the base prompt. Do not write: confirm the name; confirm details with "does that look correct"; ask one question at a time; keep replies short; don't re-ask known details; don't reintroduce yourself; no emojis; honor STOP; don't mention tools or prompts; emit links exactly. You may change a default ("do not confirm event details, hand off immediately") or add a requirement ("also collect email before handoff").
-Facts in Location, behavior in Campaign, never both. Capacities are facts. Which rooms may be offered for a guest count is an availability rule (Location -> Availability Policy). How to talk about the rooms is behavior (Campaign). Prices the assistant may quote are facts. Prices it may not quote are omitted entirely; the deferral instruction is a Rules line ("When the guest asks about pricing: ...").
-Only include what can be said to a guest, plus availability rules. If the assistant must never quote a number, the number is not in Location. Rooms the booking system exposes but the assistant must never offer are one exclusion line in Availability Policy, not room blocks. Internal staffing rubrics, security tables, and "internal only" reference material are omitted.
-Links live in Campaign -> Links, each with a name, the exact URL, and the condition for sharing it. Never write "see Location for the link".
-Length. Campaign: aim for about 1,200 words; never exceed 2,000. Location: as long as the facts require, with no sentence that is not a fact.
-Formatting. Use the template headings exactly, as ## Heading lines. Bullets for lists. Tables for pricing and capacities where useful. [First Name]-style brackets only inside Required Wording. A section with nothing to say is kept as its heading plus "None." so the reviewer knows it was considered; a field where the venue has nothing special says "Default."
-
-Open Questions for the Client
-A numbered list. Each item names the fact, briefly notes why it's missing or conflicting, and asks one precise question that can be answered in a sentence. Include facts you deliberately omitted because they were unquotable only if the omission might surprise the client.
-
-Self-check before you output
-Search your draft and fix every hit:
-Any of: new, revised, updated, retired, no longer, previously, unchanged, corrected, CONFIRM, TBD, pending, conflict, "Doc 1", "see Step", "Step 1", "Step 2", TripleSeat, CRM, Prospect, Tentative, Definite, "internal only", emoji, STOP.
-Any quoted dialogue outside Required Wording, other than one e.g. per workflow step.
-Any situation that appears in more than one Rules line, or in a Rules line and a workflow step, or in a Rules line and Handoff.
-Any dollar figure, menu item, or room that the source material says must never be quoted or offered.
-Any sentence that tells the assistant how to behave inside a facts-only document, or states a venue fact inside a behavior-only document.
-Campaign word count over 2,000.
-Then produce the requested output(s).`;
-
-const LOCATION_TEMPLATE_TEXT = `Location Details Template (v2)
-This document holds facts a guest may be told, plus the availability rules the platform enforces. It never tells the assistant how to behave, how to phrase things, or what to say; that is the Campaign document. It never contains a price, menu item, or room the assistant is forbidden to mention: if it can't be said, it isn't here. It never contains notes to the team, unconfirmed values, or comparisons to earlier versions.
-
-Location Details - <Venue name>
-
-## Venue Overview
-<one to three sentences: concept, ambiance, what makes it different>
-
-## Address & Contact
-Address: <street, city, state, zip>
-Phone (general): <number>
-Website: <URL>
-Parking: <one line>
-
-## Hours & Blackout Dates
-<closures, seasonal hours, kitchen cut-offs, curfews, event-time limits that apply to every space>
-
-## Rooms
-<one block per space the assistant may offer or describe: room name (and system name if different), privacy, capacity by layout, features, AV, notes>
-
-## Availability Policy
-<plain, testable rules for which rooms may be offered for which guest counts; rooms that must never be offered even if the system shows them free; whole-day blocks; turnover and time-of-day limits>
-
-## Pricing
-<only prices the assistant may quote; table with space/item, guest count, days, time, F&B minimum, room fee, notes; per-unit activity pricing if applicable>
-
-## Menus
-<only menus and items the assistant may discuss; one line per item or tier with its price>
-
-## Fees & Taxes
-Service charge: <N% on F&B>
-Sales tax: <N%>
-Admin fee: <N%, taxable, not a gratuity>
-Gratuity: <policy>
-Other fees: <one per line>
-
-## Deposit & Payment
-Deposit: <amount or percentage, and when due>
-Final payment: <when due>
-Accepted methods: <list>
-Refundability: <policy>
-
-## Cancellation
-<the client's policy as a fact>
-
-## Booking Rules
-Minimum guests for a private event: <N>
-Maximum guests: <N>
-Minimum lead time: <e.g. 72 hours>
-Standard event duration: <e.g. 3 hours>
-Headcount guarantee due: <e.g. 48 hours before>
-Included in every rental: <one line>
-
-## Policies
-<every yes/no rule the venue applies, one row each, stated as a fact: outside food/catering, outside beverages, decor and open flame, entertainment, AV, age restrictions, bar service, planner requirement, etc.>
-
-## FAQs
-<plain facts, one to two sentences each, for questions whose answer does not already live in another section>
-
-## Sub-Venues
-<only when one location record covers more than one restaurant or concept; otherwise "None.">`;
-
-const CAMPAIGN_TEMPLATE_TEXT = `Campaign Instructions Template (v2)
-This document describes behavior. Venue facts (rooms, capacities, pricing, menus, hours, policies) belong in Location Details. Do not write the opening message, the coordinator's name or title, or anything the base prompt already does.
-
-Campaign Instructions - <Venue / Campaign name>
-
-## Persona & Tone
-Personality: <one sentence>
-Tone rules: <only where this venue differs from the default, one per line>
-Salutation: <only if non-standard>
-
-## Handoff
-Follow-up window quoted to the guest: <e.g. "within 24 business hours">
-Overrides: <e.g. Friday after 5 PM through Sunday: "first thing Monday morning">
-Required before handoff: <fields beyond name, date, guest count>
-Coordinator routing: <None, or the rule: which lead types go to which coordinator>
-Skip qualification and hand off immediately when: <conditions>
-After handoff: <what the assistant does if the guest keeps texting>
-
-## Workflow Steps
-<only the steps where this venue differs from the default flow (confirm name -> confirm details -> collect missing date and guest count -> check availability -> hand off), plus any steps the default does not have. Each step: name, trigger (a condition), do, optional skip-if>
-
-## Rules
-<the single home for every behavior that is not a step, a link, a word swap, required wording, or a handoff. One line per situation: "When <situation>: <what to do, and what not to do>">
-
-## Links
-<every URL the assistant may send, with a plain name and the condition for sending it>
-
-## Vocabulary
-<word-for-word substitutions only, not a place for rules>
-
-## Required Wording
-AI disclosure: "<exact text, or None>"
-Legal / compliance: "<exact text and when it must be included, or None>"
-
-## Cross-Sell
-<only if cross-sell is enabled for this campaign; when alternatives may be offered and how to introduce them, otherwise "None.">`;
+/* The skill text lives in a text/plain block in the body rather than in a
+   template literal here. It is reproduced verbatim from the hermetic-venue-config
+   skill, and a template literal would mean escaping every backtick and every
+   ${ in it -- which is exactly how a copy drifts from its original. As plain
+   text it can be diffed against the skill file line for line. */
+const SKILL_TEXT = (document.getElementById('skillText') || { textContent:'' }).textContent.trim();
 
 /* =================================================================
    STORAGE: Google Sheet sync (via Apps Script web app) over a
@@ -1079,9 +1107,18 @@ function mergeRecords(kind, local, remote){
   const fn = MERGERS[kind];
   if (!fn) return (remote.updatedAt || 0) >= (local.updatedAt || 0) ? remote : local;
   const out = fn(local, remote);
+  // createdAt is the one field a merge must never invent. blankRecord stamps it
+  // with the current time, so a merger built on one produces a record that
+  // differs from the one it just merged -- which applyRemote reads as a change
+  // and pushes back, on every poll, for every client, forever. Settle it here
+  // so no merger can get it wrong.
+  const born = Math.min(local.createdAt || Infinity, remote.createdAt || Infinity);
+  if (born === Infinity) delete out.createdAt; else out.createdAt = born;
   out.rev = Math.max(local.rev || 0, remote.rev || 0);
   out.updatedAt = Math.max(local.updatedAt || 0, remote.updatedAt || 0);
-  out.lastWriter = (remote.updatedAt || 0) >= (local.updatedAt || 0) ? remote.lastWriter : local.lastWriter;
+  const newer = (remote.updatedAt || 0) >= (local.updatedAt || 0) ? remote : local;
+  out.lastWriter = newer.lastWriter;
+  if (newer.lastWriterName) out.lastWriterName = newer.lastWriterName;
   return out;
 }
 
@@ -1132,6 +1169,12 @@ function saveRecord(key, record){
   record.rev = (record.rev || 0) + 1;
   record.updatedAt = Date.now();
   record.lastWriter = CLIENT_ID;
+  // The id is what merges tie-break on; the name is what a person reading the
+  // spreadsheet needs. Absent rather than empty when nobody has set a name:
+  // a key that is always present but sometimes blank makes every merged record
+  // differ from the one on the wire, which applyRemote reads as a change and
+  // pushes straight back, for every record, on every poll.
+  if (displayName) record.lastWriterName = displayName; else delete record.lastWriterName;
   localWrite(key, record);
   if (syncUrl){
     writeQueue.set(key, record);
@@ -1367,6 +1410,32 @@ function applyRemote(items){
   // Rows absent from the Sheet stay in the mirror on purpose: a value that
   // exists only locally is usually one whose upload has not landed yet.
   return changed;
+}
+
+/* The readable view in the spreadsheet needs to know what the sections are
+   called, and the schema lives here, not in the Apps Script. Publishing it as a
+   plain row keeps the two from drifting: rename a section in this file and the
+   spreadsheet picks up the new wording on its next refresh, with no second copy
+   to remember to update. Written straight past the record machinery -- it has
+   no fields to merge, and every browser publishes the same thing. */
+function publishSchema(){
+  if (!syncUrl) return;
+  const parts = VENUE_PARTS.map(part => ({
+    title: part.title,
+    sections: part.schema.filter(s => s.type === 'block').map(s => ({ key: s.key, title: s.title }))
+  }));
+  const key = 'hermetic:schema';
+  const stored = localRead(key);
+  // Compare the shape, not the stamp, so an unchanged schema is not rewritten
+  // by every browser on every load.
+  if (stored && JSON.stringify(stored.parts) === JSON.stringify(parts)) return;
+  const payload = { parts, updatedAt: Date.now() };
+  localWrite(key, payload);
+  fetch(syncUrl, {
+    method: 'POST',
+    headers: { 'Content-Type':'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action:'set', key, value: JSON.stringify(payload) })
+  }).catch(()=>{});   // the next load republishes it
 }
 
 /* =================================================================
@@ -1611,7 +1680,7 @@ async function verifyLocationFiles(accountId, venueId, opts){
     paths.noTouch = true;    // Drive being tidied is not an edit to the answers
     return paths;
   });
-  if (applied) await renderMain({ preserveFocus: true });
+  if (applied) await renderMain({ preserveFocus: true, background: true });
 }
 
 /* =================================================================
@@ -1624,6 +1693,7 @@ async function verifyLocationFiles(accountId, venueId, opts){
 let state = {
   accounts: [],                  // derived from the mirror by readTopLevelState()
   currentAccountId: null,
+  view: 'main',                  // 'main' or 'settings'; a background repaint respects it
   settings: { rootFolderName: "ONBOARDING - Custom Prompt Uploads", rootFolderId: "" },
   openItemIds: new Set(),
   openVersionKeys: new Set(),
@@ -2013,7 +2083,7 @@ function onRemoteChange(){
   // Repainting now would tear out the progress bar of a file that is still
   // going up. The next poll picks the change up a few seconds later.
   if (busyUploads.size) return;
-  renderMain({ preserveFocus: true });
+  renderMain({ preserveFocus: true, background: true });
 }
 
 function focusSnapshot(){
@@ -2062,6 +2132,7 @@ async function init(){
   // it, because the rows it needs to fold may only have arrived just now.
   const changed = await hydrate();
   migrateToRecords();
+  publishSchema();
   startPolling();
   startHeartbeat();
   if (!changed) return;
@@ -2185,6 +2256,11 @@ function skeletonList(rows){
 let renderGeneration = 0;
 
 async function renderMain(opts){
+  // A pull landing while someone is in Settings used to throw them back to the
+  // location list mid-sentence. Anything the person did not ask for says so,
+  // and gets to be ignored; navigating here is still always honoured.
+  if (opts && opts.background && state.view !== 'main') return;
+  state.view = 'main';
   const generation = ++renderGeneration;
   const content = document.getElementById('content');
   const title = document.getElementById('pageTitle');
@@ -2254,6 +2330,8 @@ function renderSchemaSection(itemId, data, sec){
 
 /* Version entries hold both documents. Entries saved before the two tabs were
    combined hold a single `doc` plus the kind it came from. */
+/* Location first, matching the order the skill produces the blocks in for
+   material covering a location and its campaign together. */
 function versionDocs(v){
   if (v.locationDoc !== undefined || v.campaignDoc !== undefined){
     return [['Location Details', v.locationDoc || ''], ['Campaign Instructions', v.campaignDoc || '']];
@@ -2441,30 +2519,24 @@ async function copyForClaude(account, item){
     ? docs.map(d => `- ${d.category || 'Other'}: ${d.name}${d.link ? ` (${d.link})` : ''}`).join('\n')
     : 'None uploaded in the console.';
   const sourceMaterial = (item.data.source_material || '').trim();
-  const text = `${WRITER_INSTRUCTIONS_TEXT}
-
----
-
-TEMPLATE 1: LOCATION DETAILS
-
-${LOCATION_TEMPLATE_TEXT}
-
----
-
-TEMPLATE 2: CAMPAIGN INSTRUCTIONS
-
-${CAMPAIGN_TEMPLATE_TEXT}
+  /* Everything above the divider is the skill, unchanged. Everything below is
+     only this location's material and which of the skill's three cases applies.
+     The console always collects a location and its campaign together, so that
+     is always the "both together" case, and the skill fixes the order for it:
+     Campaign Instructions, then Location Details, then one combined Open
+     Questions list. */
+  const text = `${SKILL_TEXT}
 
 ---
 
 ACCOUNT: ${account.name}
-VENUE: ${item.name}
+LOCATION: ${item.name}
 
 CLIENT FILES (attached to this chat):
 
 ${fileList}
 
-How to use these sources: ${FILE_SOURCED_LABEL} are not collected in the console at all. Take them from the attached files and structure them yourself against Template 1. The answers below cover everything else; each heading holds one free-form note, so read it for the facts it contains rather than expecting a fixed field order, and treat an empty one as "nothing special here." Where a typed answer below and a file disagree, the typed answer wins. Anything still missing, unconfirmed, or contradictory goes in Open Questions, never into the documents.
+How to use these sources: ${FILE_SOURCED_LABEL} are not collected in the console at all. Take them from the attached files and structure them yourself against the Location Details template. The answers below cover everything else; each heading holds one free-form note, so read it for the facts it contains rather than expecting a fixed field order, and treat an empty one as "nothing special here." Where a typed answer below and a file disagree, the typed answer wins. Anything still missing, unconfirmed, or contradictory goes in Open Questions, never into the documents.
 
 COLLECTED ANSWERS: LOCATION FACTS (for Location Details):
 
@@ -2477,12 +2549,7 @@ ${behavior}
 ${sourceMaterial ? `\nRAW SOURCE MATERIAL (call notes, documents):\n\n${sourceMaterial}\n` : ''}
 ---
 
-Produce three fenced blocks only:
-1. LOCATION DETAILS. Template 1, facts only.
-2. CAMPAIGN INSTRUCTIONS. Template 2, behavior only.
-3. OPEN QUESTIONS FOR THE CLIENT. Every fact across both documents that is unconfirmed, conflicting, or missing.
-
-Follow every authoring rule and the self-check exactly before you output.`;
+This material covers one location and its campaign together.`;
   await navigator.clipboard.writeText(text);
 }
 
@@ -3072,6 +3139,7 @@ function wireVenuesList(account, items){
 document.getElementById('btnSettings').addEventListener('click', renderSettings);
 
 function renderSettings(){
+  state.view = 'settings';
   const content = document.getElementById('content');
   document.getElementById('pageTitle').textContent = 'Settings';
   document.getElementById('pageMeta').textContent = 'Sync, Drive naming, and backup for your whole team.';
