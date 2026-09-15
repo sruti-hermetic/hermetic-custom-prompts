@@ -3,11 +3,35 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hermetic AI — Account setup</title>
+<title>Hermetic AI: Account setup</title>
+<!-- Both font hosts get their own handshake up front: the General Sans files sit
+     on cdnfonts, and the Google Fonts CSS hands off to gstatic for the actual
+     woff2. The General Sans @font-face rules are declared inline below rather
+     than pulled from the cdnfonts stylesheet, which was render-blocking, listed
+     twelve faces for the three this page uses, and set no font-display -- so
+     every bit of text stayed invisible until the font arrived. -->
+<link rel="preconnect" href="https://fonts.cdnfonts.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.cdnfonts.com/css/general-sans">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="font" type="font/woff" href="https://fonts.cdnfonts.com/s/85793/GeneralSans-Regular.woff" crossorigin>
+<link rel="preload" as="font" type="font/woff" href="https://fonts.cdnfonts.com/s/85793/GeneralSans-Medium.woff" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
+  /* font-display:swap renders in the fallback face immediately and swaps General
+     Sans in when it lands, instead of blanking the text while it downloads. */
+  @font-face{
+    font-family:'General Sans'; font-style:normal; font-weight:400; font-display:swap;
+    src:local('General Sans'), url('https://fonts.cdnfonts.com/s/85793/GeneralSans-Regular.woff') format('woff');
+  }
+  @font-face{
+    font-family:'General Sans'; font-style:normal; font-weight:500; font-display:swap;
+    src:local('General Sans'), url('https://fonts.cdnfonts.com/s/85793/GeneralSans-Medium.woff') format('woff');
+  }
+  @font-face{
+    font-family:'General Sans'; font-style:normal; font-weight:600; font-display:swap;
+    src:local('General Sans'), url('https://fonts.cdnfonts.com/s/85793/GeneralSans-Semibold.woff') format('woff');
+  }
+
   :root{
     --night-ink: oklch(0.198 0.017 257);
     --evening-slate: oklch(0.375 0.039 257);
@@ -49,8 +73,12 @@
 
     --shadow-hover: 0 1px 3px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.05);
   }
-  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } .icon.spin{ animation:none !important; } }
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } .icon.spin{ animation:none !important; } .progress-fill.indeterminate{ animation:none !important; width:100% !important; } }
   *{ box-sizing:border-box; }
+  /* The browser hides [hidden] with a UA rule, which any author display rule
+     silently beats. .upload-progress is display:flex, so its progress bar sat
+     on screen permanently, next to a picker that had not been used yet. */
+  [hidden]{ display:none !important; }
   html, body{ min-height:100%; }
   body{ margin:0; background:var(--clean-linen); color:var(--night-ink); font-family:'General Sans', -apple-system, BlinkMacSystemFont, sans-serif; letter-spacing:-0.01em; font-size:14px; line-height:1.5; }
   button, input, textarea{ font-family:inherit; letter-spacing:-0.01em; }
@@ -98,6 +126,48 @@
   .nav-item .name{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .nav-empty{ padding:var(--space-4) var(--space-3); color:var(--mid-slate); font-size:12.5px; }
   .sync-pill{ margin:0 var(--space-3) var(--space-3); }
+  .topbar-right{ display:flex; align-items:center; gap:var(--space-3); }
+  .peer-dot{
+    margin-left:auto; flex:none; min-width:18px; height:18px; padding:0 5px;
+    display:inline-flex; align-items:center; justify-content:center;
+    border-radius:var(--radius-full); font-size:11px; font-weight:600;
+    background:var(--badge-warning-bg); border:1px solid var(--badge-warning-border);
+    color:var(--badge-warning-text);
+  }
+  .name-gate{
+    display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2);
+    margin:var(--space-5) var(--space-8) 0; padding:var(--space-3) var(--space-4);
+    background:var(--badge-info-bg); border:1px solid var(--badge-info-border);
+    border-radius:var(--radius-lg); color:var(--venue-blue-deep); font-size:13px;
+  }
+  .name-gate input{ max-width:200px; height:32px; }
+  .modal-overlay{
+    position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center;
+    padding:var(--space-4); background:oklch(0.198 0.017 257 / 0.38);
+  }
+  .modal{
+    width:100%; max-width:440px; max-height:calc(100vh - 2 * var(--space-4)); overflow:auto;
+    background:var(--canvas); border:1px solid var(--border-default);
+    border-radius:var(--radius-xl); padding:var(--space-6);
+    box-shadow:0 10px 30px rgba(0,0,0,0.14);
+  }
+  .modal .field{ margin-bottom:var(--space-4); }
+  .modal-actions{ display:flex; gap:var(--space-2); justify-content:flex-end; margin-top:var(--space-5); }
+  .modal-check{ display:flex; gap:var(--space-2); align-items:flex-start; font-size:13px; color:var(--evening-slate); }
+  .modal-check input{ margin-top:2px; flex:none; }
+  .modal-body{ font-size:13.5px; line-height:1.55; color:var(--evening-slate); margin-bottom:var(--space-4); }
+  .modal-body strong{ color:var(--night-ink); font-weight:600; }
+  .modal-body ul{ margin:var(--space-2) 0 0; padding-left:var(--space-5); }
+  .modal-body li{ margin-bottom:var(--space-1); }
+
+  /* Delete sits on the account row itself, the way it does on a location card.
+     Hidden until the row is hovered or something in it takes focus, so the
+     sidebar stays a list of names rather than a row of controls. */
+  .nav-item .nav-delete{ opacity:0; width:22px; height:22px; flex:none; margin-left:2px; }
+  .nav-item:hover .nav-delete, .nav-item .nav-delete:focus-visible{ opacity:1; }
+  .nav-item .nav-delete:hover{ background:var(--badge-destructive-bg); color:var(--alert-red); }
+  .nav-item.active .nav-delete{ color:var(--clean-linen); }
+  .nav-item.active .nav-delete:hover{ background:oklch(1 0 0 / 0.22); color:var(--clean-linen); }
 
   .main{ flex:1; min-width:0; align-self:stretch; display:flex; flex-direction:column; background:var(--canvas); }
   .topbar{ display:flex; align-items:flex-start; justify-content:space-between; padding:var(--space-5) var(--space-8); border-bottom:1px solid var(--border-subtle); gap:var(--space-4); }
@@ -114,6 +184,9 @@
   .btn-outline:hover{ background:oklch(0.984 0.003 248); border-color:var(--evening-slate); }
   .btn-ghost{ background:transparent; color:var(--evening-slate); }
   .btn-ghost:hover{ background:oklch(0.926 0.013 255 / 0.6); }
+  .btn-danger{ background:var(--alert-red); color:var(--clean-linen); }
+  .btn-danger:hover{ background:oklch(0.47 0.20 29); box-shadow:var(--shadow-hover); }
+  .btn-danger:active{ transform:scale(0.98); }
 
   .badge{ display:inline-flex; align-items:center; gap:5px; height:22px; padding:0 var(--space-2); border-radius:var(--radius-full); font-size:12px; font-weight:500; border:1px solid; white-space:nowrap; }
   .badge-slate{ background:var(--badge-slate-bg); border-color:var(--badge-slate-border); color:var(--badge-slate-text); }
@@ -136,6 +209,51 @@
   input[type=text].input{ height:36px; }
   textarea.input{ padding:var(--space-2-5); min-height:44px; resize:vertical; line-height:1.5; }
   input.input:focus, textarea.input:focus{ outline:none; border-color:var(--venue-blue); box-shadow:0 0 0 2px var(--canvas), 0 0 0 4px oklch(0.432 0.193 267 / 0.35); }
+  /* select carried .input but matched no rule, so it rendered as a raw native
+     control next to styled inputs. Same box as a text input, with the native
+     arrow replaced so it looks the same in every browser. */
+  select.input{
+    height:36px; padding:0 30px 0 var(--space-2-5);
+    border:1px solid var(--border-default); border-radius:var(--radius-md);
+    background-color:var(--canvas); color:var(--night-ink); font-size:13.5px;
+    appearance:none; -webkit-appearance:none; cursor:pointer;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23697586' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 10px center; background-size:14px;
+  }
+  select.input:hover{ border-color:var(--mid-slate); }
+  select.input:focus{ outline:none; border-color:var(--venue-blue); box-shadow:0 0 0 2px var(--canvas), 0 0 0 4px oklch(0.432 0.193 267 / 0.35); }
+
+  /* The native file input cannot be styled, so it is hidden and a label drives
+     it. The label stays keyboard reachable because the input keeps focus. */
+  .upload-row{ display:flex; gap:var(--space-2); flex-wrap:wrap; align-items:center; }
+  .upload-row select.input{ flex:0 0 auto; max-width:200px; }
+  .file-input{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+  .file-picker{
+    display:inline-flex; align-items:center; gap:var(--space-2);
+    flex:1; min-width:200px; height:36px; padding:0 var(--space-3);
+    border:1px dashed var(--border-default); border-radius:var(--radius-md);
+    background:var(--clean-linen); color:var(--mid-slate);
+    font-size:13px; cursor:pointer; overflow:hidden;
+  }
+  .file-picker:hover{ border-color:var(--venue-blue); background:var(--venue-blue-tint); color:var(--venue-blue-deep); }
+  .file-input:focus-visible + .file-picker{ outline:none; border-color:var(--venue-blue); box-shadow:0 0 0 2px var(--canvas), 0 0 0 4px oklch(0.432 0.193 267 / 0.35); }
+  .file-picker.has-file{ border-style:solid; border-color:var(--venue-blue); background:var(--canvas); color:var(--night-ink); }
+  .file-picker .file-name{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .file-picker .icon{ flex:none; }
+
+  /* Takes the picker's place while a file is going up, so the row does not
+     jump and the indicator sits exactly where the attention already is. */
+  .upload-progress{ display:flex; flex-direction:column; justify-content:center; gap:5px; flex:1; min-width:200px; height:36px; }
+  .upload-progress-head{ display:flex; align-items:center; justify-content:space-between; gap:var(--space-2); font-size:12.5px; color:var(--evening-slate); }
+  .upload-progress-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .upload-progress-pct{ flex:none; font-variant-numeric:tabular-nums; color:var(--venue-blue-deep); font-weight:500; }
+  .progress-track{ height:5px; border-radius:var(--radius-full); background:var(--border-subtle); overflow:hidden; }
+  .progress-fill{ height:100%; width:0%; border-radius:inherit; background:var(--venue-blue); transition:width 0.18s ease; }
+  /* Once the bytes are sent there is nothing left to measure, so the bar stops
+     claiming to know and just shows that work is still happening. */
+  .progress-fill.indeterminate{ width:35%; animation:progress-slide 1.1s ease-in-out infinite; transition:none; }
+  @keyframes progress-slide{ from{ margin-left:-35%; } to{ margin-left:100%; } }
+
   .inline-add{ display:flex; gap:var(--space-2); margin-bottom:var(--space-5); }
   .inline-add input{ flex:1; }
 
@@ -145,6 +263,15 @@
   .empty-state{ display:flex; flex-direction:column; align-items:center; text-align:center; gap:var(--space-2); padding:var(--space-12) var(--space-6); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); color:var(--mid-slate); }
   .empty-state .icon-lg{ color:var(--mid-slate); margin-bottom:var(--space-1); }
   .empty-state .t-title{ color:var(--night-ink); }
+
+  /* Shown only on a first visit, while the one hydrate request fills the local
+     mirror. Repeat visits paint the real cards straight from the mirror. */
+  .skeleton{ pointer-events:none; }
+  .skeleton-card{ border:1px solid var(--border-default); border-radius:var(--radius-lg); background:var(--canvas); margin-bottom:var(--space-3); padding:var(--space-4); display:flex; align-items:center; gap:var(--space-3); }
+  .shimmer{ background:linear-gradient(90deg, var(--border-subtle) 25%, var(--clean-linen) 37%, var(--border-subtle) 63%); background-size:400% 100%; animation:shimmer 1.4s ease-in-out infinite; border-radius:var(--radius-sm); height:12px; }
+  .shimmer.sq{ width:16px; height:16px; flex-shrink:0; }
+  @keyframes shimmer{ from{ background-position:100% 50%; } to{ background-position:0 50%; } }
+  @media (prefers-reduced-motion: reduce){ .shimmer{ animation:none !important; } }
 
   .card{ border:1px solid var(--border-default); border-radius:var(--radius-lg); background:var(--canvas); margin-bottom:var(--space-3); }
   .card-header{ display:flex; align-items:center; gap:var(--space-2); padding:var(--space-4); cursor:pointer; }
@@ -171,7 +298,14 @@
   @media (max-width:600px){ .group-row-fields{ grid-template-columns:1fr; } }
 
   .doc-list{ display:flex; flex-wrap:wrap; gap:var(--space-2); margin:var(--space-2) 0 var(--space-3); }
-  .doc-chip{ display:inline-flex; align-items:center; gap:5px; font-size:12.5px; padding:5px var(--space-2-5); background:var(--clean-linen); border:1px solid var(--border-default); border-radius:var(--radius-full); }
+  .doc-chip{ display:inline-flex; align-items:center; gap:var(--space-1-5); max-width:100%; font-size:12.5px; padding:5px var(--space-1-5) 5px var(--space-2-5); background:var(--canvas); border:1px solid var(--border-default); border-radius:var(--radius-md); }
+  .doc-chip:hover{ border-color:var(--mid-slate); box-shadow:var(--shadow-hover); }
+  .doc-chip a{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
+  .doc-chip .icon-btn:hover{ background:var(--badge-destructive-bg); color:var(--alert-red); }
+  .doc-chip.gone{ border-style:dashed; border-color:var(--badge-destructive-border); background:var(--badge-destructive-bg); color:var(--badge-destructive-text); }
+  .doc-chip.gone:hover{ border-color:var(--alert-red); box-shadow:none; }
+  .doc-gone-name{ text-decoration:line-through; opacity:0.75; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:200px; }
+  .doc-moved{ font-size:11.5px; color:var(--warm-amber); white-space:nowrap; }
 
   .banner{ display:flex; align-items:flex-start; gap:var(--space-2); padding:var(--space-2-5) var(--space-3); border-radius:var(--radius-md); border:1px solid; font-size:13px; margin-top:var(--space-2); }
   .banner-info{ background:var(--badge-info-bg); border-color:var(--badge-info-border); color:var(--badge-info-text); }
@@ -216,13 +350,18 @@
     <div class="topbar">
       <div>
         <div class="t-display" id="pageTitle">Accounts</div>
-        <div class="t-caption topbar-meta" id="pageMeta">Add an account to set up venues for Mia.</div>
+        <div class="t-caption topbar-meta" id="pageMeta">Add an account to set up locations for Mia.</div>
       </div>
-      <button class="btn btn-outline" id="btnSettings"></button>
+      <div class="topbar-right">
+        <div id="presenceBar"></div>
+        <button class="btn btn-outline" id="btnSettings"></button>
+      </div>
     </div>
+    <div id="nameGate"></div>
     <div class="content" id="content"></div>
   </main>
 </div>
+<div id="modalRoot"></div>
 
 <script>
 /* =================================================================
@@ -248,7 +387,10 @@ const ICONS = {
   'info': '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
   'link-2': '<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/>',
   'download': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
-  'upload': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>'
+  'upload': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>',
+  'users': '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  'refresh-cw': '<path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-6.7-3H8"/><path d="M3 12a9 9 0 0 1 9-9 9 9 0 0 1 6.7 3H16"/><polyline points="3 4 3 9 8 9"/><polyline points="21 20 21 15 16 15"/>',
+  'copy-plus': '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/><line x1="15.5" y1="12" x2="15.5" y2="18"/><line x1="12.5" y1="15" x2="18.5" y2="15"/>'
 };
 function icon(name, cls, sizePx){
   const inner = ICONS[name] || '';
@@ -322,12 +464,12 @@ const FAQ_FIELDS = [
   {path:'answer', label:'Fact / answer', kind:'textarea', full:true}
 ];
 /* One box per template section. `hint` is the outline of what belongs in the
-   box — it mirrors the matching heading in the Location Details template. */
+   box, mirroring the matching heading in the Location Details template. */
 const LOCATION_SCHEMA = [
-  {type:'block', key:'overview', title:'Venue overview', hint:[
+  {type:'block', key:'overview', title:'Location overview', hint:[
     'Concept and cuisine',
     'Ambiance',
-    'What makes it different from other venues'
+    'What makes it different from other locations'
   ], placeholder:'One to three sentences.'},
 
   {type:'block', key:'address_contact', title:'Address & contact', hint:[
@@ -384,17 +526,17 @@ const LOCATION_SCHEMA = [
     'What is included in every rental'
   ]},
 
-  {type:'block', key:'sub_venues_text', title:'Sub-venues', hint:[
-    'Only when one venue record covers more than one restaurant or concept',
+  {type:'block', key:'sub_venues_text', title:'Sub-locations', hint:[
+    'Only when one location record covers more than one restaurant or concept',
     'Each name, plus one line on how it differs'
-  ], placeholder:'Leave blank if this venue is a single concept.'}
+  ], placeholder:'Leave blank if this location is a single concept.'}
 ];
 
-/* Same shape for the behavior half — one box per Campaign Instructions heading. */
+/* Same shape for the behavior half: one box per Campaign Instructions heading. */
 const CAMPAIGN_SCHEMA = [
   {type:'block', key:'persona_text', title:'Persona & tone', hint:[
     'Personality, in one sentence',
-    'Tone rules, only where this venue differs from the default',
+    'Tone rules, only where this location differs from the default',
     'Salutation, only if non-standard'
   ], placeholder:'e.g. Say "our team", never "sales".'},
 
@@ -428,8 +570,8 @@ const CAMPAIGN_SCHEMA = [
   ], placeholder:'Say "celebration" instead of "party".'},
 
   {type:'block', key:'wording_text', title:'Required wording', hint:[
-    'AI disclosure — the exact approved wording, if any',
-    'Legal or compliance wording — the exact text, and when it is required'
+    'AI disclosure: the exact approved wording, if any',
+    'Legal or compliance wording: the exact text, and when it is required'
   ]},
 
   {type:'block', key:'cross_sell_text', title:'Cross-sell', hint:[
@@ -457,7 +599,7 @@ const FILE_SOURCED_LABEL = 'rooms and capacities, pricing, menus, policies and F
    Claude" still asks for the two documents separately, so the extraction step
    downstream is unchanged. */
 const VENUE_PARTS = [
-  { id:'facts', title:'Venue facts', schema: LOCATION_SCHEMA,
+  { id:'facts', title:'Location facts', schema: LOCATION_SCHEMA,
     caption:'What the files do not carry, plus the availability rules. Becomes the Location Details document.' },
   { id:'behavior', title:'Assistant behavior', schema: CAMPAIGN_SCHEMA,
     caption:'How Mia talks, what she does in order, and when she hands off. Becomes the Campaign Instructions document.' }
@@ -527,7 +669,7 @@ function foldLegacyBlocks(data){
 }
 
 /* =================================================================
-   VERBATIM REFERENCE TEXT — embedded so "Copy for Claude" is
+   VERBATIM REFERENCE TEXT, embedded so "Copy for Claude" is
    fully self-contained (no need to dig up the source docs each time)
 ================================================================= */
 const WRITER_INSTRUCTIONS_TEXT = `LLM Writer Instructions
@@ -672,64 +814,714 @@ Legal / compliance: "<exact text and when it must be included, or None>"
 <only if cross-sell is enabled for this campaign; when alternatives may be offered and how to introduce them, otherwise "None.">`;
 
 /* =================================================================
-   STORAGE — Google Sheet sync (via Apps Script web app) with
-   automatic localStorage fallback/mirror
-================================================================= */
-let syncUrl = localStorage.getItem('hermetic:syncUrl') || '';
+   STORAGE: Google Sheet sync (via Apps Script web app) over a
+   localStorage mirror
 
-async function kvGet(key){
-  if (syncUrl){
-    try{
-      const res = await fetch(`${syncUrl}?action=get&key=${encodeURIComponent(key)}`);
-      const data = await res.json();
-      if (data.value !== undefined && data.value !== null){
-        localStorage.setItem(key, data.value);
-        return JSON.parse(data.value);
-      }
-      return null;
-    }catch(e){ console.warn('Sheet get failed, using local cache:', e); }
+   Every shared key lives in localStorage as well as in the Sheet.
+   Reads come out of that mirror, so the first paint never waits on a
+   network round trip, and edits are written locally before they are
+   sent -- a specialist mid-call never types into a form that is
+   blocked on a round trip.
+
+   The Sheet is reached through an Apps Script web app, where each
+   /exec call costs roughly a second and same-user calls are executed
+   one at a time. Everything below is shaped by that: one batched
+   getAll per pull rather than a call per key, deltas by `since` once
+   the first pull has landed, and writes coalesced per key.
+
+   Several specialists use this at once, each on a live call, so the
+   layer underneath is built to converge rather than to take turns.
+   See RECORDS for how that works.
+================================================================= */
+const KV_PREFIX = 'hermetic:';
+/* Never leaves this browser. The sync URL is per-deployment; the client id and
+   display name are how this browser introduces itself to everyone else. */
+const KV_LOCAL_ONLY = new Set([
+  'hermetic:syncUrl', 'hermetic:clientId', 'hermetic:displayName', 'hermetic:dirtyKeys'
+]);
+
+let syncUrl = localStorage.getItem('hermetic:syncUrl') || '';
+let kvHydrated = false;          // the mirror has been reconciled with the Sheet
+let kvHydrating = null;          // single-flight first pull
+let serverVersion = 0;           // 0 until a getAll answers; < 3 has no ifRev guard
+let lastPullAt = 0;              // server clock as of the last successful pull
+
+/* This browser's identity. The id is stable so presence rows do not multiply
+   every reload; the name is what teammates actually see. */
+const CLIENT_ID = (function(){
+  let v = localStorage.getItem('hermetic:clientId');
+  if (!v){
+    v = 'c_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
+    localStorage.setItem('hermetic:clientId', v);
   }
+  return v;
+})();
+let displayName = localStorage.getItem('hermetic:displayName') || '';
+
+function localRead(key){
   const raw = localStorage.getItem(key);
-  return raw ? JSON.parse(raw) : null;
+  if (raw === null) return null;
+  try{ return JSON.parse(raw); }
+  catch(e){ console.warn('Unreadable local value for', key, e); return null; }
 }
-async function kvSet(key, value){
-  const json = JSON.stringify(value);
-  localStorage.setItem(key, json);
-  if (syncUrl){
-    try{
-      await fetch(syncUrl, {
-        method:'POST',
-        headers:{ 'Content-Type':'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action:'set', key, value: json })
-      });
-    }catch(e){ console.warn('Sheet set failed, saved locally only:', e); }
+function localWrite(key, value){
+  try{ localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value)); }
+  catch(e){ console.warn('Could not mirror', key, 'locally:', e); }
+}
+function localKeys(prefix){
+  const out = [];
+  for (let i = 0; i < localStorage.length; i++){
+    const k = localStorage.key(i);
+    if (!k || !k.startsWith(prefix || KV_PREFIX)) continue;
+    if (KV_LOCAL_ONLY.has(k)) continue;
+    out.push(k);
   }
-  return true;
+  return out;
 }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* =================================================================
+   RECORDS
+
+   Everything shared lives in its own row: one per account
+   (hermetic:account:<id>), one per venue
+   (hermetic:venue:<accountId>:<venueId>), one per venue's version
+   history, one for settings. Nothing is stored as a list, so two
+   people adding accounts at the same time cannot overwrite each
+   other's -- there is no shared list to rewrite. The sidebar is
+   derived from whichever account rows exist.
+
+   Within a record, every field carries its own timestamp in fieldTs.
+   A merge is per field, so one specialist typing into "Pricing" and
+   another into "Policies" on the same venue both keep their work.
+   Ties break on the writer's client id, so every browser resolves an
+   exact tie the same way and the mirrors converge.
+
+   Deletes are tombstones (deleted: true). A removed row could not
+   propagate -- the Sheet has no delete, and a reader could not tell a
+   deletion from a row it had simply never seen.
+================================================================= */
+const RECORD_KINDS = {
+  account:  { prefix: 'hermetic:account:',  scalars: ['name', 'drive_link', 'deleted'] },
+  venue:    { prefix: 'hermetic:venue:',    scalars: ['name', 'deleted'] },
+  versions: { prefix: 'hermetic:versions:' },
+  presence: { prefix: 'hermetic:presence:' },
+  settings: { prefix: 'hermetic:settings'   }
+};
+
+function kindOfKey(key){
+  if (key === 'hermetic:settings') return 'settings';
+  for (const [kind, def] of Object.entries(RECORD_KINDS)){
+    if (kind !== 'settings' && key.startsWith(def.prefix)) return kind;
+  }
+  return null;
+}
+function accountKey(id){ return `hermetic:account:${id}`; }
+function venueKey(accountId, venueId){ return `hermetic:venue:${accountId}:${venueId}`; }
+function versionsKey(venueId){ return `hermetic:versions:${venueId}`; }
+
+function newId(prefix){
+  return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7);
+}
+function blankRecord(extra){
+  return Object.assign({ rev: 0, updatedAt: 0, createdAt: Date.now(), fieldTs: {}, lastWriter: CLIENT_ID }, extra);
+}
+/* Stamp a field as changed now. Every mutation goes through this -- a field
+   written without a stamp looks infinitely old and loses every merge. */
+function stampField(record, path, at){
+  record.fieldTs = record.fieldTs || {};
+  record.fieldTs[path] = at || Date.now();
+}
+function tsOf(record, path){
+  return (record && record.fieldTs && record.fieldTs[path]) || 0;
+}
+
+/* Which of the two holds the newer value for one field. */
+function pickSide(local, remote, path){
+  const lt = tsOf(local, path), rt = tsOf(remote, path);
+  if (rt > lt) return remote;
+  if (lt > rt) return local;
+  return String(remote.lastWriter || '') > String(local.lastWriter || '') ? remote : local;
+}
+
+function mergeScalars(local, remote, out, paths){
+  for (const path of paths){
+    const src = pickSide(local, remote, path);
+    out[path] = src[path];
+    const ts = tsOf(src, path);
+    if (ts) out.fieldTs[path] = ts;
+  }
+}
+
+/* Uploaded files merge as a union, never a last-write-wins overwrite: two
+   people uploading during the same call must both end up with their file.
+   Removals ride along as ids in docsRemoved so a delete still propagates. */
+function docKeyOf(d){ return (d && (d.fileId || d.link || d.name)) || ''; }
+function mergeDocs(local, remote){
+  const removed = new Set([...(local.docsRemoved || []), ...(remote.docsRemoved || [])]);
+  // Whichever side touched its file list last wins on the entries both hold, so
+  // a name or link corrected against Drive on one browser is not held back by
+  // the other's older copy of the same file. Entries only one side has are kept
+  // either way: that is the union that stops two uploads erasing each other.
+  const first = tsOf(remote, 'data.docs') > tsOf(local, 'data.docs') ? remote : local;
+  const second = first === remote ? local : remote;
+  const byKey = new Map();
+  for (const d of [...(((first.data || {}).docs) || []), ...(((second.data || {}).docs) || [])]){
+    const k = docKeyOf(d);
+    if (!k || removed.has(k) || byKey.has(k)) continue;
+    byKey.set(k, d);
+  }
+  return { docs: [...byKey.values()], docsRemoved: [...removed] };
+}
+
+/* =================================================================
+   WHAT DRIVE SAYS HAPPENED TO THE FILES
+
+   Drive is a shared folder that people tidy: files get renamed,
+   dragged elsewhere, and thrown away, none of which the console would
+   otherwise hear about. It would go on offering a chip that links to
+   a file nobody can open.
+
+   Pure, so the rules are pinned down by tests rather than by reading:
+   a rename updates the name, a move records the folder, a file that
+   is gone is marked rather than removed, and a file the check said
+   nothing about is left exactly as it was.
+================================================================= */
+function applyFileCheck(docs, info){
+  let changed = false;
+  const next = (docs || []).map(doc => {
+    const found = doc && doc.fileId ? info[doc.fileId] : null;
+    if (!found) return doc;                 // not asked about, or never uploaded
+    const out = Object.assign({}, doc);
+    const gone = !found.exists ? 'deleted' : (found.trashed ? 'trashed' : '');
+    if ((out.gone || '') !== gone){
+      if (gone) out.gone = gone; else delete out.gone;
+      changed = true;
+    }
+    // A file in the trash keeps the name and category it was filed under: they
+    // are what makes it findable if someone restores it. Marked, never removed
+    // -- dropping the entry would wipe that from everyone's screen for what may
+    // be a file that is about to come back.
+    if (gone) return out;
+    if (found.name && found.name !== out.name){ out.name = found.name; changed = true; }
+    if (found.url && found.url !== out.link){ out.link = found.url; changed = true; }
+    const folder = found.folderName || '';
+    if (folder !== (out.folderName || '')){
+      if (folder) out.folderName = folder; else delete out.folderName;
+      changed = true;
+    }
+    return out;
+  });
+  return { docs: next, changed };
+}
+
+function mergeVenue(local, remote){
+  const out = blankRecord({
+    id: local.id || remote.id,
+    accountId: local.accountId || remote.accountId,
+    createdAt: Math.min(local.createdAt || Infinity, remote.createdAt || Infinity) || Date.now(),
+    data: {}
+  });
+  mergeScalars(local, remote, out, RECORD_KINDS.venue.scalars);
+  // The union of both sides' keys, so a field only one of them knows about
+  // (an older client, a schema addition) is never dropped.
+  const keys = new Set([...Object.keys(local.data || {}), ...Object.keys(remote.data || {})]);
+  keys.delete('docs');
+  for (const k of keys){
+    const path = 'data.' + k;
+    const src = pickSide(local, remote, path);
+    out.data[k] = (src.data || {})[k];
+    const ts = tsOf(src, path);
+    if (ts) out.fieldTs[path] = ts;
+  }
+  const docs = mergeDocs(local, remote);
+  out.data.docs = docs.docs;
+  out.docsRemoved = docs.docsRemoved;
+  out.lastEditedAt = Math.max(local.lastEditedAt || 0, remote.lastEditedAt || 0);
+  return out;
+}
+
+function mergeAccount(local, remote){
+  const out = blankRecord({
+    id: local.id || remote.id,
+    createdAt: Math.min(local.createdAt || Infinity, remote.createdAt || Infinity) || Date.now()
+  });
+  mergeScalars(local, remote, out, RECORD_KINDS.account.scalars);
+  return out;
+}
+
+function mergeSettings(local, remote){
+  const out = blankRecord({});
+  mergeScalars(local, remote, out, ['rootFolderName', 'rootFolderId']);
+  return out;
+}
+
+/* Saved versions are append-only, so the union of both sides is the right
+   answer -- two people saving a version during the same call keep both. */
+function mergeVersions(local, remote){
+  const byStamp = new Map();
+  for (const v of [...(local.entries || []), ...(remote.entries || [])]){
+    if (!v) continue;
+    const k = String(v.savedAt || 0) + ':' + String(v.legacyKind || '');
+    if (!byStamp.has(k)) byStamp.set(k, v);
+  }
+  const entries = [...byStamp.values()]
+    .sort((a, b) => (a.savedAt || 0) - (b.savedAt || 0))
+    .slice(-MAX_VERSIONS_PER_ITEM);
+  return blankRecord({ entries });
+}
+
+const MERGERS = { account: mergeAccount, venue: mergeVenue, versions: mergeVersions, settings: mergeSettings };
+
+function mergeRecords(kind, local, remote){
+  if (!local) return remote;
+  if (!remote) return local;
+  const fn = MERGERS[kind];
+  if (!fn) return (remote.updatedAt || 0) >= (local.updatedAt || 0) ? remote : local;
+  const out = fn(local, remote);
+  out.rev = Math.max(local.rev || 0, remote.rev || 0);
+  out.updatedAt = Math.max(local.updatedAt || 0, remote.updatedAt || 0);
+  out.lastWriter = (remote.updatedAt || 0) >= (local.updatedAt || 0) ? remote.lastWriter : local.lastWriter;
+  return out;
+}
+
+/* Key order out of a merge does not match key order off the wire, so comparing
+   two records means comparing them canonically. Without this, every pull would
+   decide every record had changed and push all of them straight back -- a
+   write storm that grows with the size of the team. */
+function canonical(value){
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) || 'null';
+  if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
+  return '{' + Object.keys(value).sort()
+    .filter(k => value[k] !== undefined)
+    .map(k => JSON.stringify(k) + ':' + canonical(value[k])).join(',') + '}';
+}
+
+function parseRecord(json){
+  if (json === null || json === undefined || json === '') return null;
+  try{
+    const o = JSON.parse(json);
+    return (o && typeof o === 'object' && !Array.isArray(o)) ? o : null;
+  }catch(e){ return null; }
+}
+
+/* =================================================================
+   WRITE QUEUE
+
+   A write lands in the mirror at once and goes up in the background,
+   so typing on a call never waits on a round trip. What it must not
+   do is give up: a failed write used to be logged and forgotten,
+   which left the pill saying "Synced" over work that existed only in
+   one browser. Failures stay queued, retry with backoff, and are
+   remembered across a reload through hermetic:dirtyKeys.
+================================================================= */
+const writeQueue = new Map();    // key -> record; a newer edit replaces the older
+let writerRunning = false;
+let writeFailures = 0;
+let lastWriteError = '';
+
+function persistDirty(){
+  try{ localStorage.setItem('hermetic:dirtyKeys', JSON.stringify([...writeQueue.keys()])); }
+  catch(e){}
+}
+
+/* Save a record: stamp it, mirror it, and queue it for the Sheet. The rev it
+   carries is the one we are creating; rev - 1 is the base the Sheet must still
+   be at for our write to be safe. */
+function saveRecord(key, record){
+  record.rev = (record.rev || 0) + 1;
+  record.updatedAt = Date.now();
+  record.lastWriter = CLIENT_ID;
+  localWrite(key, record);
+  if (syncUrl){
+    writeQueue.set(key, record);
+    persistDirty();
+    runWriter();
+  }
+  renderSyncPill();
+  return record;
+}
+
+function backoffMs(failures){
+  return Math.min(30000, 800 * Math.pow(2, Math.min(failures, 5))) + Math.random() * 400;
+}
+
+async function runWriter(){
+  if (writerRunning || !syncUrl) return;
+  writerRunning = true;
+  try{
+    while (writeQueue.size){
+      const key = writeQueue.keys().next().value;
+      const record = writeQueue.get(key);
+      const result = await pushRecord(key, record);
+      if (result.ok){
+        // Only clear it if no newer edit arrived while this one was in flight.
+        if (writeQueue.get(key) === record) writeQueue.delete(key);
+        writeFailures = 0;
+        lastWriteError = '';
+      }else{
+        writeFailures++;
+        lastWriteError = result.error || 'Could not reach the Sheet';
+        // Send it to the back of the queue. One row the Sheet will not accept
+        // must not hold every other row hostage behind it -- a Map iterates in
+        // insertion order, so re-inserting is what moves it.
+        if (writeQueue.get(key) === record){
+          writeQueue.delete(key);
+          writeQueue.set(key, record);
+        }
+        renderSyncPill();
+        await sleep(backoffMs(writeFailures));
+      }
+      persistDirty();
+      renderSyncPill();
+    }
+  }finally{
+    writerRunning = false;
+    renderSyncPill();
+    // A save that arrived while the loop was on its way out found writerRunning
+    // still true and did nothing. Pick it up rather than leave it sitting.
+    if (writeQueue.size) runWriter();
+  }
+}
+
+/* One record to the Sheet, resolving conflicts by merging rather than by
+   overwriting. A conflict means someone saved between our last read and this
+   write: take what is there now, merge field by field, and try again on top of
+   their revision. Retries are bounded so a pathological loop cannot spin. */
+async function pushRecord(key, record){
+  const kind = kindOfKey(key);
+  let current = record;
+  for (let attempt = 0; attempt < 6; attempt++){
+    let data;
+    try{
+      const res = await fetch(syncUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'set',
+          key,
+          value: JSON.stringify(current),
+          ifRev: Math.max((current.rev || 1) - 1, 0)
+        })
+      });
+      data = await res.json();
+    }catch(e){
+      return { ok: false, error: e.message };
+    }
+    if (data && data.conflict){
+      const remote = parseRecord(data.current);
+      if (!remote) return { ok: false, error: 'Sheet holds an unreadable value for ' + key };
+      const merged = mergeRecords(kind, current, remote);
+      // Rebase onto their revision so the retry's guard matches the Sheet.
+      merged.rev = (typeof data.rev === 'number' ? data.rev : (remote.rev || 0)) + 1;
+      merged.updatedAt = Date.now();
+      merged.lastWriter = CLIENT_ID;
+      localWrite(key, merged);
+      if (writeQueue.get(key) === current) writeQueue.set(key, merged);
+      current = merged;
+      onRemoteChange();
+      continue;
+    }
+    if (data && data.error) return { ok: false, error: data.error };
+    return { ok: true };
+  }
+  return { ok: false, error: 'Gave up merging concurrent edits to ' + key };
+}
+
+/* Anything the mirror still owes the Sheet, re-queued after a reload. Without
+   this, closing the laptop while a write was failing lost it for good. */
+function requeueDirty(){
+  if (!syncUrl) return;
+  let keys = [];
+  try{ keys = JSON.parse(localStorage.getItem('hermetic:dirtyKeys') || '[]'); }catch(e){}
+  for (const key of keys){
+    const record = localRead(key);
+    if (record && typeof record === 'object') writeQueue.set(key, record);
+  }
+  if (writeQueue.size){ persistDirty(); runWriter(); }
+}
+
+function flushWrites(){
+  return new Promise(resolve => {
+    const tick = () => (writeQueue.size ? setTimeout(tick, 150) : resolve());
+    tick();
+  });
+}
+
+/* =================================================================
+   PULL
+
+   One request brings every row that changed since the last pull, so
+   polling on a 15s heartbeat stays cheap even with the whole team on
+   calls. The first pull of a session asks for everything.
+================================================================= */
+/* Apps Script runs every request as the deploying user and serializes them at
+   roughly a second each, so the whole team shares one lane. At these rates a
+   team of eight costs about 0.6 requests a second including writes, which the
+   lane absorbs; halving the intervals would saturate it and make saves queue
+   behind polls. Pulls are skipped entirely while the tab is hidden, which is
+   most of any given call. */
+const PULL_INTERVAL_MS = 20000;
+const CLOCK_PAD_MS = 5000;   // re-read a small overlap; merging twice is a no-op
+
+function hydrate(){
+  if (!kvHydrating) kvHydrating = pull({ full: true });
+  return kvHydrating;
+}
+
+async function pull({ full } = {}){
+  if (!syncUrl){ kvHydrated = true; return false; }
+  const since = full || !lastPullAt || serverVersion < 3 ? 0 : lastPullAt;
+  let changed = false;
+  try{
+    const url = `${syncUrl}?action=getAll&prefix=${encodeURIComponent(KV_PREFIX)}` +
+                (since ? `&since=${since}` : '');
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data || !Array.isArray(data.items)) throw new Error('getAll returned no items');
+    if (typeof data.serverVersion === 'number') serverVersion = data.serverVersion;
+    changed = applyRemote(data.items);
+    // Trust the server's clock over ours -- browser clocks on a team of laptops
+    // disagree by enough to skip a row. The pad re-reads a small overlap.
+    lastPullAt = Math.max(0, (typeof data.now === 'number' ? data.now : Date.now()) - CLOCK_PAD_MS);
+  }catch(e){
+    console.warn('Sheet pull failed, using local cache:', e);
+  }
+  kvHydrated = true;
+  return changed;
+}
+
+let pullTimer = null;
+let pulling = false;
+async function pullNow(){
+  if (pulling || document.hidden) return;
+  pulling = true;
+  try{
+    if (await pull({})) onRemoteChange();
+  }finally{ pulling = false; }
+}
+function startPolling(){
+  if (!syncUrl || pullTimer) return;
+  pullTimer = setInterval(pullNow, PULL_INTERVAL_MS);
+  // A specialist lives in another tab during a call; catching up the moment
+  // they come back matters more than the interval does.
+  document.addEventListener('visibilitychange', ()=>{
+    if (!document.hidden){ pullNow(); heartbeat(); }
+  });
+  window.addEventListener('online', ()=>{ pullNow(); runWriter(); });
+}
+
+function applyRemote(items){
+  let changed = false;
+  for (const item of items){
+    if (!item || typeof item.key !== 'string') continue;
+    const key = item.key;
+    if (KV_LOCAL_ONLY.has(key) || !key.startsWith(KV_PREFIX)) continue;
+    const kind = kindOfKey(key);
+    let remote = parseRecord(item.value);
+
+    // Rows this build does not own: the pre-record hermetic:accounts and
+    // hermetic:venues:* lists, and the locations/campaigns before those. Mirror
+    // them verbatim so migrateToRecords() can fold them. Without this, only the
+    // one browser that happened to still hold them locally could ever migrate,
+    // and a teammate opening the app on a clean machine would see an empty
+    // sidebar over a Sheet full of accounts.
+    if (!kind){
+      if (localStorage.getItem(key) !== item.value){
+        localWrite(key, item.value);
+        changed = true;
+      }
+      continue;
+    }
+
+    // Version history predating records was a bare array in the row.
+    if (!remote && kind === 'versions'){
+      try{
+        const arr = JSON.parse(item.value);
+        if (Array.isArray(arr)) remote = { rev: 0, updatedAt: 0, fieldTs: {}, entries: arr };
+      }catch(e){}
+    }
+    if (!remote) continue;
+
+    if (kind === 'presence'){ applyPresence(remote); continue; }
+
+    // A key we are still trying to write is settled by that write's own
+    // conflict merge; merging it here as well would only race with it.
+    if (writeQueue.has(key)) continue;
+
+    const local = localRead(key);
+    const merged = local ? mergeRecords(kind, local, remote) : remote;
+    const json = JSON.stringify(merged);
+    if (localStorage.getItem(key) !== json){
+      localWrite(key, json);
+      changed = true;
+    }
+    // If merging revived something the Sheet does not have -- an edit made
+    // offline, or a field we hold a newer stamp for -- push it back up. When
+    // the merge matched what arrived, there is nothing to send.
+    if (local && canonical(merged) !== canonical(remote)){
+      merged.rev = (remote.rev || 0);      // saveRecord bumps to remote.rev + 1
+      saveRecord(key, merged);
+    }
+  }
+  // Rows absent from the Sheet stay in the mirror on purpose: a value that
+  // exists only locally is usually one whose upload has not landed yet.
+  return changed;
+}
+
+/* =================================================================
+   PRESENCE
+
+   Who else has this account open. Cheap to run and it prevents the
+   collision rather than resolving it -- seeing "Dana is in here" stops
+   the second edit from being made at all.
+================================================================= */
+const PRESENCE_TTL_MS = 100000;
+const HEARTBEAT_MS = 40000;
+const presenceByClient = new Map();   // clientId -> {clientId, name, accountId, at}
+let heartbeatTimer = null;
+
+function applyPresence(rec){
+  if (!rec || !rec.clientId || rec.clientId === CLIENT_ID) return;
+  presenceByClient.set(rec.clientId, rec);
+  renderPresence();
+}
+function peersOn(accountId){
+  const cutoff = Date.now() - PRESENCE_TTL_MS;
+  const out = [];
+  for (const p of presenceByClient.values()){
+    if (p.accountId === accountId && (p.at || 0) > cutoff) out.push(p);
+  }
+  return out.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+}
+/* Presence is one row per browser, not one per browser per account, so the
+   rows stay bounded however many accounts the team works through. It is
+   written straight past the record machinery: there is only ever one writer
+   for this key, so there is nothing to merge and no revision to guard. */
+function heartbeat(){
+  if (!syncUrl || !displayName) return;
+  // A backgrounded tab is not "in" an account in any useful sense, and the TTL
+  // covers the gap until it comes back.
+  if (document.hidden) return;
+  const rec = {
+    clientId: CLIENT_ID,
+    name: displayName,
+    accountId: state.currentAccountId || null,
+    at: Date.now(),
+    updatedAt: Date.now(),
+    rev: 0
+  };
+  const key = `hermetic:presence:${CLIENT_ID}`;
+  localWrite(key, rec);
+  fetch(syncUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'set', key, value: JSON.stringify(rec) })
+  }).catch(()=>{});   // a missed heartbeat only ages this browser out early
+}
+function startHeartbeat(){
+  if (heartbeatTimer) return;
+  heartbeat();
+  heartbeatTimer = setInterval(heartbeat, HEARTBEAT_MS);
+}
+
+/* Reports whether the URL answers, and which backend features it has. A
+   deployment older than SERVER_VERSION 3 still works, but silently: its setKey_
+   ignores ifRev, so concurrent edits overwrite instead of merging. That is
+   worth saying out loud rather than discovering from lost work. */
 async function testSyncConnection(url){
   try{
-    const res = await fetch(`${url}?action=list&prefix=hermetic:`);
+    const res = await fetch(`${url}?action=getAll&prefix=${encodeURIComponent(KV_PREFIX)}`);
     const data = await res.json();
-    return Array.isArray(data.keys);
-  }catch(e){ return false; }
+    if (Array.isArray(data.items)){
+      return { ok:true, batch:true, serverVersion: Number(data.serverVersion || 0) };
+    }
+  }catch(e){ /* fall through to the older probe */ }
+  try{
+    const res = await fetch(`${url}?action=list&prefix=${encodeURIComponent(KV_PREFIX)}`);
+    const data = await res.json();
+    if (Array.isArray(data.keys)) return { ok:true, batch:false, serverVersion: 0 };
+  }catch(e){ /* unreachable */ }
+  return { ok:false, batch:false, serverVersion: 0 };
 }
+
+/* Last line of defence. Everything is mirrored locally and re-queued on the
+   next load, so closing here does not lose the work -- but it does strand it
+   in one browser, invisible to whoever picks the account up next. */
+window.addEventListener('beforeunload', (e) => {
+  // A queued write survives a reload; a file half way to Drive does not.
+  if (!writeQueue.size && !busyUploads.size) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
 function extractFolderId(input){
   const s = (input || '').trim();
   const m = s.match(/\/folders\/([a-zA-Z0-9_-]+)/);
   if (m) return m[1];
   return s;
 }
-function fileToBase64(file){
+/* Reading the file is the one leg of an upload whose length the browser will
+   actually tell us, so it is the one that gets a real percentage. */
+function fileToBase64(file, onProgress){
   return new Promise((resolve, reject)=>{
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(',')[1]);
+    if (onProgress){
+      reader.onprogress = (e)=>{ if (e.lengthComputable) onProgress(e.loaded / e.total); };
+    }
+    reader.onload = () => { if (onProgress) onProgress(1); resolve(reader.result.split(',')[1]); };
     reader.onerror = () => reject(new Error('Could not read file'));
     reader.readAsDataURL(file);
   });
 }
-async function uploadDocumentToDrive({ segments, category, file }){
-  if (!syncUrl) throw new Error('Set up Google Sheet sync in Settings first — file upload uses the same connection.');
-  const base64 = await fileToBase64(file);
+/**
+ * Apps Script answers with HTML, not JSON, whenever the request never reaches
+ * doPost -- a sign-in page when the deployment is not shared with "Anyone", a
+ * consent page when the deployer has not approved the current scopes, an error
+ * page when the script throws fatally. Parsing that as JSON reports "Unexpected
+ * token '<'", which names the symptom and hides the cause, so read the page
+ * well enough to say which of the three it was.
+ */
+async function readScriptJson(res){
+  return parseScriptText(await res.text());
+}
+
+/* Apps Script answers an error with an HTML page rather than an error status,
+   so every response has to be sniffed. Split out from readScriptJson so the
+   XHR upload path, which needs progress events and therefore cannot use fetch,
+   reports failures in exactly the same words. */
+function parseScriptText(text){
+  try{
+    return JSON.parse(text);
+  }catch(e){
+    const title = (text.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [,''])[1].trim();
+    if (/accounts\.google\.com|sign in|signin/i.test(text) || /moved temporarily/i.test(title)){
+      throw new Error('Google returned a sign-in page. The deployment is not public: Deploy > Manage deployments > edit > set "Who has access" to Anyone, then New version.');
+    }
+    if (/authorization is required|authoriz/i.test(text)){
+      throw new Error('Google returned an authorization page. Open the Apps Script editor, run authorize(), accept the Drive prompt, then Deploy > Manage deployments > edit > New version.');
+    }
+    throw new Error('The script returned a web page instead of data' + (title ? ' ("' + title + '")' : '') + '. That usually means the script hit an error. Check Apps Script > Executions for the failing run.');
+  }
+}
+/* WHY THERE IS NO PERCENTAGE ON THE NETWORK LEG
+   XMLHttpRequest is the only thing that reports how much of a request body has
+   gone out, and reaching it costs more than it is worth here: per the XHR spec,
+   registering any listener on xhr.upload sets the use-CORS-preflight flag, so
+   the browser sends an OPTIONS request first. An Apps Script web app has no
+   doOptions and never answers one, the preflight fails, and the upload fails
+   with it. A plain fetch with a text/plain body stays a simple request and goes
+   straight through, which is why the rest of this file uses it.
+
+   So the only honest report of the network leg is that it is still running.
+   Reading the file is measurable and does get a real percentage; after that the
+   bar goes indeterminate and a running clock shows the request is alive. No
+   invented percentages: a fake bar sitting at 90% is worse than no bar. */
+async function uploadDocumentToDrive({ segments, category, file, onPhase }){
+  if (!syncUrl) throw new Error('Set up Google Sheet sync in Settings first. File upload uses the same connection.');
+  const phase = onPhase || (()=>{});
+  phase('reading', 0);
+  const base64 = await fileToBase64(file, (fraction)=> phase('reading', fraction));
+  phase('sending');
   const res = await fetch(syncUrl, {
     method:'POST',
     headers:{ 'Content-Type':'text/plain;charset=utf-8' },
@@ -744,69 +1536,339 @@ async function uploadDocumentToDrive({ segments, category, file }){
       base64
     })
   });
-  const data = await res.json();
+  const data = await readScriptJson(res);
   if (data.error) throw new Error(data.error);
   return data; // { fileId, link, folderId, folderLink }
+}
+
+/* Copies a file that is already in Drive into another venue's folder. The copy
+   is done by the Apps Script, inside Drive -- pulling the bytes down and
+   pushing them back up would make duplicating a venue as slow as uploading its
+   files again, and would fail on anything that was over the upload ceiling. */
+async function copyDocumentInDrive({ segments, category, fileId, filename }){
+  if (!syncUrl) throw new Error('Set up Google Sheet sync in Settings first. Copying files uses the same connection.');
+  const res = await fetch(syncUrl, {
+    method:'POST',
+    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+    body: JSON.stringify({
+      action:'copyFile',
+      rootFolderId: extractFolderId(state.settings.rootFolderId),
+      rootFolderName: state.settings.rootFolderName,
+      segments,
+      category,
+      fileId,
+      filename
+    })
+  });
+  const data = await readScriptJson(res);
+  if (data.error) throw new Error(data.error);
+  return data; // { fileId, link, folderId, folderLink }
+}
+
+/* How long a location's files are trusted before Drive is asked again. Short
+   enough that tidying up in Drive shows up while you are still in the call that
+   prompted it, long enough that reopening cards does not hammer a backend that
+   runs every request one at a time. */
+const FILE_CHECK_TTL_MS = 60000;
+const fileCheckedAt = new Map();      // location id -> when Drive last answered
+
+async function verifyLocationFiles(accountId, venueId, opts){
+  if (!syncUrl) return;
+  if (serverVersion && serverVersion < 5) return;     // backend has no checkFiles
+  const force = !!(opts && opts.force);
+  if (!force && Date.now() - (fileCheckedAt.get(venueId) || 0) < FILE_CHECK_TTL_MS) return;
+
+  const record = readVenue(accountId, venueId);
+  const ids = (((record || {}).data || {}).docs || []).filter(d => d.fileId).map(d => d.fileId);
+  if (!ids.length) return;
+  fileCheckedAt.set(venueId, Date.now());
+
+  let info;
+  try{
+    const res = await fetch(syncUrl, {
+      method:'POST',
+      headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action:'checkFiles', fileIds: ids })
+    });
+    const data = await readScriptJson(res);
+    if (data.error) throw new Error(data.error);
+    info = data.files || {};
+  }catch(e){
+    // Not being able to ask is not the same as the files being gone, so nothing
+    // is marked. Clear the stamp so the next open tries again.
+    console.warn('Could not check Drive files:', e);
+    fileCheckedAt.delete(venueId);
+    return;
+  }
+
+  let applied = false;
+  editVenue(accountId, venueId, (rec)=>{
+    const result = applyFileCheck(rec.data.docs, info);
+    if (!result.changed) return null;
+    rec.data.docs = result.docs;
+    applied = true;
+    const paths = ['data.docs'];
+    paths.noTouch = true;    // Drive being tidied is not an edit to the answers
+    return paths;
+  });
+  if (applied) await renderMain({ preserveFocus: true });
 }
 
 /* =================================================================
    STATE
 ================================================================= */
+/* Nothing shared is cached here. Accounts, venues and versions are read from
+   the mirror at render time, so a pull that lands in the background shows up on
+   the next paint without any cache to invalidate. What stays is view state:
+   what is selected, what is expanded. */
 let state = {
-  accounts: [],
+  accounts: [],                  // derived from the mirror by readTopLevelState()
   currentAccountId: null,
-  venuesByAccount: {},
-  versionsByItem: {},
-  settings: { rootFolderName: "Hermetic AI - Customer Setup", rootFolderId: "" },
+  settings: { rootFolderName: "ONBOARDING - Custom Prompt Uploads", rootFolderId: "" },
   openItemIds: new Set(),
   openVersionKeys: new Set(),
   sidebarCollapsed: false
 };
 
 const MAX_VERSIONS_PER_ITEM = 8;
-function touchItem(item){ item.lastEditedAt = Date.now(); }
-async function loadVersions(itemId){
-  if (state.versionsByItem[itemId]) return state.versionsByItem[itemId];
-  const data = await kvGet(`hermetic:versions:${itemId}`);
-  state.versionsByItem[itemId] = data || [];
-  return state.versionsByItem[itemId];
+
+/* =================================================================
+   DERIVED READS
+
+   The sidebar and the venue list are derived from whichever rows are
+   in the mirror, not from a stored list. That is the whole reason two
+   people can add accounts at the same time: there is no list for the
+   second save to overwrite.
+================================================================= */
+function readAccounts(){
+  return localKeys('hermetic:account:')
+    .map(localRead)
+    .filter(a => a && a.id && !a.deleted)
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0) ||
+                    String(a.name || '').localeCompare(String(b.name || '')));
 }
-async function saveVersions(itemId, versions){
-  const trimmed = versions.slice(-MAX_VERSIONS_PER_ITEM);
-  state.versionsByItem[itemId] = trimmed;
-  await kvSet(`hermetic:versions:${itemId}`, trimmed);
+function readAccount(id){
+  const rec = localRead(accountKey(id));
+  return rec && !rec.deleted ? rec : null;
 }
+function readVenues(accountId){
+  return localKeys(`hermetic:venue:${accountId}:`)
+    .map(localRead)
+    .filter(v => v && v.id && !v.deleted)
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+}
+function readVenue(accountId, venueId){
+  const rec = localRead(venueKey(accountId, venueId));
+  return rec && !rec.deleted ? rec : null;
+}
+function readVersions(venueId){
+  const rec = localRead(versionsKey(venueId));
+  if (!rec) return [];
+  // Version history predating records was a bare array in the row.
+  if (Array.isArray(rec)) return rec;
+  return Array.isArray(rec.entries) ? rec.entries : [];
+}
+function readSettings(){
+  const rec = localRead('hermetic:settings') || {};
+  return {
+    rootFolderName: rec.rootFolderName || DEFAULT_SETTINGS.rootFolderName,
+    rootFolderId: rec.rootFolderId || ''
+  };
+}
+
+/* =================================================================
+   MUTATIONS
+
+   Every write goes through one of these, so no caller can change a
+   field without stamping it -- an unstamped field looks infinitely
+   old and loses every merge it takes part in.
+================================================================= */
+function editVenue(accountId, venueId, mutate){
+  const key = venueKey(accountId, venueId);
+  const record = localRead(key);
+  if (!record) return null;
+  const at = Date.now();
+  const touched = mutate(record, at);
+  // No change means no write. A save here would bump the revision, push a row,
+  // and make every other browser merge it, all to say nothing.
+  if (!touched || !touched.length) return null;
+  for (const path of touched) stampField(record, path, at);
+  if (!touched.noTouch) record.lastEditedAt = at;
+  return saveRecord(key, record);
+}
+/* noTouch is for the generated-output boxes: pasting Claude's answer back in is
+   not an edit to the answers, and must not make every saved version look stale. */
+function setVenueField(accountId, venueId, field, value, opts){
+  return editVenue(accountId, venueId, (record, at) => {
+    setAtPath(record.data, field, value);
+    const paths = ['data.' + field];
+    paths.noTouch = !!(opts && opts.noTouch);
+    return paths;
+  });
+}
+function createVenue(accountId, name){
+  const at = Date.now();
+  const record = blankRecord({
+    id: newId('i'), accountId, name, deleted: false,
+    lastEditedAt: at, data: newVenueData(), docsRemoved: []
+  });
+  stampField(record, 'name', at);
+  stampField(record, 'deleted', at);
+  saveRecord(venueKey(accountId, record.id), record);
+  return record;
+}
+/* A duplicate is a new record, not a copy of the old row.
+   Cloning the row wholesale would carry the source's id, revision and field
+   stamps with it, and the first save would reach the Sheet looking like a
+   stale write of the *source* venue -- the guard would refuse it, the merge
+   would fold the copy back into the original, and the duplicate would quietly
+   eat the venue it came from. So: new id, new key, rev starts at zero, and
+   every field stamped now.
+
+   Answers and source material carry over. The generated documents and the
+   version history do not: they are outputs, produced for the venue they were
+   generated against, and a copy that arrived pre-marked "Up to date" would be
+   claiming it had been through a review it has never had. Files are attached
+   afterwards, one at a time, as each Drive copy lands. */
+function duplicateVenueRecord(sourceAccountId, sourceVenueId, targetAccountId, name){
+  const src = readVenue(sourceAccountId, sourceVenueId);
+  if (!src) return null;
+  const at = Date.now();
+  const data = JSON.parse(JSON.stringify(src.data || newVenueData()));
+  data.draft_location_doc = '';
+  data.draft_campaign_doc = '';
+  data.draft_open_questions = '';
+  data.docs = [];
+  data.drive_link = '';
+  const record = blankRecord({
+    id: newId('i'), accountId: targetAccountId, name, deleted: false,
+    createdAt: at, lastEditedAt: at, data, docsRemoved: []
+  });
+  stampField(record, 'name', at);
+  stampField(record, 'deleted', at);
+  Object.keys(data).forEach(k => { if (k !== 'docs') stampField(record, 'data.' + k, at); });
+  saveRecord(venueKey(targetAccountId, record.id), record);
+  return record;
+}
+
+function deleteVenue(accountId, venueId){
+  editVenue(accountId, venueId, (record, at) => {
+    record.deleted = true;
+    return ['deleted'];
+  });
+}
+function createAccount(name){
+  const at = Date.now();
+  const record = blankRecord({ id: newId('a'), name, drive_link: '', deleted: false });
+  stampField(record, 'name', at);
+  stampField(record, 'drive_link', at);
+  stampField(record, 'deleted', at);
+  saveRecord(accountKey(record.id), record);
+  return record;
+}
+/* Deleting an account tombstones every location under it as well. Left alone
+   those rows would be unreachable but still real: pulled down on every full
+   sync for good, and counted in nobody's idea of what the Sheet holds. The
+   account goes last, so a browser that pulls half way through this still sees
+   an account whose locations are going rather than an empty one. */
+function deleteAccount(accountId){
+  const at = Date.now();
+  for (const venue of readVenues(accountId)){
+    const key = venueKey(accountId, venue.id);
+    const record = localRead(key);
+    if (!record || record.deleted) continue;
+    record.deleted = true;
+    stampField(record, 'deleted', at);
+    saveRecord(key, record);
+  }
+  const key = accountKey(accountId);
+  const record = localRead(key);
+  if (!record) return null;
+  record.deleted = true;
+  stampField(record, 'deleted', at);
+  return saveRecord(key, record);
+}
+
+function saveVersions(venueId, entries){
+  const key = versionsKey(venueId);
+  const existing = localRead(key);
+  const record = (existing && !Array.isArray(existing)) ? existing : blankRecord({});
+  record.entries = entries.slice(-MAX_VERSIONS_PER_ITEM);
+  return saveRecord(key, record);
+}
+function saveSettings(patch){
+  const key = 'hermetic:settings';
+  const existing = localRead(key);
+  const record = (existing && typeof existing === 'object') ? existing : blankRecord({});
+  const at = Date.now();
+  for (const [k, v] of Object.entries(patch)){
+    record[k] = v;
+    stampField(record, k, at);
+  }
+  saveRecord(key, record);
+  state.settings = readSettings();
+}
+
 function formatTimestamp(ms){
   if (!ms) return '';
   return new Date(ms).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
 }
 
-async function saveAccounts(){ await kvSet('hermetic:accounts', state.accounts); }
-async function saveSettings(){ await kvSet('hermetic:settings', state.settings); }
-async function loadVenues(accountId){
-  if (state.venuesByAccount[accountId]) return state.venuesByAccount[accountId];
-  let data = await kvGet(`hermetic:venues:${accountId}`);
-  if (!data){
-    const migrated = await migrateLegacyVenues(accountId);
-    if (migrated){
-      migrated.forEach(v => foldLegacyBlocks(v.data));
-      state.venuesByAccount[accountId] = migrated;
-      await saveVenues(accountId);
-      return migrated;
-    }
+/* =================================================================
+   MIGRATION
+
+   Two old shapes feed in: the account/venue lists this build replaces
+   with per-record rows, and before those, the separate location and
+   campaign records. Both run key by key and write only rows that are
+   absent, so two browsers migrating at the same moment converge on
+   the same result instead of fighting. The old rows are left in the
+   Sheet untouched -- they cost nothing and they are the way back.
+================================================================= */
+function migrateToRecords(){
+  const legacyAccounts = localRead('hermetic:accounts');
+  if (Array.isArray(legacyAccounts)){
+    legacyAccounts.forEach((acc, i) => {
+      if (!acc || !acc.id || localRead(accountKey(acc.id))) return;
+      const at = (acc.createdAt || Date.now() - (legacyAccounts.length - i) * 1000);
+      const record = blankRecord({
+        id: acc.id, name: acc.name || 'Untitled', drive_link: acc.drive_link || '',
+        deleted: false, createdAt: at
+      });
+      ['name','drive_link','deleted'].forEach(f => stampField(record, f, at));
+      saveRecord(accountKey(acc.id), record);
+    });
   }
-  state.venuesByAccount[accountId] = data || [];
-  state.venuesByAccount[accountId].forEach(v => foldLegacyBlocks(v.data));
-  return state.venuesByAccount[accountId];
+  for (const acc of readAccounts()) migrateAccountVenues(acc.id);
 }
-async function saveVenues(accountId){ await kvSet(`hermetic:venues:${accountId}`, state.venuesByAccount[accountId]); }
+
+function migrateAccountVenues(accountId){
+  if (localKeys(`hermetic:venue:${accountId}:`).length) return;
+  let list = localRead(`hermetic:venues:${accountId}`);
+  if (!Array.isArray(list) || !list.length) list = migrateLegacyVenues(accountId);
+  if (!Array.isArray(list) || !list.length) return;
+  list.forEach((v, i) => {
+    if (!v || !v.id || localRead(venueKey(accountId, v.id))) return;
+    foldLegacyBlocks(v.data || {});
+    const at = v.lastEditedAt || (Date.now() - (list.length - i) * 1000);
+    const record = blankRecord({
+      id: v.id, accountId, name: v.name || 'Untitled', deleted: false,
+      createdAt: at, lastEditedAt: at, data: v.data || newVenueData(), docsRemoved: []
+    });
+    stampField(record, 'name', at);
+    stampField(record, 'deleted', at);
+    Object.keys(record.data).forEach(k => {
+      if (k !== 'docs') stampField(record, 'data.' + k, at);
+    });
+    saveRecord(venueKey(accountId, v.id), record);
+  });
+}
 
 /* One-time fold of the old separate location and campaign records into the
    combined venue record. A location with several campaigns becomes one venue
    per campaign, each carrying the same facts. */
-async function migrateLegacyVenues(accountId){
-  const locations = (await kvGet(`hermetic:locations:${accountId}`)) || [];
-  const campaigns = (await kvGet(`hermetic:campaigns:${accountId}`)) || [];
+function migrateLegacyVenues(accountId){
+  const locations = localRead(`hermetic:locations:${accountId}`) || [];
+  const campaigns = localRead(`hermetic:campaigns:${accountId}`) || [];
   if (!locations.length && !campaigns.length) return null;
   const venues = [];
   const claimed = new Set();
@@ -814,21 +1876,21 @@ async function migrateLegacyVenues(accountId){
     const mine = campaigns.filter(c => c.data && c.data.location_id === loc.id);
     mine.forEach(c => claimed.add(c.id));
     if (!mine.length){
-      venues.push(await mergeLegacyPair(loc.id, loc.name, loc, null));
+      venues.push(mergeLegacyPair(loc.id, loc.name, loc, null));
       continue;
     }
-    venues.push(await mergeLegacyPair(loc.id, loc.name, loc, mine[0]));
+    venues.push(mergeLegacyPair(loc.id, loc.name, loc, mine[0]));
     for (const extra of mine.slice(1)){
-      venues.push(await mergeLegacyPair(extra.id, `${loc.name} — ${extra.name}`, loc, extra));
+      venues.push(mergeLegacyPair(extra.id, `${loc.name} (${extra.name})`, loc, extra));
     }
   }
   for (const camp of campaigns){
     if (claimed.has(camp.id)) continue;
-    venues.push(await mergeLegacyPair(camp.id, camp.name, null, camp));
+    venues.push(mergeLegacyPair(camp.id, camp.name, null, camp));
   }
   return venues;
 }
-async function mergeLegacyPair(id, name, loc, camp){
+function mergeLegacyPair(id, name, loc, camp){
   const ld = (loc && loc.data) || {};
   const cd = (camp && camp.data) || {};
   const data = newVenueData();
@@ -853,12 +1915,11 @@ async function mergeLegacyPair(id, name, loc, camp){
   const merged = [];
   for (const [src, kind] of [[loc, 'location'], [camp, 'campaign']]){
     if (!src) continue;
-    const versions = (await kvGet(`hermetic:versions:${src.id}`)) || [];
-    versions.forEach(v => merged.push({ ...v, legacyKind: kind }));
+    readVersions(src.id).forEach(v => merged.push({ ...v, legacyKind: kind }));
   }
   if (merged.length){
     merged.sort((a,b) => (a.savedAt||0) - (b.savedAt||0));
-    await saveVersions(id, merged);
+    saveVersions(id, merged);
   }
   return {
     id,
@@ -870,29 +1931,141 @@ async function mergeLegacyPair(id, name, loc, camp){
 
 function renderSyncPill(){
   const el = document.getElementById('syncStatusPill');
-  el.innerHTML = syncUrl
-    ? `<span class="badge badge-success" style="width:100%; justify-content:center;">${icon('check-circle','icon',12)}Synced to Sheet</span>`
-    : `<span class="badge badge-slate" style="width:100%; justify-content:center;">${icon('info','icon',12)}This browser only</span>`;
+  if (!el) return;
+  const pill = (kind, ico, text, spin) =>
+    `<span class="badge badge-${kind}" style="width:100%; justify-content:center;">${icon(ico, spin ? 'icon spin' : 'icon', 12)}${text}</span>`;
+  if (!syncUrl){ el.innerHTML = pill('slate','info','Not connected'); return; }
+  // Three states, and the third is the point: a write that keeps failing must
+  // never be able to look like a write that succeeded.
+  if (writeQueue.size && writeFailures > 0){
+    el.innerHTML = pill('destructive','alert-triangle','Not saved yet, retrying');
+    el.title = lastWriteError || '';
+    return;
+  }
+  el.title = '';
+  el.innerHTML = writeQueue.size
+    ? pill('info','loader-2','Saving…', true)
+    : pill('success','check-circle','Saved');
+}
+
+/* Who else is in the account on screen. Rendered on its own so a pull can
+   refresh it without repainting the form underneath. */
+function renderPresence(){
+  const el = document.getElementById('presenceBar');
+  if (!el) return;
+  const peers = peersOn(state.currentAccountId);
+  if (!state.currentAccountId || !peers.length){ el.innerHTML = ''; return; }
+  el.innerHTML = `<span class="badge badge-warning" title="If two of you edit the same location at once, both sets of answers are kept. It is still easier to take one location each.">
+      ${icon('users','icon',12)}Also here: ${escapeHtml(peers.map(p => p.name).join(', '))}
+    </span>`;
+}
+
+/* Presence is only useful if it has a name to show, and a name nobody set is
+   the default state. Ask for it once, inline, rather than behind Settings --
+   but never block the page on it: a specialist who is already on a call can
+   ignore this and lose nothing but the presence indicator. */
+function renderNameGate(){
+  const el = document.getElementById('nameGate');
+  if (!el) return;
+  if (!syncUrl || displayName){ el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="name-gate">
+      ${icon('users','icon',14)}
+      <span>Your name, so teammates can see which account you are in:</span>
+      <input type="text" class="input" id="nameGateInput" placeholder="e.g. Dana R.">
+      <button class="btn btn-primary compact" id="nameGateSave">Save</button>
+    </div>`;
+  const save = ()=>{
+    const v = document.getElementById('nameGateInput').value.trim();
+    if (!v) return;
+    displayName = v;
+    localStorage.setItem('hermetic:displayName', v);
+    startHeartbeat();
+    heartbeat();
+    renderNameGate();
+  };
+  document.getElementById('nameGateSave').addEventListener('click', save);
+  document.getElementById('nameGateInput').addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter') save();
+  });
 }
 
 /* =================================================================
    INIT
 ================================================================= */
+const DEFAULT_SETTINGS = { rootFolderName: "ONBOARDING - Custom Prompt Uploads", rootFolderId: "" };
+
+function readTopLevelState(){
+  state.accounts = readAccounts();
+  state.settings = readSettings();
+}
+
+/* A pull brought someone else's work in. Repaint around whatever the person at
+   this keyboard is doing: keep their caret where it was, and never overwrite
+   the box they are typing in (their own keystrokes are newer than anything
+   that just arrived, and are already queued to go up). */
+function onRemoteChange(){
+  readTopLevelState();
+  if (state.currentAccountId && !state.accounts.some(a => a.id === state.currentAccountId)){
+    state.currentAccountId = null;
+  }
+  renderSidebar();
+  renderSyncPill();
+  // Repainting now would tear out the progress bar of a file that is still
+  // going up. The next poll picks the change up a few seconds later.
+  if (busyUploads.size) return;
+  renderMain({ preserveFocus: true });
+}
+
+function focusSnapshot(){
+  const el = document.activeElement;
+  if (!el || !el.dataset || !el.dataset.bind) return null;
+  return {
+    item: el.dataset.item,
+    bind: el.dataset.bind,
+    value: el.value,
+    start: el.selectionStart,
+    end: el.selectionEnd,
+    scrollTop: el.scrollTop
+  };
+}
+function restoreFocus(snap){
+  if (!snap) return;
+  const el = document.querySelector(`[data-item="${snap.item}"][data-bind="${snap.bind}"]`);
+  if (!el) return;
+  el.value = snap.value;       // keystrokes not yet flushed outrank the repaint
+  el.focus();
+  try{ el.setSelectionRange(snap.start, snap.end); }catch(e){}
+  el.scrollTop = snap.scrollTop;
+}
+
 async function init(){
   document.getElementById('btnCollapse').innerHTML = icon('chevrons-left');
   document.getElementById('btnAddAccountTop').innerHTML = icon('plus') + '<span>Add account</span>';
   document.getElementById('btnAddAccountCollapsed').innerHTML = icon('plus');
   document.getElementById('btnSettings').innerHTML = icon('settings') + '<span>Settings</span>';
 
-  const [accounts, settings] = await Promise.all([
-    kvGet('hermetic:accounts'),
-    kvGet('hermetic:settings')
-  ]);
-  state.accounts = accounts || [];
-  state.settings = settings || { rootFolderName: "Hermetic AI - Customer Setup", rootFolderId: "" };
+  // Anything the last session could not get up to the Sheet goes back in the
+  // queue before anything else touches it.
+  requeueDirty();
+
+  // First paint comes straight out of the local mirror, with no network wait.
+  migrateToRecords();
+  readTopLevelState();
   renderSyncPill();
   renderSidebar();
   renderMain();
+  renderNameGate();
+
+  if (!syncUrl) return;
+
+  // Then reconcile with the Sheet in one request. Migration runs again after
+  // it, because the rows it needs to fold may only have arrived just now.
+  const changed = await hydrate();
+  migrateToRecords();
+  startPolling();
+  startHeartbeat();
+  if (!changed) return;
+  onRemoteChange();
 }
 
 /* =================================================================
@@ -906,18 +2079,62 @@ function renderSidebar(){
   }
   list.innerHTML = state.accounts.map(acc => {
     const active = acc.id === state.currentAccountId ? 'active' : '';
-    return `<div class="nav-item ${active}" data-id="${acc.id}" title="${escapeAttr(acc.name)}">
+    // Who is in each account, before you open it -- the cheapest way to stop
+    // two specialists landing on the same customer.
+    const peers = peersOn(acc.id);
+    const who = peers.length ? `${peers.map(p => p.name).join(', ')} ${peers.length > 1 ? 'are' : 'is'} in here now` : '';
+    return `<div class="nav-item ${active}" data-id="${acc.id}" title="${escapeAttr(acc.name + (who ? ' (' + who + ')' : ''))}">
       ${icon('building-2')}
       <span class="name hide-collapsed">${escapeHtml(acc.name)}</span>
+      ${peers.length ? `<span class="peer-dot hide-collapsed" title="${escapeAttr(who)}">${escapeHtml(String(peers.length))}</span>` : ''}
+      <button class="icon-btn nav-delete hide-collapsed" data-delete-account="${acc.id}" title="Delete ${escapeAttr(acc.name)}">${icon('trash-2','icon',14)}</button>
     </div>`;
   }).join('');
   list.querySelectorAll('.nav-item').forEach(el=>{
     el.addEventListener('click', ()=> selectAccount(el.dataset.id));
   });
+  list.querySelectorAll('[data-delete-account]').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation();          // deleting is not also selecting
+      confirmDeleteAccount(el.dataset.deleteAccount);
+    });
+  });
+}
+
+/* The most destructive thing in the tool: it takes every location under the
+   account with it, for everyone, with no undo. Hence typing the name rather
+   than a single click on a red button. */
+async function confirmDeleteAccount(accountId){
+  const account = readAccount(accountId);
+  if (!account) return;
+  const locations = readVenues(accountId);
+  const peers = peersOn(accountId).filter(p => p.name);
+
+  const ok = await confirmDialog({
+    title: `Delete ${account.name}?`,
+    body: `<p>This removes the account for everyone on the team, and it cannot be undone.</p>
+      <ul>
+        <li><strong>${locations.length === 0 ? 'No locations' : locations.length === 1 ? '1 location' : locations.length + ' locations'}</strong> will be deleted with it${locations.length ? `: ${escapeHtml(locations.map(l => l.name).join(', '))}` : ''}</li>
+        <li>Every answer and saved prompt in ${locations.length === 1 ? 'it' : 'them'} goes too</li>
+        <li>Files already in Google Drive are <strong>not</strong> deleted</li>
+      </ul>
+      ${peers.length ? `<p style="margin-top:var(--space-3);"><strong>${escapeHtml(peers.map(p => p.name).join(', '))}</strong> ${peers.length === 1 ? 'is' : 'are'} in this account right now.</p>` : ''}`,
+    confirmLabel: 'Delete account',
+    danger: true
+  });
+  if (!ok) return;
+
+  deleteAccount(accountId);
+  if (state.currentAccountId === accountId) state.currentAccountId = null;
+  readTopLevelState();
+  renderSidebar();
+  heartbeat();                      // no longer in that account
+  await renderMain();
 }
 async function selectAccount(id){
   state.currentAccountId = id;
   renderSidebar();
+  heartbeat();            // tell everyone else where this browser went
   await renderMain();
 }
 document.getElementById('btnCollapse').addEventListener('click', ()=>{
@@ -943,11 +2160,12 @@ document.getElementById('newAccountInput').addEventListener('keydown', async (e)
   if (e.key === 'Enter'){
     const name = e.target.value.trim();
     if (!name) return;
-    const acc = { id: 'a_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), name, drive_link:'' };
-    state.accounts.push(acc);
+    // Its own row, so two people adding an account at the same moment cannot
+    // collide: there is no shared list for the second save to rewrite.
+    const acc = createAccount(name);
     e.target.value = '';
     document.getElementById('newAccountRow').style.display = 'none';
-    await saveAccounts();
+    readTopLevelState();
     renderSidebar();
     await selectAccount(acc.id);
   }
@@ -956,41 +2174,70 @@ document.getElementById('newAccountInput').addEventListener('keydown', async (e)
 /* =================================================================
    MAIN RENDER
 ================================================================= */
-async function renderMain(){
+function skeletonList(rows){
+  const card = `<div class="skeleton-card"><span class="shimmer sq"></span><span class="shimmer" style="flex:1; max-width:220px;"></span></div>`;
+  return `<div class="skeleton">${card.repeat(rows || 3)}</div>`;
+}
+
+/* init() renders once from the mirror and again if hydrate() brought
+   something new, and selectAccount() can land in between. The generation
+   counter keeps a slower earlier pass from painting over a newer one. */
+let renderGeneration = 0;
+
+async function renderMain(opts){
+  const generation = ++renderGeneration;
   const content = document.getElementById('content');
   const title = document.getElementById('pageTitle');
   const meta = document.getElementById('pageMeta');
 
+  // A repaint driven by someone else's change must not move the caret of the
+  // person typing here, nor replace what they have typed since the last flush.
+  const snap = (opts && opts.preserveFocus) ? focusSnapshot() : null;
+
   if (!state.currentAccountId){
     title.textContent = 'Accounts';
-    meta.textContent = 'Add an account to set up venues for Mia.';
-    content.innerHTML = `<div class="empty-state">${icon('building-2','icon-lg')}<div class="t-title">No account selected</div><div class="t-body">Add your first account on the left to start setting up venues.</div></div>`;
+    meta.textContent = 'Add an account to set up locations for Mia.';
+    content.innerHTML = `<div class="empty-state">${icon('building-2','icon-lg')}<div class="t-title">No account selected</div><div class="t-body">Add your first account on the left to start setting up locations.</div></div>`;
+    renderPresence();
     return;
   }
 
-  const account = state.accounts.find(a => a.id === state.currentAccountId);
+  const account = readAccount(state.currentAccountId);
+  if (!account){
+    // Deleted out from under us by a teammate.
+    state.currentAccountId = null;
+    renderSidebar();
+    return renderMain();
+  }
   title.textContent = account.name;
   meta.innerHTML = `<span class="mono" style="font-size:11.5px;">${escapeHtml(state.settings.rootFolderName)}/${escapeHtml(account.name)}</span>`;
 
-  const venues = await loadVenues(account.id);
+  // Only an account the mirror knows nothing about waits on the network. A
+  // returning browser paints its cached answers immediately and lets the pull
+  // catch it up a moment later.
+  if (!kvHydrated && syncUrl && !localKeys(`hermetic:venue:${account.id}:`).length){
+    content.innerHTML = skeletonList();
+    await hydrate();
+    if (generation !== renderGeneration) return;   // a newer render took over
+  }
 
-  // Load version history for every venue (small payloads, capped per item) so
-  // the "outdated" indicator shows even on collapsed cards.
-  await Promise.all(venues.map(v => loadVersions(v.id)));
+  const venues = readVenues(account.id);
 
   content.innerHTML = `<div id="venueList"></div>`;
   const listEl = document.getElementById('venueList');
   listEl.innerHTML = renderVenuesList(venues);
   wireVenuesList(account, venues);
+  renderPresence();
+  restoreFocus(snap);
 }
 
 function renderVenuesList(items){
   const addRow = `<div class="inline-add">
-      <input type="text" class="input" id="newVenueInput" placeholder="New venue name">
-      <button class="btn btn-primary" id="btnAddVenue">${icon('plus')}Add venue</button>
+      <input type="text" class="input" id="newVenueInput" placeholder="New location name">
+      <button class="btn btn-primary" id="btnAddVenue">${icon('plus')}Add location</button>
     </div>`;
   if (items.length === 0){
-    return addRow + `<div class="empty-state">${icon('map-pin','icon-lg')}<div class="t-title">No venues yet</div><div class="t-body">Add one above. Each venue holds the facts and the behavior together, and produces both documents Mia needs.</div></div>`;
+    return addRow + `<div class="empty-state">${icon('map-pin','icon-lg')}<div class="t-title">No locations yet</div><div class="t-body">Add one above. Each location holds the facts and the behavior together, and produces both documents Mia needs.</div></div>`;
   }
   return addRow + items.map(item => renderVenue(item)).join('');
 }
@@ -1012,13 +2259,34 @@ function versionDocs(v){
     return [['Location Details', v.locationDoc || ''], ['Campaign Instructions', v.campaignDoc || '']];
   }
   const label = v.legacyKind === 'campaign' ? 'Campaign Instructions' : 'Location Details';
-  return [[`${label} (saved before venues were combined)`, v.doc || '']];
+  return [[`${label} (saved before locations were combined)`, v.doc || '']];
+}
+
+/* A file chip says what Drive currently reports about the file, not only what
+   it was called when it was uploaded. A file that is gone stops being a link:
+   offering one that leads nowhere is worse than saying plainly that it went. */
+function renderDocChip(itemId, d, i){
+  const category = escapeHtml(d.category || 'Other');
+  const label = `<span class="badge badge-slate" style="height:18px; padding:0 6px; font-size:11px;">${category}</span>`;
+  const remove = `<button class="icon-btn" style="width:18px;height:18px;" data-remove-doc="${itemId}" data-index="${i}" title="Remove from this list">${icon('x','icon',12)}</button>`;
+
+  if (d.gone){
+    const what = d.gone === 'trashed'
+      ? { text: 'In Drive trash', hint: 'This file is in the Google Drive trash. Restore it in Drive, or remove it from this list.' }
+      : { text: 'Deleted from Drive', hint: 'This file is no longer in Google Drive. Upload it again, or remove it from this list.' };
+    return `<span class="doc-chip gone" title="${escapeAttr(what.hint)}">${icon('alert-triangle','icon',12)}${label}<span class="mono doc-gone-name">${escapeHtml(d.name)}</span><span class="badge badge-destructive" style="height:18px; padding:0 6px; font-size:11px;">${what.text}</span>${remove}</span>`;
+  }
+
+  // Filed under something other than its category means somebody moved it.
+  const moved = d.folderName && d.folderName !== (d.category || 'Other')
+    ? `<span class="doc-moved" title="Moved in Google Drive">in ${escapeHtml(d.folderName)}</span>` : '';
+  return `<span class="doc-chip">${icon('paperclip','icon',12)}${label}<a href="${escapeAttr(d.link||'#')}" target="_blank" rel="noopener" class="mono">${escapeHtml(d.name)}</a>${moved}${remove}</span>`;
 }
 
 function renderVenue(item){
   const isOpen = state.openItemIds.has(item.id);
   const docs = item.data.docs || [];
-  const versions = state.versionsByItem[item.id] || [];
+  const versions = readVersions(item.id);
   const latestVersion = versions.length ? versions[versions.length - 1] : null;
   const isStale = latestVersion && (item.lastEditedAt || 0) > latestVersion.savedAt;
 
@@ -1034,21 +2302,34 @@ function renderVenue(item){
     <div class="card-header" data-toggle="${item.id}">
       ${icon('chevron-right','icon chev')}
       <span class="name t-title">${escapeHtml(item.name)}</span>
-      ${isStale ? `<span class="badge badge-warning" title="Answers changed since the last saved version">${icon('alert-triangle','icon',12)}Outdated</span>` : (latestVersion ? `<span class="badge badge-success">${icon('check-circle','icon',12)}Up to date</span>` : `<span class="badge badge-slate">No version yet</span>`)}
+      ${isStale ? `<span class="badge badge-warning" title="Answers changed since the prompts were saved">${icon('alert-triangle','icon',12)}Outdated</span>` : (latestVersion ? `<span class="badge badge-success">${icon('check-circle','icon',12)}Up to date</span>` : `<span class="badge badge-slate">No prompts saved</span>`)}
       ${item.data.drive_link ? `<a href="${item.data.drive_link}" target="_blank" rel="noopener" class="badge badge-success" onclick="event.stopPropagation()">${icon('link-2','icon',12)}Folder</a>` : `<span class="badge badge-slate">No files yet</span>`}
-      <button class="icon-btn" data-delete="${item.id}" title="Delete venue" onclick="event.stopPropagation()">${icon('trash-2')}</button>
+      <button class="icon-btn" data-duplicate="${item.id}" title="Duplicate location" onclick="event.stopPropagation()">${icon('copy-plus')}</button>
+      <button class="icon-btn" data-delete="${item.id}" title="Delete location" onclick="event.stopPropagation()">${icon('trash-2')}</button>
     </div>
     <div class="card-body">
       <div class="subsection">
-        <div class="t-overline">Client files — start here</div>
+        <div class="t-overline">Client files (start here)</div>
         ${banner('info','paperclip','Upload knowledge base files, then attach the same files to the Claude chat. The fields below cover only what the files cannot.')}
-        <div class="doc-list">${docs.map((d,i)=>`<span class="doc-chip">${icon('paperclip','icon',12)}<span class="badge badge-slate" style="height:18px; padding:0 6px; font-size:11px;">${escapeHtml(d.category||'Other')}</span><a href="${d.link||'#'}" target="_blank" rel="noopener" class="mono">${escapeHtml(d.name)}</a><button class="icon-btn" style="width:18px;height:18px;" data-remove-doc="${item.id}" data-index="${i}">${icon('x','icon',12)}</button></span>`).join('')}</div>
-        <div style="display:flex; gap:var(--space-2); flex-wrap:wrap; align-items:center;">
-          <select class="input" id="docCategory-${item.id}" style="height:36px; max-width:200px;">
+        <div class="doc-list">${docs.map((d,i)=>renderDocChip(item.id, d, i)).join('')}${docs.length ? `<button class="icon-btn" data-recheck-files="${item.id}" title="Check these files against Google Drive">${icon('refresh-cw','icon',13)}</button>` : ''}</div>
+        <div class="upload-row">
+          <select class="input" id="docCategory-${item.id}">
             ${DOC_TYPES.map(t=>`<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('')}
           </select>
-          <input type="file" id="docFile-${item.id}" style="flex:1; min-width:180px; font-size:12.5px;">
-          <button class="btn btn-outline compact" data-upload-doc="${item.id}">${icon('upload')}Upload to Google Drive</button>
+          <input type="file" id="docFile-${item.id}" class="file-input" data-file-for="${item.id}">
+          <label class="file-picker" for="docFile-${item.id}" data-picker-for="${item.id}">
+            ${icon('paperclip','icon',14)}
+            <span class="file-name">Choose a file</span>
+          </label>
+          <button class="icon-btn" data-clear-file="${item.id}" title="Clear the chosen file" hidden>${icon('x','icon',13)}</button>
+          <div class="upload-progress" data-progress-for="${item.id}" hidden>
+            <div class="upload-progress-head">
+              <span class="upload-progress-name" data-progress-label></span>
+              <span class="upload-progress-pct" data-progress-pct></span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" data-progress-fill></div></div>
+          </div>
+          <button class="btn btn-primary compact" data-upload-doc="${item.id}">${icon('upload')}Upload to Drive</button>
         </div>
         <div data-upload-status="${item.id}"></div>
       </div>
@@ -1067,7 +2348,7 @@ function renderVenue(item){
       <hr class="section-divider">
       <div class="subsection">
         <div class="t-overline">Generated output</div>
-        ${isStale ? banner('info', 'alert-triangle', `Answers changed since the last saved version (${formatTimestamp(latestVersion.savedAt)}). Consider regenerating and saving a new version.`) : ''}
+        ${isStale ? banner('info', 'alert-triangle', `Answers have changed since these prompts were saved on ${formatTimestamp(latestVersion.savedAt)}. Consider regenerating and saving again.`) : ''}
         <div class="field">
           <label>Location Details (paste Claude's first block here)</label>
           <textarea class="input" data-item="${item.id}" data-bind="draft_location_doc" data-no-touch="true" style="min-height:120px;">${escapeHtml(item.data.draft_location_doc||'')}</textarea>
@@ -1080,11 +2361,11 @@ function renderVenue(item){
           <label>Open questions for the client (paste Claude's third block here)</label>
           <textarea class="input" data-item="${item.id}" data-bind="draft_open_questions" data-no-touch="true" style="min-height:80px;">${escapeHtml(item.data.draft_open_questions||'')}</textarea>
         </div>
-        <button class="btn btn-outline" data-save-version="${item.id}">${icon('check-circle')}Save as new version</button>
+        <button class="btn btn-outline" data-save-version="${item.id}">${icon('check-circle')}Save these prompts</button>
 
         <div style="margin-top:var(--space-4);">
-          <div class="t-overline">Version history${versions.length ? ` (${versions.length})` : ''}</div>
-          ${versions.length === 0 ? `<div class="t-caption">No versions saved yet — paste output above and save it.</div>` : versions.slice().reverse().map((v, ri) => {
+          <div class="t-overline">Saved prompts${versions.length ? ` (${versions.length})` : ''}</div>
+          ${versions.length === 0 ? `<div class="t-caption">No prompts saved yet. Paste the output above and save it.</div>` : versions.slice().reverse().map((v, ri) => {
             const idx = versions.length - 1 - ri;
             const key = `${item.id}:${idx}`;
             const expanded = state.openVersionKeys.has(key);
@@ -1095,7 +2376,7 @@ function renderVenue(item){
               <div class="version-row-head">
                 <span class="t-caption" style="color:var(--night-ink); font-weight:500;">${formatTimestamp(v.savedAt)}${idx === versions.length-1 ? ' · latest' : ''}</span>
                 <button class="btn btn-ghost compact" data-toggle-version="${key}">${expanded ? 'Hide' : 'View'}</button>
-                <button class="icon-btn" data-copy-version="${key}" title="Copy this version">${icon('copy')}</button>
+                <button class="icon-btn" data-copy-version="${key}" title="Copy these prompts">${icon('copy')}</button>
                 <button class="icon-btn" data-restore-version="${key}" title="Restore into the fields above">${icon('upload')}</button>
               </div>
               ${!expanded ? `<div class="version-preview">${escapeHtml(preview)}${preview.length===90?'…':''}</div>` : ''}
@@ -1164,13 +2445,13 @@ async function copyForClaude(account, item){
 
 ---
 
-TEMPLATE 1 — LOCATION DETAILS:
+TEMPLATE 1: LOCATION DETAILS
 
 ${LOCATION_TEMPLATE_TEXT}
 
 ---
 
-TEMPLATE 2 — CAMPAIGN INSTRUCTIONS:
+TEMPLATE 2: CAMPAIGN INSTRUCTIONS
 
 ${CAMPAIGN_TEMPLATE_TEXT}
 
@@ -1183,46 +2464,263 @@ CLIENT FILES (attached to this chat):
 
 ${fileList}
 
-How to use these sources: ${FILE_SOURCED_LABEL} are not collected in the console at all — take them from the attached files and structure them yourself against Template 1. The answers below cover everything else; each heading holds one free-form note, so read it for the facts it contains rather than expecting a fixed field order, and treat an empty one as "nothing special here." Where a typed answer below and a file disagree, the typed answer wins. Anything still missing, unconfirmed, or contradictory goes in Open Questions, never into the documents.
+How to use these sources: ${FILE_SOURCED_LABEL} are not collected in the console at all. Take them from the attached files and structure them yourself against Template 1. The answers below cover everything else; each heading holds one free-form note, so read it for the facts it contains rather than expecting a fixed field order, and treat an empty one as "nothing special here." Where a typed answer below and a file disagree, the typed answer wins. Anything still missing, unconfirmed, or contradictory goes in Open Questions, never into the documents.
 
-COLLECTED ANSWERS — VENUE FACTS (for Location Details):
+COLLECTED ANSWERS: LOCATION FACTS (for Location Details):
 
 ${facts}
-${carried ? `\nFACTS TYPED IN BEFORE THESE SECTIONS MOVED TO FILE UPLOAD — treat them as typed answers:\n\n${carried}\n` : ''}
+${carried ? `\nFACTS TYPED IN BEFORE THESE SECTIONS MOVED TO FILE UPLOAD. Treat them as typed answers:\n\n${carried}\n` : ''}
 
-COLLECTED ANSWERS — ASSISTANT BEHAVIOR (for Campaign Instructions):
+COLLECTED ANSWERS: ASSISTANT BEHAVIOR (for Campaign Instructions):
 
 ${behavior}
 ${sourceMaterial ? `\nRAW SOURCE MATERIAL (call notes, documents):\n\n${sourceMaterial}\n` : ''}
 ---
 
 Produce three fenced blocks only:
-1. LOCATION DETAILS — Template 1. Facts only.
-2. CAMPAIGN INSTRUCTIONS — Template 2. Behavior only.
-3. OPEN QUESTIONS FOR THE CLIENT — every fact across both documents that is unconfirmed, conflicting, or missing.
+1. LOCATION DETAILS. Template 1, facts only.
+2. CAMPAIGN INSTRUCTIONS. Template 2, behavior only.
+3. OPEN QUESTIONS FOR THE CLIENT. Every fact across both documents that is unconfirmed, conflicting, or missing.
 
 Follow every authoring rule and the self-check exactly before you output.`;
   await navigator.clipboard.writeText(text);
 }
 
 /* =================================================================
-   WIRING
-================================================================= */
-function wireVenuesList(account, items){
-  const saveFn = ()=>saveVenues(account.id);
-  items.forEach(item => { item.folderSegments = [account.name, item.name]; });
+   DUPLICATE VENUE
 
+   A chain is the common case: fill one venue in, duplicate it for the
+   other four, change what differs. The copy is a first-class new
+   record with its own Drive folder and its own files, so editing or
+   deleting anything in it never reaches back into the venue it came
+   from.
+================================================================= */
+const onModalKey = (e) => { if (e.key === 'Escape') closeModal(); };
+let onModalClose = null;
+
+function closeModal(){
+  const root = document.getElementById('modalRoot');
+  if (root) root.innerHTML = '';
+  document.removeEventListener('keydown', onModalKey);
+  // Escape and the overlay are dismissals too, not just the Cancel button, so
+  // whatever opened the modal has to hear about every way out of it.
+  const notify = onModalClose;
+  onModalClose = null;
+  if (notify) notify();
+}
+function openModal(html, onClose){
+  onModalClose = onClose || null;
+  const root = document.getElementById('modalRoot');
+  root.innerHTML = `<div class="modal-overlay" data-overlay><div class="modal">${html}</div></div>`;
+  document.addEventListener('keydown', onModalKey);
+  root.querySelector('[data-overlay]').addEventListener('click', (e)=>{
+    if (e.target.hasAttribute('data-overlay')) closeModal();
+  });
+}
+
+/* =================================================================
+   CONFIRMING
+
+   The tool's own confirm, resolving true or false.
+
+   A browser confirm() is the wrong thing here on two counts: it is
+   chrome, not the tool, so on a live call it reads like the page has
+   broken; and it cannot show the name of what is about to go, or what
+   goes with it, which is the most useful thing a delete prompt can
+   say.
+================================================================= */
+function confirmDialog({ title, body, confirmLabel, cancelLabel, danger }){
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = (value) => { if (!settled){ settled = true; resolve(value); } };
+
+    openModal(`
+      <div class="t-title" style="margin-bottom:var(--space-3);">${escapeHtml(title)}</div>
+      <div class="modal-body">${body}</div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="confirmCancel">${escapeHtml(cancelLabel || 'Cancel')}</button>
+        <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" id="confirmGo">${escapeHtml(confirmLabel || 'Confirm')}</button>
+      </div>`, () => finish(false));
+
+    document.getElementById('confirmGo').addEventListener('click', ()=>{ finish(true); closeModal(); });
+    document.getElementById('confirmCancel').addEventListener('click', closeModal);
+
+    // Focus starts on Cancel. Confirming is one click, so a stray Enter or
+    // Space carried over from whatever was focused before must not be it.
+    document.getElementById('confirmCancel').focus();
+  });
+}
+
+function openDuplicateDialog(account, item){
+  const docs = (item.data.docs || []);
+  const copyable = docs.filter(d => d.fileId).length;
+  // A deployment without copyFile_ would answer "Unknown action", which is a
+  // worse way to find out than the checkbox simply saying so.
+  // serverVersion is 0 until the first pull answers. Unknown is not the same as
+  // old: let the attempt through and report per-file failures if it turns out
+  // the deployment cannot copy, rather than greying out a button that works.
+  const canCopyFiles = !!syncUrl && copyable > 0 && (serverVersion === 0 || serverVersion >= 4);
+  const staleBackend = !!syncUrl && copyable > 0 && serverVersion > 0 && serverVersion < 4;
+
+  openModal(`
+    <div class="t-title" style="margin-bottom:var(--space-4);">Duplicate location</div>
+    <div class="field">
+      <label>New location name</label>
+      <input type="text" class="input" id="dupName" value="${escapeAttr(item.name + ' (copy)')}">
+    </div>
+    ${state.accounts.length > 1 ? `<div class="field">
+      <label>Account</label>
+      <select class="input" id="dupAccount">
+        ${state.accounts.map(a => `<option value="${escapeAttr(a.id)}"${a.id === account.id ? ' selected' : ''}>${escapeHtml(a.name)}</option>`).join('')}
+      </select>
+    </div>` : ''}
+    ${docs.length ? `<div class="field">
+      <label class="modal-check">
+        <input type="checkbox" id="dupFiles"${canCopyFiles ? ' checked' : ' disabled'}>
+        <span>Copy the ${docs.length === 1 ? 'uploaded file' : docs.length + ' uploaded files'} into the new location's Drive folder${
+          staleBackend ? ' (not available until the connection is updated)' :
+          (!syncUrl ? ' (needs a connection first)' :
+          (copyable ? '' : ' (these files were added before uploads and cannot be copied)'))
+        }</span>
+      </label>
+    </div>` : ''}
+    <div class="t-caption">Answers and source material are copied. Generated output and saved prompts are not, since those belong to the location they were produced for.</div>
+    <div id="dupStatus"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="dupCancel">Cancel</button>
+      <button class="btn btn-primary" id="dupGo">${icon('copy-plus')}Duplicate</button>
+    </div>`);
+
+  const nameEl = document.getElementById('dupName');
+  nameEl.focus();
+  nameEl.setSelectionRange(0, nameEl.value.length);
+
+  document.getElementById('dupCancel').addEventListener('click', closeModal);
+  nameEl.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') document.getElementById('dupGo').click(); });
+
+  document.getElementById('dupGo').addEventListener('click', async ()=>{
+    const statusEl = document.getElementById('dupStatus');
+    const goEl = document.getElementById('dupGo');
+    const name = nameEl.value.trim();
+    if (!name){ statusEl.innerHTML = banner('destructive','alert-triangle','Give the new location a name.'); return; }
+
+    const accountSel = document.getElementById('dupAccount');
+    const targetId = accountSel ? accountSel.value : account.id;
+    const targetAccount = readAccount(targetId);
+    if (!targetAccount){ statusEl.innerHTML = banner('destructive','alert-triangle','That account is no longer there.'); return; }
+
+    const wantFiles = !!(document.getElementById('dupFiles') || {}).checked;
+    goEl.disabled = true;
+    document.getElementById('dupCancel').disabled = true;
+
+    const record = duplicateVenueRecord(account.id, item.id, targetId, name);
+    if (!record){
+      statusEl.innerHTML = banner('destructive','alert-triangle','This location was removed by a teammate.');
+      return;
+    }
+
+    let failed = 0;
+    if (wantFiles && docs.length){
+      // Server-side copies have no measurable length of their own, so the bar
+      // counts files: it is the one thing here that genuinely has a total.
+      statusEl.innerHTML = `<div class="upload-progress" style="height:auto; margin-top:var(--space-3);">
+          <div class="upload-progress-head">
+            <span class="upload-progress-name" id="dupProgressName">Starting…</span>
+            <span class="upload-progress-pct" id="dupProgressPct"></span>
+          </div>
+          <div class="progress-track"><div class="progress-fill" id="dupProgressFill"></div></div>
+        </div>`;
+      const nameEl2 = document.getElementById('dupProgressName');
+      const pctEl = document.getElementById('dupProgressPct');
+      const fillEl = document.getElementById('dupProgressFill');
+      for (let i = 0; i < docs.length; i++){
+        const doc = docs[i];
+        if (nameEl2) nameEl2.textContent = `Copying ${doc.name}`;
+        if (pctEl) pctEl.textContent = `${i + 1} of ${docs.length}`;
+        if (fillEl) fillEl.style.width = Math.round((i / docs.length) * 100) + '%';
+        try{
+          // Each file is saved onto the record as it lands rather than all at
+          // the end, so a copy that fails half way through still leaves the
+          // duplicate holding every file that did make it.
+          if (doc.fileId){
+            const result = await copyDocumentInDrive({
+              segments: [targetAccount.name, name],
+              category: doc.category || 'Other',
+              fileId: doc.fileId,
+              filename: doc.name
+            });
+            attachDoc(targetId, record.id, { name: doc.name, link: result.link, category: doc.category || 'Other', fileId: result.fileId }, result.folderLink);
+          }else{
+            // Nothing to copy in Drive -- carry the link across as a reference.
+            attachDoc(targetId, record.id, { ...doc }, '');
+          }
+        }catch(err){
+          failed++;
+          console.warn('Could not copy', doc.name, err);
+        }
+      }
+      if (fillEl) fillEl.style.width = '100%';
+    }
+
+    closeModal();
+    state.currentAccountId = targetId;
+    state.openItemIds.add(record.id);
+    readTopLevelState();
+    renderSidebar();
+    heartbeat();
+    await renderMain();
+
+    if (failed){
+      const el = document.querySelector(`[data-upload-status="${record.id}"]`);
+      if (el) el.innerHTML = banner('destructive','alert-triangle',
+        `${failed} of ${docs.length} file${docs.length === 1 ? '' : 's'} could not be copied. Everything else came across. Upload the rest by hand.`);
+    }
+  });
+}
+
+/* Appends one file to a venue and saves immediately. Goes through editVenue so
+   the record is re-read first: a duplicate with several files takes seconds,
+   and a teammate may well have touched the venue in between. */
+function attachDoc(accountId, venueId, doc, folderLink){
+  editVenue(accountId, venueId, (record)=>{
+    record.data.docs = record.data.docs || [];
+    record.data.docs.push(doc);
+    if (folderLink && !record.data.drive_link) record.data.drive_link = folderLink;
+    return ['data.docs', 'data.drive_link'];
+  });
+}
+
+/* =================================================================
+   WIRING
+
+   Every handler re-reads its venue from the mirror before changing it
+   rather than mutating the object the render happened to paint from.
+   That object can be seconds stale -- a pull may have landed while a
+   card sat open -- and writing it back whole would undo whatever the
+   pull brought. Read, change one field, stamp it, save.
+================================================================= */
+const FIELD_DEBOUNCE_MS = 600;
+
+/* Locations with a file going up right now. An upload owns DOM that a repaint
+   would destroy mid-flight, taking the indicator with it while the request
+   carried on invisibly, so a pull that lands during one holds its repaint back
+   until it is done. */
+const busyUploads = new Set();
+
+/* Files chosen but not yet uploaded, by location. Kept outside the DOM because
+   a re-render replaces the file input and takes the selection with it. */
+const pendingFiles = new Map();
+
+function wireVenuesList(account, items){
   const addBtn = document.getElementById('btnAddVenue');
   if (addBtn){
     addBtn.addEventListener('click', async ()=>{
       const input = document.getElementById('newVenueInput');
       const name = input.value.trim();
       if (!name) return;
-      const newItem = { id: 'i_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), name, lastEditedAt: Date.now(), data: newVenueData() };
-      items.push(newItem);
+      const record = createVenue(account.id, name);
       input.value = '';
-      await saveFn();
-      state.openItemIds.add(newItem.id);
+      state.openItemIds.add(record.id);
       await renderMain();
     });
   }
@@ -1235,72 +2733,271 @@ function wireVenuesList(account, items){
     });
   });
 
+  document.querySelectorAll('[data-duplicate]').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      // Read fresh rather than trusting the painted copy: the card may have
+      // been open a while, and the duplicate should carry the current answers.
+      const item = readVenue(account.id, el.dataset.duplicate);
+      if (!item) return;
+      openDuplicateDialog(account, item);
+    });
+  });
+
   document.querySelectorAll('[data-delete]').forEach(el=>{
     el.addEventListener('click', async (e)=>{
       e.stopPropagation();
       const id = el.dataset.delete;
-      if (!confirm('Remove this venue from the console? Drive folders and files are not deleted.')) return;
-      const idx = items.findIndex(i=>i.id===id);
-      if (idx > -1) items.splice(idx,1);
-      await saveFn();
+      const item = readVenue(account.id, id);
+      if (!item) return;
+      const savedPrompts = readVersions(id).length;
+      const fileCount = (item.data.docs || []).length;
+      const ok = await confirmDialog({
+        title: `Delete ${item.name}?`,
+        body: `<p>This removes the location for everyone on the team, and it cannot be undone.</p>
+          <ul>
+            <li>Every answer typed into it goes${savedPrompts ? `, along with ${savedPrompts === 1 ? 'the saved prompt' : `all ${savedPrompts} saved prompts`}` : ''}</li>
+            <li>${fileCount ? `The ${fileCount === 1 ? 'file' : fileCount + ' files'} uploaded here stay in Google Drive` : 'Nothing in Google Drive is affected'}</li>
+          </ul>`,
+        confirmLabel: 'Delete location',
+        danger: true
+      });
+      if (!ok) return;
+      // A tombstone, not a removed row: the Sheet has no delete, and a reader
+      // cannot tell a row that was deleted from one it has not seen yet.
+      deleteVenue(account.id, id);
       await renderMain();
     });
   });
 
+  /* Typed text is committed on a short debounce rather than on blur. On a call
+     the tab gets closed with the caret still in a box, and a field that only
+     saved on blur was a field that never saved at all. It also means a repaint
+     from someone else's change is never more than a moment away from having
+     this person's latest keystrokes in it. */
+  const timers = new Map();
+  const commit = (el) => {
+    const itemId = el.dataset.item;
+    setVenueField(account.id, itemId, el.dataset.bind, el.value,
+                  { noTouch: el.dataset.noTouch === 'true' });
+  };
   document.querySelectorAll('[data-bind]').forEach(el=>{
-    el.addEventListener('change', async ()=>{
-      const item = items.find(i => i.id === el.dataset.item);
-      if (!item) return;
-      setAtPath(item.data, el.dataset.bind, el.value);
-      if (el.dataset.noTouch !== 'true') touchItem(item);
-      await saveFn();
+    const key = el.dataset.item + ':' + el.dataset.bind;
+    el.addEventListener('input', ()=>{
+      clearTimeout(timers.get(key));
+      timers.set(key, setTimeout(()=> commit(el), FIELD_DEBOUNCE_MS));
+    });
+    el.addEventListener('blur', ()=>{
+      clearTimeout(timers.get(key));
+      commit(el);
     });
   });
 
+  /* The real input is visually hidden, so the row itself has to report what was
+     picked, and it has to keep reporting it. The card is rebuilt whenever a poll
+     brings something in, whenever Drive is checked, and whenever another card is
+     opened -- and every rebuild makes a brand new empty <input type="file">. A
+     file chosen a moment before any of that simply vanished, with the row back
+     to "Choose a file" and no sign anything had happened. So the File itself is
+     held in pendingFiles, outside the DOM, and the input is refilled from it
+     after each render. */
+  const showChosenFile = (itemId) => {
+    const picker = document.querySelector(`[data-picker-for="${itemId}"]`);
+    const clear = document.querySelector(`[data-clear-file="${itemId}"]`);
+    if (!picker) return;
+    const file = pendingFiles.get(itemId);
+    picker.querySelector('.file-name').textContent = file ? file.name : 'Choose a file';
+    picker.classList.toggle('has-file', !!file);
+    if (clear) clear.hidden = !file;
+  };
+
+  const restoreChosenFile = (itemId) => {
+    const input = document.getElementById(`docFile-${itemId}`);
+    const file = pendingFiles.get(itemId);
+    if (input && file){
+      // Put the File back into the fresh input so the native control agrees
+      // with what the row says. DataTransfer is the only way to assign it.
+      try{
+        const carrier = new DataTransfer();
+        carrier.items.add(file);
+        input.files = carrier.files;
+      }catch(e){ /* older browser: pendingFiles is still the source of truth */ }
+    }
+    showChosenFile(itemId);
+  };
+
+  document.querySelectorAll('[data-file-for]').forEach(el=>{
+    const itemId = el.dataset.fileFor;
+    el.addEventListener('change', ()=>{
+      const chosen = el.files && el.files[0];
+      if (chosen) pendingFiles.set(itemId, chosen); else pendingFiles.delete(itemId);
+      showChosenFile(itemId);
+    });
+    restoreChosenFile(itemId);       // survive the render that just happened
+  });
+
+  document.querySelectorAll('[data-clear-file]').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      e.preventDefault();
+      const itemId = el.dataset.clearFile;
+      pendingFiles.delete(itemId);
+      const input = document.getElementById(`docFile-${itemId}`);
+      if (input) input.value = '';
+      showChosenFile(itemId);
+    });
+  });
+
+  /* Drives the indicator for one location's upload: the picker gives way to a
+     progress bar, and every control that could start a second upload or change
+     where this one is going is locked until it finishes. */
+  function uploadIndicator(itemId){
+    const picker   = document.querySelector(`[data-picker-for="${itemId}"]`);
+    const clear    = document.querySelector(`[data-clear-file="${itemId}"]`);
+    const progress = document.querySelector(`[data-progress-for="${itemId}"]`);
+    const button   = document.querySelector(`[data-upload-doc="${itemId}"]`);
+    const category = document.getElementById(`docCategory-${itemId}`);
+    const input    = document.getElementById(`docFile-${itemId}`);
+    const label    = progress && progress.querySelector('[data-progress-label]');
+    const pct      = progress && progress.querySelector('[data-progress-pct]');
+    const fill     = progress && progress.querySelector('[data-progress-fill]');
+    const buttonWas = button && button.innerHTML;
+    let elapsedTimer = null;
+
+    return {
+      start(filename){
+        clearInterval(elapsedTimer);
+        busyUploads.add(itemId);
+        if (picker) picker.hidden = true;
+        if (clear) clear.hidden = true;
+        if (progress) progress.hidden = false;
+        if (label) label.textContent = filename;
+        if (pct) pct.textContent = '';
+        if (fill){ fill.style.width = '0%'; fill.classList.remove('indeterminate'); }
+        [button, category, input].forEach(c => { if (c) c.disabled = true; });
+        if (button) button.innerHTML = icon('loader-2','icon spin') + 'Uploading…';
+      },
+      phase(name, fraction){
+        if (!fill) return;
+        if (name === 'reading'){
+          // Measurable, so show the real number.
+          fill.classList.remove('indeterminate');
+          const percent = Math.round((fraction || 0) * 100);
+          fill.style.width = percent + '%';
+          if (pct) pct.textContent = 'Reading ' + percent + '%';
+          return;
+        }
+        // On its way to Drive. Nothing here can be measured (see
+        // uploadDocumentToDrive), so the bar moves without claiming a number and
+        // a running clock shows the request has not died.
+        fill.classList.add('indeterminate');
+        const startedAt = Date.now();
+        const tick = ()=>{
+          if (!pct) return;
+          pct.textContent = 'Sending… ' + Math.round((Date.now() - startedAt) / 1000) + 's';
+        };
+        tick();
+        clearInterval(elapsedTimer);
+        elapsedTimer = setInterval(tick, 1000);
+      },
+      stop(){
+        clearInterval(elapsedTimer);
+        busyUploads.delete(itemId);
+        if (picker) picker.hidden = false;
+        if (progress) progress.hidden = true;
+        // Only back if the file is still sitting there, which it is after a
+        // failure and is not after a success.
+        if (clear) clear.hidden = !pendingFiles.has(itemId);
+        [button, category, input].forEach(c => { if (c) c.disabled = false; });
+        if (button && buttonWas) button.innerHTML = buttonWas;
+      }
+    };
+  }
 
   document.querySelectorAll('[data-upload-doc]').forEach(el=>{
     el.addEventListener('click', async ()=>{
       const itemId = el.dataset.uploadDoc;
-      const item = items.find(i => i.id === itemId);
+      if (busyUploads.has(itemId)) return;        // already going up
+      const item = readVenue(account.id, itemId);
       const fileEl = document.getElementById(`docFile-${itemId}`);
       const categoryEl = document.getElementById(`docCategory-${itemId}`);
       const statusEl = document.querySelector(`[data-upload-status="${itemId}"]`);
-      const file = fileEl.files[0];
+      const file = pendingFiles.get(itemId) || (fileEl.files && fileEl.files[0]);
+      if (!item){ statusEl.innerHTML = banner('destructive','alert-triangle','This location was removed by a teammate.'); return; }
       if (!file){ statusEl.innerHTML = banner('destructive','alert-triangle','Choose a file first.'); return; }
       if (file.size > 8 * 1024 * 1024){
-        statusEl.innerHTML = banner('destructive','alert-triangle','File is over 8MB — upload it to Drive manually and paste the link into a note instead.');
+        statusEl.innerHTML = banner('destructive','alert-triangle','File is over 8MB. Upload it to Drive manually and paste the link into a note instead.');
         return;
       }
-      statusEl.innerHTML = banner('info','loader-2','Uploading…', true);
+      const ui = uploadIndicator(itemId);
+      ui.start(file.name);
+      statusEl.innerHTML = '';
       try{
-        const result = await uploadDocumentToDrive({ segments: item.folderSegments, category: categoryEl.value, file });
-        item.data.docs = item.data.docs || [];
-        item.data.docs.push({ name: file.name, link: result.link, category: categoryEl.value, fileId: result.fileId });
-        if (result.folderLink) item.data.drive_link = result.folderLink;
-        touchItem(item);
-        await saveFn();
+        const result = await uploadDocumentToDrive({
+          segments: [account.name, item.name], category: categoryEl.value, file,
+          onPhase: (name, fraction)=> ui.phase(name, fraction)
+        });
+        // Re-read: the upload took seconds, and a teammate may have uploaded
+        // into the same venue meanwhile. Files merge as a union, so appending
+        // to the current record keeps both.
+        editVenue(account.id, itemId, (record)=>{
+          record.data.docs = record.data.docs || [];
+          record.data.docs.push({ name: file.name, link: result.link, category: categoryEl.value, fileId: result.fileId });
+          if (result.folderLink) record.data.drive_link = result.folderLink;
+          return ['data.docs', 'data.drive_link'];
+        });
+        ui.stop();
+        pendingFiles.delete(itemId);
         fileEl.value = '';
-        await renderMain();
+        showChosenFile(itemId);
         state.openItemIds.add(itemId);
+        await renderMain();
       }catch(err){
+        ui.stop();
         statusEl.innerHTML = banner('destructive','alert-triangle','Upload failed: ' + err.message);
       }
     });
   });
+
+  // Ask Drive about the files of every card that is actually open. Closed cards
+  // are not worth a round trip on a backend that runs requests one at a time.
+  items.forEach(item => {
+    if (state.openItemIds.has(item.id)) verifyLocationFiles(account.id, item.id);
+  });
+
+  document.querySelectorAll('[data-recheck-files]').forEach(el=>{
+    el.addEventListener('click', async ()=>{
+      const itemId = el.dataset.recheckFiles;
+      el.innerHTML = icon('loader-2','icon spin',13);
+      await verifyLocationFiles(account.id, itemId, { force: true });
+      const still = document.querySelector(`[data-recheck-files="${itemId}"]`);
+      if (still) still.innerHTML = icon('refresh-cw','icon',13);
+    });
+  });
+
   document.querySelectorAll('[data-remove-doc]').forEach(el=>{
     el.addEventListener('click', async ()=>{
-      const item = items.find(i => i.id === el.dataset.removeDoc);
-      item.data.docs.splice(parseInt(el.dataset.index,10), 1);
-      touchItem(item);
-      await saveFn();
+      const itemId = el.dataset.removeDoc;
+      const index = parseInt(el.dataset.index, 10);
+      editVenue(account.id, itemId, (record)=>{
+        const doc = (record.data.docs || [])[index];
+        if (!doc) return [];
+        record.data.docs.splice(index, 1);
+        // Remember the removal by id. Without this the next merge would see
+        // the file on the other side and cheerfully put it back.
+        record.docsRemoved = record.docsRemoved || [];
+        const k = docKeyOf(doc);
+        if (k && !record.docsRemoved.includes(k)) record.docsRemoved.push(k);
+        return ['data.docs'];
+      });
+      state.openItemIds.add(itemId);
       await renderMain();
-      state.openItemIds.add(item.id);
     });
   });
 
   document.querySelectorAll('[data-copy-claude]').forEach(el=>{
     el.addEventListener('click', async ()=>{
-      const item = items.find(i => i.id === el.dataset.copyClaude);
+      const item = readVenue(account.id, el.dataset.copyClaude);
+      if (!item) return;
       try{
         await copyForClaude(account, item);
         el.innerHTML = icon('check-circle') + 'Copied';
@@ -1312,16 +3009,17 @@ function wireVenuesList(account, items){
   document.querySelectorAll('[data-save-version]').forEach(el=>{
     el.addEventListener('click', async ()=>{
       const itemId = el.dataset.saveVersion;
-      const item = items.find(i => i.id === itemId);
+      const item = readVenue(account.id, itemId);
+      if (!item) return;
       const locationDoc = (item.data.draft_location_doc || '').trim();
       const campaignDoc = (item.data.draft_campaign_doc || '').trim();
       const openQuestions = (item.data.draft_open_questions || '').trim();
-      if (!locationDoc && !campaignDoc && !openQuestions){ alert('Paste the generated output above before saving a version.'); return; }
-      const versions = state.versionsByItem[itemId] || [];
-      versions.push({ savedAt: Date.now(), locationDoc, campaignDoc, openQuestions });
-      await saveVersions(itemId, versions);
-      await renderMain();
+      if (!locationDoc && !campaignDoc && !openQuestions){ alert('Paste the generated output above before saving.'); return; }
+      const versions = readVersions(itemId);
+      versions.push({ savedAt: Date.now(), savedBy: displayName || '', locationDoc, campaignDoc, openQuestions });
+      saveVersions(itemId, versions);
       state.openItemIds.add(itemId);
+      await renderMain();
     });
   });
 
@@ -1336,7 +3034,7 @@ function wireVenuesList(account, items){
   document.querySelectorAll('[data-copy-version]').forEach(el=>{
     el.addEventListener('click', async ()=>{
       const [itemId, idxStr] = el.dataset.copyVersion.split(':');
-      const v = (state.versionsByItem[itemId] || [])[parseInt(idxStr,10)];
+      const v = readVersions(itemId)[parseInt(idxStr,10)];
       if (!v) return;
       const text = versionDocs(v).map(([label, body]) => `${label.toUpperCase()}\n\n${body}`).join('\n\n')
         + `\n\nOPEN QUESTIONS FOR THE CLIENT\n\n${v.openQuestions || ''}`;
@@ -1347,22 +3045,23 @@ function wireVenuesList(account, items){
   document.querySelectorAll('[data-restore-version]').forEach(el=>{
     el.addEventListener('click', async ()=>{
       const [itemId, idxStr] = el.dataset.restoreVersion.split(':');
-      const item = items.find(i => i.id === itemId);
-      const v = (state.versionsByItem[itemId] || [])[parseInt(idxStr,10)];
-      if (!item || !v) return;
-      if (!confirm('Replace the current draft fields with this saved version? This does not delete any version history.')) return;
-      if (v.locationDoc !== undefined || v.campaignDoc !== undefined){
-        item.data.draft_location_doc = v.locationDoc || '';
-        item.data.draft_campaign_doc = v.campaignDoc || '';
-      } else if (v.legacyKind === 'campaign'){
-        item.data.draft_campaign_doc = v.doc || '';
-      } else {
-        item.data.draft_location_doc = v.doc || '';
-      }
-      item.data.draft_open_questions = v.openQuestions || '';
-      await saveFn();
-      await renderMain();
+      const v = readVersions(itemId)[parseInt(idxStr,10)];
+      if (!v) return;
+      if (!confirm('Replace what is in the boxes above with this saved set? Nothing you have already saved is deleted.')) return;
+      editVenue(account.id, itemId, (record)=>{
+        if (v.locationDoc !== undefined || v.campaignDoc !== undefined){
+          record.data.draft_location_doc = v.locationDoc || '';
+          record.data.draft_campaign_doc = v.campaignDoc || '';
+        } else if (v.legacyKind === 'campaign'){
+          record.data.draft_campaign_doc = v.doc || '';
+        } else {
+          record.data.draft_location_doc = v.doc || '';
+        }
+        record.data.draft_open_questions = v.openQuestions || '';
+        return ['data.draft_location_doc', 'data.draft_campaign_doc', 'data.draft_open_questions'];
+      });
       state.openItemIds.add(itemId);
+      await renderMain();
     });
   });
 }
@@ -1380,6 +3079,17 @@ function renderSettings(){
   content.innerHTML = `
     <button class="btn btn-ghost compact" id="btnBackFromSettings" style="margin-bottom:var(--space-5);">${icon('arrow-left')}Back</button>
     <div class="settings-grid">
+      <div class="card" style="padding:var(--space-6);">
+        <div class="t-title" style="margin-bottom:var(--space-3);">Your name</div>
+        <div class="field">
+          <label>Shown to teammates</label>
+          <input type="text" class="input" id="displayNameInput" value="${escapeAttr(displayName)}" placeholder="e.g. Dana R.">
+          <div class="t-caption" style="margin-top:var(--space-1);">Whoever else has an account open sees this, so two of you do not end up on the same customer. Stored in this browser only.</div>
+        </div>
+        <button class="btn btn-primary" id="btnSaveName">Save</button>
+        <span id="nameSaveStatus"></span>
+      </div>
+
       <div class="card" style="padding:var(--space-6);">
         <div class="t-title" style="margin-bottom:var(--space-3);">Google Sheet sync</div>
         <div class="field">
@@ -1399,7 +3109,7 @@ function renderSettings(){
         <div class="field">
           <label>Root Drive folder (URL or ID)</label>
           <input type="text" class="input" id="rootFolderIdInput" value="${escapeAttr(state.settings.rootFolderId||'')}" placeholder="https://drive.google.com/drive/folders/...">
-          <div class="t-caption" style="margin-top:var(--space-1);">Files upload into this folder, organized by account and venue automatically. Leave blank to let the Apps Script create a top-level folder by name instead.</div>
+          <div class="t-caption" style="margin-top:var(--space-1);">Files upload into this folder, organized by account and location automatically. Leave blank to let the Apps Script create a top-level folder by name instead.</div>
         </div>
         <div class="field">
           <label>Root folder name</label>
@@ -1424,6 +3134,15 @@ function renderSettings(){
 
   document.getElementById('btnBackFromSettings').addEventListener('click', renderMain);
 
+  document.getElementById('btnSaveName').addEventListener('click', ()=>{
+    displayName = document.getElementById('displayNameInput').value.trim();
+    localStorage.setItem('hermetic:displayName', displayName);
+    document.getElementById('nameSaveStatus').innerHTML = banner('success','check-circle','Saved.');
+    startHeartbeat();
+    heartbeat();
+    renderNameGate();
+  });
+
   document.getElementById('btnSaveSyncUrl').addEventListener('click', ()=>{
     syncUrl = document.getElementById('syncUrlInput').value.trim();
     localStorage.setItem('hermetic:syncUrl', syncUrl);
@@ -1435,25 +3154,35 @@ function renderSettings(){
     const statusEl = document.getElementById('syncTestStatus');
     if (!url){ statusEl.innerHTML = banner('destructive','alert-triangle','Paste a URL first.'); return; }
     statusEl.innerHTML = banner('info','loader-2','Testing…', true);
-    const ok = await testSyncConnection(url);
-    statusEl.innerHTML = ok
-      ? banner('success','check-circle','Connected. Your Sheet is ready to sync.')
-      : banner('destructive','alert-triangle','Could not reach that URL. Double-check the deployment is set to "Anyone" access and re-copy the URL.');
+    const result = await testSyncConnection(url);
+    /* Four outcomes, said plainly. The point of each is what the person in
+       front of it can expect to happen to their work, not which part of the
+       backend is out of date. */
+    statusEl.innerHTML = !result.ok
+      ? banner('destructive','alert-triangle','Not connected. Check the link is right and that it was shared with everyone, then try again.')
+      : result.serverVersion < 3 || !result.batch
+        ? banner('destructive','alert-triangle','Connected, but out of date. Until it is updated, two people working on the same location at the same time can overwrite each other. Ask whoever set this up to update it.')
+        : result.serverVersion < 4
+          ? banner('info','alert-triangle','Connected. One thing is missing: duplicating a location will not bring its files across until this is updated.')
+          : result.serverVersion < 5
+            ? banner('info','alert-triangle','Connected. Two things are missing until this is updated: the console will not notice files renamed or deleted in Google Drive, and edits typed straight into the Google Sheet will not show up here.')
+            : banner('success','check-circle','Connected. Everything is saving, your team can work at the same time, and changes made in Google Drive or the Sheet show up here.');
   });
 
   document.getElementById('saveFolderBtn').addEventListener('click', async ()=>{
-    state.settings.rootFolderId = document.getElementById('rootFolderIdInput').value.trim();
-    state.settings.rootFolderName = document.getElementById('rootFolderInput').value.trim() || 'Hermetic AI - Customer Setup';
-    await saveSettings();
+    saveSettings({
+      rootFolderId: document.getElementById('rootFolderIdInput').value.trim(),
+      rootFolderName: document.getElementById('rootFolderInput').value.trim() || 'ONBOARDING - Custom Prompt Uploads'
+    });
     document.getElementById('folderSaveStatus').innerHTML = banner('success','check-circle','Saved.');
   });
 
   document.getElementById('btnExport').addEventListener('click', async ()=>{
-    const bundle = { accounts: state.accounts, settings: state.settings, venues:{}, versions:{} };
-    for (const acc of state.accounts){
-      bundle.venues[acc.id] = await loadVenues(acc.id);
+    const bundle = { accounts: readAccounts(), settings: state.settings, venues:{}, versions:{} };
+    for (const acc of bundle.accounts){
+      bundle.venues[acc.id] = readVenues(acc.id);
       for (const item of bundle.venues[acc.id]){
-        bundle.versions[item.id] = await loadVersions(item.id);
+        bundle.versions[item.id] = readVersions(item.id);
       }
     }
     const blob = new Blob([JSON.stringify(bundle, null, 2)], { type:'application/json' });
@@ -1463,6 +3192,11 @@ function renderSettings(){
     URL.revokeObjectURL(url);
   });
   document.getElementById('btnImportTrigger').addEventListener('click', ()=> document.getElementById('importFile').click());
+
+  /* Import merges rather than replaces. It runs against a Sheet the rest of the
+     team is using, so wiping and rewriting would delete their work; every row
+     goes through the same field-level merge an ordinary edit does, and a record
+     the backup does not mention is left alone. */
   document.getElementById('importFile').addEventListener('change', async (e)=>{
     const file = e.target.files[0];
     if (!file) return;
@@ -1470,27 +3204,66 @@ function renderSettings(){
     try{
       const text = await file.text();
       const bundle = JSON.parse(text);
-      state.accounts = bundle.accounts || [];
-      state.settings = bundle.settings || state.settings;
-      await saveAccounts();
-      await saveSettings();
+      if (!confirm('Merge this backup into the shared Sheet? Existing answers are kept unless the backup has a newer version of the same field.')) {
+        e.target.value = '';
+        return;
+      }
+      statusEl.innerHTML = banner('info','loader-2','Merging…', true);
+
+      const importRecord = (key, incoming) => {
+        const kind = kindOfKey(key);
+        const local = localRead(key);
+        const merged = local ? mergeRecords(kind, local, incoming) : incoming;
+        merged.rev = (local && local.rev) || 0;
+        saveRecord(key, merged);
+      };
+
+      for (const acc of (bundle.accounts || [])){
+        if (!acc || !acc.id) continue;
+        const at = acc.updatedAt || acc.createdAt || Date.now();
+        const rec = blankRecord({
+          id: acc.id, name: acc.name || 'Untitled', drive_link: acc.drive_link || '',
+          deleted: !!acc.deleted, createdAt: acc.createdAt || at
+        });
+        ['name','drive_link','deleted'].forEach(f => stampField(rec, f, (acc.fieldTs && acc.fieldTs[f]) || at));
+        importRecord(accountKey(acc.id), rec);
+      }
+
       for (const accId of Object.keys(bundle.venues || {})){
-        state.venuesByAccount[accId] = bundle.venues[accId];
-        await saveVenues(accId);
+        for (const v of (bundle.venues[accId] || [])){
+          if (!v || !v.id) continue;
+          const at = v.lastEditedAt || v.updatedAt || Date.now();
+          const data = v.data || newVenueData();
+          foldLegacyBlocks(data);
+          const rec = blankRecord({
+            id: v.id, accountId: accId, name: v.name || 'Untitled', deleted: !!v.deleted,
+            createdAt: v.createdAt || at, lastEditedAt: at, data, docsRemoved: v.docsRemoved || []
+          });
+          ['name','deleted'].forEach(f => stampField(rec, f, (v.fieldTs && v.fieldTs[f]) || at));
+          Object.keys(data).forEach(k => {
+            if (k === 'docs') return;
+            const path = 'data.' + k;
+            stampField(rec, path, (v.fieldTs && v.fieldTs[path]) || at);
+          });
+          importRecord(venueKey(accId, v.id), rec);
+        }
       }
-      // Backups taken before the two tabs were combined: keep the raw records so
-      // loadVenues() folds them into venue records on the next read.
-      for (const accId of Object.keys(bundle.locations || {})){
-        await kvSet(`hermetic:locations:${accId}`, bundle.locations[accId]);
-      }
-      for (const accId of Object.keys(bundle.campaigns || {})){
-        await kvSet(`hermetic:campaigns:${accId}`, bundle.campaigns[accId]);
-      }
+
       for (const itemId of Object.keys(bundle.versions || {})){
-        await saveVersions(itemId, bundle.versions[itemId]);
+        const entries = bundle.versions[itemId];
+        if (!Array.isArray(entries) || !entries.length) continue;
+        importRecord(versionsKey(itemId), blankRecord({ entries }));
       }
+
+      if (bundle.settings) saveSettings({
+        rootFolderName: bundle.settings.rootFolderName || DEFAULT_SETTINGS.rootFolderName,
+        rootFolderId: bundle.settings.rootFolderId || ''
+      });
+
+      statusEl.innerHTML = banner('info','loader-2','Merged. Saving to the Sheet…', true);
+      await flushWrites();
       statusEl.innerHTML = banner('success','check-circle','Imported. Reloading…');
-      setTimeout(()=> location.reload(), 900);
+      location.reload();
     }catch(err){
       statusEl.innerHTML = banner('destructive','alert-triangle','Import failed: ' + err.message);
     }
