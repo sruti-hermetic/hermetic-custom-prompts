@@ -605,21 +605,38 @@ function readModel_() {
 }
 
 function rebuildViews() {
+  // The lock covers the read of kv and nothing else. Writing the tabs takes
+  // seconds of Sheets formatting, and setKey_ waits on the same lock, so
+  // holding it for the whole rebuild blocks every save the team makes while it
+  // runs -- and on a busy sheet the rebuild loses the race the other way and
+  // dies on a lock timeout, which is exactly what it used to do.
+  var model = readModelSafely_();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var built = [];
+  for (var i = 0; i < model.accounts.length; i++) {
+    built.push(buildAccountView_(ss, model.accounts[i], model));
+  }
+  dropStaleViews_(ss, built);
+  PropertiesService.getDocumentProperties().setProperty(VIEW_REGISTRY_KEY, JSON.stringify(built));
+  SpreadsheetApp.flush();
+  return built.length;
+}
+
+/**
+ * kv, read under the lock when the lock is available and without it when it is
+ * not. A row caught mid-write is half cleared and fails to parse, so readModel_
+ * skips it and that one location is missing until the next refresh. A view that
+ * is briefly one location short beats a view that refuses to build at all
+ * because saves are busy.
+ */
+function readModelSafely_() {
   var lock = LockService.getScriptLock();
-  lock.waitLock(30000);       // never read kv half way through a write
+  var held = false;
+  try { held = lock.tryLock(10000); } catch (err) { held = false; }
   try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var model = readModel_();
-    var built = [];
-    for (var i = 0; i < model.accounts.length; i++) {
-      built.push(buildAccountView_(ss, model.accounts[i], model));
-    }
-    dropStaleViews_(ss, built);
-    PropertiesService.getDocumentProperties().setProperty(VIEW_REGISTRY_KEY, JSON.stringify(built));
-    SpreadsheetApp.flush();
-    return built.length;
+    return readModel_();
   } finally {
-    lock.releaseLock();
+    if (held) lock.releaseLock();
   }
 }
 
