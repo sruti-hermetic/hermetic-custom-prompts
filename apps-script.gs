@@ -82,7 +82,7 @@ function sheet_() {
  * nothing on a script that predates it -- which is exactly the failure you
  * would not notice until two people had overwritten each other.
  */
-var SERVER_VERSION = 6;
+var SERVER_VERSION = 7;
 
 function findRow_(sh, key) {
   var last = sh.getLastRow();
@@ -259,6 +259,10 @@ function setKey_(body) {
   } finally {
     lock.releaseLock();
   }
+
+  // The readable tabs are downstream of this write, so ask for a refresh --
+  // outside the lock, and never in a way that can fail the save itself.
+  queueViewRebuild_(key);
   return json_({ ok: true });
 }
 
@@ -396,7 +400,12 @@ function stampEveryField_(record, now) {
 function authorize() {
   var root = DriveApp.getRootFolder();
   var sh = sheet_();
-  Logger.log('Authorized. Drive root: %s, kv rows: %s', root.getName(), sh.getLastRow());
+  // Touch ScriptApp too: the refresh after a save creates a one-off trigger,
+  // and a deployment authorized before that existed holds a token without the
+  // scope for it -- so the save would work and the readable tabs would not.
+  var triggers = ScriptApp.getProjectTriggers();
+  Logger.log('Authorized. Drive root: %s, kv rows: %s, triggers: %s',
+             root.getName(), sh.getLastRow(), triggers.length);
 }
 
 /**
@@ -556,6 +565,9 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu('Hermetic')
     .addItem('Refresh readable view', 'rebuildViews')
     .addSeparator()
+    .addItem('Show the raw data tab', 'showRawTab')
+    .addItem('Hide the raw data tab', 'hideRawTab')
+    .addSeparator()
     .addItem('Refresh automatically every hour', 'installViewRefresh')
     .addItem('Stop refreshing automatically', 'removeViewRefresh')
     .addToUi();
@@ -572,6 +584,63 @@ function removeViewRefresh() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'rebuildViews') ScriptApp.deleteTrigger(t);
   });
+}
+
+/* ---- Refreshing after a save ----------------------------------------------
+   Without this the readable tabs only moved when somebody remembered to click
+   the menu, which meant that in practice they never moved: a save from the
+   console rewrote kv and stopped there, and the spreadsheet a venue manager
+   opens still showed nothing but JSON.
+
+   Rebuilding inline at the end of setKey_ is not an option -- the console is
+   waiting on that POST while somebody is on a call, and the rebuild is seconds
+   of Sheets formatting. So the save only leaves a note, and a one-off trigger
+   does the work a moment later. The delay is also a debounce: typing a long
+   answer saves many times, and they all collapse into the one refresh that
+   runs after the typing stops.
+--------------------------------------------------------------------------- */
+var VIEW_QUEUE_KEY = 'hermetic.viewRebuildQueuedAt';
+var VIEW_QUEUE_DELAY_MS = 45 * 1000;
+var VIEW_QUEUE_STALE_MS = 10 * 60 * 1000;   // a note this old lost its trigger
+
+/** Keys the readable view is built from. Presence beats every other key for
+    write volume and changes nothing anyone reads, so it must not queue. */
+function affectsView_(key) {
+  return key === 'hermetic:schema' ||
+         key.indexOf('hermetic:account:') === 0 ||
+         key.indexOf('hermetic:venue:') === 0 ||
+         key.indexOf('hermetic:versions:') === 0;
+}
+
+function queueViewRebuild_(key) {
+  try {
+    if (!affectsView_(key)) return;
+    var props = PropertiesService.getDocumentProperties();
+    var pending = Number(props.getProperty(VIEW_QUEUE_KEY) || 0);
+    // A refresh is already on its way and will pick this write up too.
+    if (pending && Date.now() - pending < VIEW_QUEUE_STALE_MS) return;
+    props.setProperty(VIEW_QUEUE_KEY, String(Date.now()));
+    ScriptApp.newTrigger('rebuildViewsQueued').timeBased().after(VIEW_QUEUE_DELAY_MS).create();
+  } catch (err) {
+    // Saving the customer's answer matters more than the tab that displays it.
+    // Losing a refresh costs a stale view until the next save or the next hour;
+    // throwing here would cost the answer.
+    try { PropertiesService.getDocumentProperties().deleteProperty(VIEW_QUEUE_KEY); } catch (e) {}
+    console.error('Could not queue a view refresh: ' + (err && err.message || err));
+  }
+}
+
+/** The queued refresh. Separate from rebuildViews so that clearing up spent
+    one-off triggers cannot delete the hourly one, which shares a handler. */
+function rebuildViewsQueued() {
+  var props = PropertiesService.getDocumentProperties();
+  props.deleteProperty(VIEW_QUEUE_KEY);
+  // A fired one-off trigger stays in the project list until it is deleted, and
+  // the list is capped, so this clears its own -- and any that failed to fire.
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'rebuildViewsQueued') ScriptApp.deleteTrigger(t);
+  });
+  rebuildViews();
 }
 
 /** Everything in kv, parsed into accounts, their locations, and saved prompts. */
@@ -616,10 +685,70 @@ function rebuildViews() {
   for (var i = 0; i < model.accounts.length; i++) {
     built.push(buildAccountView_(ss, model.accounts[i], model));
   }
+  // Nothing readable left to show -- the last account was deleted, or none has
+  // been made yet. Bring kv back before the stale tabs go, because Sheets will
+  // not let the file end up with every tab hidden.
+  if (!built.length) {
+    var raw = ss.getSheetByName(SHEET_NAME);
+    if (raw && raw.isSheetHidden()) raw.showSheet();
+  }
   dropStaleViews_(ss, built);
   PropertiesService.getDocumentProperties().setProperty(VIEW_REGISTRY_KEY, JSON.stringify(built));
+  if (built.length) tidyTabs_(ss, built);
   SpreadsheetApp.flush();
   return built.length;
+}
+
+/**
+ * What the spreadsheet opens on. The readable tabs go first, and kv -- plus the
+ * empty Sheet1 Google creates with every spreadsheet -- get hidden behind them,
+ * because the first thing anyone saw on opening this file was a wall of JSON.
+ * Hidden, not deleted: kv is still the only source of truth, the script still
+ * reads and writes it by name, and the Hermetic menu brings it back in a click.
+ */
+function tidyTabs_(ss, built) {
+  for (var i = 0; i < built.length; i++) {
+    var sh = ss.getSheetByName(built[i]);
+    if (!sh) continue;
+    if (sh.isSheetHidden()) sh.showSheet();
+    ss.setActiveSheet(sh);
+    ss.moveActiveSheet(i + 1);
+  }
+  ss.setActiveSheet(ss.getSheetByName(built[0]));
+
+  ss.getSheets().forEach(function (sh) {
+    var name = sh.getName();
+    if (built.indexOf(name) !== -1 || sh.isSheetHidden()) return;
+    if (name === SHEET_NAME) { sh.hideSheet(); return; }
+    // Only the untouched default tab, never a sheet somebody has put work in.
+    if (/^Sheet\d+$/.test(name) && sh.getLastRow() === 0 && sh.getLastColumn() === 0) sh.hideSheet();
+  });
+}
+
+function showRawTab() {
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  if (!sh) return;
+  sh.showSheet();
+  SpreadsheetApp.getActive().toast(
+    'The ' + SHEET_NAME + ' tab is the raw data the tool reads and writes. Editing it by hand works, but the tool is safer.',
+    'Hermetic', 8);
+}
+
+function hideRawTab() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName(SHEET_NAME);
+  if (!sh) return;
+  var visible = ss.getSheets().filter(function (s) { return !s.isSheetHidden(); });
+  if (visible.length < 2) {
+    ss.toast('There is no other tab to show yet. Refresh the readable view first.', 'Hermetic', 6);
+    return;
+  }
+  if (ss.getActiveSheet().getName() === SHEET_NAME) {
+    for (var i = 0; i < visible.length; i++) {
+      if (visible[i].getName() !== SHEET_NAME) { ss.setActiveSheet(visible[i]); break; }
+    }
+  }
+  sh.hideSheet();
 }
 
 /**

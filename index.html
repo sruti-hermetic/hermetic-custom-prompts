@@ -3234,7 +3234,9 @@ function renderSettings(){
           ? banner('info','alert-triangle','Connected. One thing is missing: duplicating a location will not bring its files across until this is updated.')
           : result.serverVersion < 5
             ? banner('info','alert-triangle','Connected. Two things are missing until this is updated: the console will not notice files renamed or deleted in Google Drive, and edits typed straight into the Google Sheet will not show up here.')
-            : banner('success','check-circle','Connected. Everything is saving, your team can work at the same time, and changes made in Google Drive or the Sheet show up here.');
+            : result.serverVersion < 7
+              ? banner('info','alert-triangle','Connected. One thing is missing: the Google Sheet will keep showing the raw data tab rather than a readable one, and it will not update itself after a save, until this is updated.')
+              : banner('success','check-circle','Connected. Everything is saving, your team can work at the same time, the Google Sheet keeps a readable copy up to date, and changes made in Google Drive or the Sheet show up here.');
   });
 
   document.getElementById('saveFolderBtn').addEventListener('click', async ()=>{
