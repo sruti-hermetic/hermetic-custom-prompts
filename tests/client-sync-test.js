@@ -92,5 +92,59 @@ STORE['hermetic:account:a_x'] = rec({id:'a_x'});
 ok('nothing is queued with no Sheet configured', queueLocalOnly([]) === 0 && wroteNow === 0);
 syncUrl = 'https://exec';
 
+section('The sections the console collects');
+var locKeys = LOCATION_SCHEMA.map(function(b){ return b.key; });
+ok('Policies is a box', locKeys.indexOf('policies_text') !== -1, locKeys.join(','));
+ok('FAQs is a box', locKeys.indexOf('faqs_text') !== -1, locKeys.join(','));
+ok('sub-locations is gone', locKeys.indexOf('sub_venues_text') === -1, locKeys.join(','));
+ok('Policies and FAQs sit after Booking rules, as the template orders them',
+   locKeys.indexOf('booking_text') < locKeys.indexOf('policies_text') &&
+   locKeys.indexOf('policies_text') < locKeys.indexOf('faqs_text'));
+ok('every box has guidance to fill it by',
+   LOCATION_SCHEMA.every(function(b){ return b.hint && b.hint.length; }));
+var blank = newVenueData();
+ok('a new location starts with both boxes',
+   blank.policies_text === '' && blank.faqs_text === '', Object.keys(blank).join(','));
+ok('and with no sub-locations box', blank.sub_venues_text === undefined);
+
+section('What Claude is handed');
+var filled = newVenueData();
+filled.policies_text = 'Outside food / catering: not permitted, except a celebration cake.';
+filled.faqs_text = 'Can we bring a cake? Outside desserts such as wedding cakes are permitted.';
+var out = serializePart(LOCATION_SCHEMA, filled);
+ok('Policies is in the prompt', out.indexOf('Policies:\nOutside food / catering') !== -1);
+ok('FAQs is in the prompt', out.indexOf('FAQs:\nCan we bring a cake?') !== -1);
+ok('nothing offers sub-venues any more', out.toLowerCase().indexOf('sub-location') === -1 &&
+   out.toLowerCase().indexOf('sub-venue') === -1);
+ok('an empty box still reports itself, so Claude knows it was asked',
+   serializePart(LOCATION_SCHEMA, newVenueData()).indexOf('Policies:\nNone.') !== -1);
+ok('the skill template no longer asks for Sub-Venues',
+   SKILL_TEXT.indexOf('## Sub-Venues') === -1);
+ok('the skill template still asks for Policies and FAQs',
+   SKILL_TEXT.indexOf('## Policies') !== -1 && SKILL_TEXT.indexOf('## FAQs') !== -1);
+ok('Claude is no longer told policies come only from the files',
+   FILE_SOURCED_LABEL.toLowerCase().indexOf('polic') === -1 &&
+   FILE_SOURCED_LABEL.toLowerCase().indexOf('faq') === -1, FILE_SOURCED_LABEL);
+
+section('Rows typed before these were boxes');
+var legacy = { policies: [{topic:'Outside food', policy:'Not permitted.'},
+                          {topic:'Open flame', policy:'Candles must be enclosed.'}],
+               faqs: [{question:'Can we see the space?', answer:'Yes, during business hours.'}],
+               sub_venues: [{name:'The Grill', description:'Casual counter.'}] };
+foldLegacyBlocks(legacy);
+ok('old policy rows became the box text',
+   legacy.policies_text.indexOf('Outside food') !== -1 &&
+   legacy.policies_text.indexOf('Candles must be enclosed') !== -1, legacy.policies_text);
+ok('old FAQ rows became the box text',
+   legacy.faqs_text.indexOf('Can we see the space?') !== -1, legacy.faqs_text);
+ok('the rows themselves were dropped, so nothing prints twice',
+   legacy.policies === undefined && legacy.faqs === undefined && legacy.sub_venues === undefined);
+var typed = { policies_text: 'What the teammate typed.', policies: [{topic:'Old', policy:'Older.'}] };
+foldLegacyBlocks(typed);
+ok('a box somebody has already filled is never overwritten',
+   typed.policies_text === 'What the teammate typed.');
+ok('sub-locations is on the retired list, so it is cleaned out of saved records',
+   RETIRED_FIELDS.indexOf('sub_venues_text') !== -1);
+
 print('\n' + pass + ' passed, ' + fail + ' failed');
 if (fail) throw new Error(fail + ' failing');

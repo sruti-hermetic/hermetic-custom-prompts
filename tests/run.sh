@@ -32,7 +32,7 @@ echo ""
 echo "=== Sending work to the Sheet (index.html) ==="
 CUT=$(mktemp -t hermetic-cut)
 python3 - "$DIR/../index.html" "$CUT" <<'PY'
-import re, sys
+import re, sys, json
 src = open(sys.argv[1], encoding='utf-8').read()
 def grab(name):
     m = re.search(r'\nfunction ' + name + r'\(.*?\n\}\n', src, re.S)
@@ -42,7 +42,21 @@ parts = [
   re.search(r"const KV_PREFIX = .*?\nconst KV_LOCAL_ONLY = new Set\(\[.*?\]\);", src, re.S).group(0),
   re.search(r"const RECORD_KINDS = \{.*?\n\};", src, re.S).group(0),
 ]
-parts += [grab(n) for n in ['localRead', 'localKeys', 'kindOfKey', 'queueLocalOnly']]
+parts += [grab(n) for n in ['localRead', 'localKeys', 'kindOfKey', 'queueLocalOnly',
+                            'getAtPath', 'setAtPath', 'newVenueData', 'serializePart',
+                            'foldLegacyBlocks']]
+# the schema blocks and the skill text the console hands to Claude
+for pattern in [r"const LOCATION_SCHEMA = \[.*?\n\];",
+                r"const CAMPAIGN_SCHEMA = \[.*?\n\];",
+                r"const POLICY_FIELDS = \[.*?\n\];",
+                r"const FAQ_FIELDS = \[.*?\n\];",
+                r"const RETIRED_FIELDS = \[.*?\];",
+                r"const FILE_SOURCED_LABEL = .*?;"]:
+    m = re.search(pattern, src, re.S)
+    if not m: raise SystemExit('tests: could not find ' + pattern)
+    parts.append(m.group(0))
+skill = re.search(r'<script[^>]*id="skillText"[^>]*>(.*?)</script>', src, re.S)
+parts.append('const SKILL_TEXT = ' + json.dumps(skill.group(1).strip()) + ';')
 open(sys.argv[2], 'w', encoding='utf-8').write('\n'.join(parts))
 PY
 TMP2=$(mktemp -t hermetic-client)

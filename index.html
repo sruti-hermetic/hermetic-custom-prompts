@@ -458,9 +458,6 @@ Included in every rental: <one line>
 
 ## FAQs
 <plain facts, one to two sentences each, for questions whose answer does not already live in another section>
-
-## Sub-Venues
-<only when one location record covers more than one restaurant or concept; otherwise "None.">
 ```
 
 ## Campaign Instructions template
@@ -682,10 +679,23 @@ const LOCATION_SCHEMA = [
     'What is included in every rental'
   ]},
 
-  {type:'block', key:'sub_venues_text', title:'Sub-locations', hint:[
-    'Only when one location record covers more than one restaurant or concept',
-    'Each name, plus one line on how it differs'
-  ], placeholder:'Leave blank if this location is a single concept.'}
+  {type:'block', key:'policies_text', title:'Policies', hint:[
+    'Every yes/no rule the venue applies, one per line, stated as a fact',
+    'Outside food and catering; outside beverages',
+    'Decor and open flame',
+    'Entertainment: DJ, band, amplified sound',
+    'AV: what is in-house, and the policy on outside AV',
+    'Age restrictions, bar service, planner requirement',
+    'The single home for house rules and contract absolutes: nothing here is repeated in Booking rules, Fees, Deposit or FAQs',
+    'Rules about how the assistant behaves belong in Assistant behavior, not here'
+  ], placeholder:'One per line, e.g. Outside food / catering: not permitted, with the exception of a celebration cake.'},
+
+  {type:'block', key:'faqs_text', title:'FAQs', hint:[
+    'One or two plain sentences each, only for questions whose answer lives in no other section',
+    'Stated as facts: the assistant phrases them itself',
+    'No greetings, no assistant voice, no coordinator named',
+    'A well-filled location often needs none'
+  ], placeholder:'e.g. Can we bring a cake? Outside desserts such as wedding cakes are permitted.'}
 ];
 
 /* Same shape for the behavior half: one box per Campaign Instructions heading. */
@@ -737,10 +747,15 @@ const CAMPAIGN_SCHEMA = [
   ], placeholder:'Leave blank if cross-sell is off.'}
 ];
 
-/* Rooms, pricing, menus, policies and FAQs are never typed in: they always come
-   from the uploaded client files. The section shapes stay here so that anything
-   a teammate typed before that change still rides along in the Claude prompt
-   instead of quietly disappearing. */
+/* Rooms, pricing and menus are never typed in: they always come from the
+   uploaded client files. The section shapes stay here so that anything a
+   teammate typed before that change still rides along in the Claude prompt
+   instead of quietly disappearing.
+
+   Policies and FAQs are collected again, as one box each. Their old row shapes
+   stay in this list as a safety net for a venue that never re-ran the legacy
+   fold: the fold empties them into the new boxes, so a venue that has been
+   through it contributes nothing here and is printed once, from its box. */
 const FILE_SOURCED_SECTIONS = [
   {type:'group', title:'Rooms', key:'rooms', itemLabel:'room', fields: ROOM_FIELDS},
   {type:'group', title:'Pricing', key:'pricing_rows', itemLabel:'pricing row', fields: PRICING_FIELDS},
@@ -748,7 +763,7 @@ const FILE_SOURCED_SECTIONS = [
   {type:'group', title:'Policies', key:'policies', itemLabel:'policy', fields: POLICY_FIELDS},
   {type:'group', title:'FAQs', key:'faqs', itemLabel:'FAQ', fields: FAQ_FIELDS}
 ];
-const FILE_SOURCED_LABEL = 'rooms and capacities, pricing, menus, policies and FAQs';
+const FILE_SOURCED_LABEL = 'rooms and capacities, pricing and menus';
 
 /* One venue record covers both documents: the facts (Location Details) and the
    behavior (Campaign Instructions). Support fills it in one pass; "Copy for
@@ -798,7 +813,8 @@ function foldLegacyBlocks(data){
     kv('Maximum guests', booking.max_guests), kv('Minimum lead time', booking.min_lead_time),
     kv('Standard event duration', booking.duration), kv('Headcount guarantee due', booking.headcount_due),
     kv('Included in every rental', booking.included)]);
-  set('sub_venues_text', [rows(data.sub_venues, [['Name','name'], ['Description','description']])]);
+  set('policies_text', [rows(data.policies, [['Topic','topic'], ['Policy','policy']])]);
+  set('faqs_text', [rows(data.faqs, [['Question','question'], ['Answer','answer']])]);
 
   set('persona_text', [kv('Personality', data.personality), bullets(data.tone_rules),
     kv('Salutation', data.salutation)]);
@@ -818,7 +834,7 @@ function foldLegacyBlocks(data){
   // as are the file-sourced sections that serializeCarriedOver still reads.
   ['address','phone','website','parking','hours_notes','availability_policy','activity_pricing',
    'fees','other_fees','deposit','final_payment','payment_methods','refundability','booking',
-   'sub_venues','personality','tone_rules','salutation','handoff','steps','rules','links',
+   'sub_venues','policies','faqs','personality','tone_rules','salutation','handoff','steps','rules','links',
    'vocabulary','ai_disclosure','legal_wording','cross_sell'].forEach(k => delete data[k]);
   return data;
 }
@@ -1996,7 +2012,8 @@ function formatTimestamp(ms){
    the merge against it and be quietly undone on the next poll. It is not an
    edit, though -- wiping a box the console no longer has must not make a
    location look like its answers have moved on. */
-const RETIRED_FIELDS = ['source_material', 'draft_location_doc', 'draft_campaign_doc', 'draft_open_questions'];
+const RETIRED_FIELDS = ['source_material', 'draft_location_doc', 'draft_campaign_doc',
+                        'draft_open_questions', 'sub_venues_text'];
 function stripRetiredFields(){
   for (const acc of readAccounts()){
     for (const venue of readVenues(acc.id)){
