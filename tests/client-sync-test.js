@@ -206,7 +206,9 @@ ok('the worked example shows trigger, do and skip',
    (steps.placeholder || '').indexOf('Do:') !== -1 &&
    (steps.placeholder || '').indexOf('Skip if:') !== -1, steps.placeholder);
 ok('and shows a branch rather than a single clean path',
-   (steps.placeholder || '').indexOf('When two spaces fit') !== -1, steps.placeholder);
+   (steps.placeholder || '').indexOf('If two fit, describe both') !== -1, steps.placeholder);
+ok('and stays short enough to read past',
+   (steps.placeholder || '').length < 170, (steps.placeholder || '').length + ' chars');
 
 section('And Claude is told the same thing');
 ok('the template asks for the whole goal path',

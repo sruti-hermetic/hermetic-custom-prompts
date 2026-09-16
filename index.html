@@ -721,9 +721,9 @@ const CAMPAIGN_SCHEMA = [
 
   {type:'block', key:'steps_text', title:'Workflow steps', hint:[
     'Every step in order, from after the name is confirmed to the handoff',
-    'For each: a name, when it starts as a condition not a step number, what it does, what skips it',
-    'What a step holds back as well as asks, e.g. confirm the date without repeating a time'
-  ], placeholder:'Check and share availability\nTrigger: once the date and guest count are known.\nDo: check the date and share the result without waiting to be asked. When two spaces fit, describe both and offer a tour rather than asking the guest to choose.\nSkip if: the guest count is over the maximum.'},
+    'For each: a name, when it starts as a condition (not a step number), what it does, what skips it',
+    'What a step holds back as well as asks'
+  ], placeholder:'Share availability\nTrigger: once date and guest count are known.\nDo: say what fits, unasked. If two fit, describe both.\nSkip if: the count is over the maximum.'},
 
   {type:'block', key:'rules_text', title:'Rules', hint:[
     'One line per situation: "When X: do Y, never Z"',
