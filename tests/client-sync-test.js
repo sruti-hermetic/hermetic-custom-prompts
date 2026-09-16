@@ -154,7 +154,6 @@ ok('Availability no longer asks which room suits which guest count',
    avail.indexOf('which rooms may be offered') === -1);
 ok('Availability asks what closes the whole venue instead',
    avail.indexOf('what closes the whole venue for a day') !== -1, avail);
-ok('and points the guest-count question at Rules', avail.indexOf('rules') !== -1, avail);
 ok('Rules asks for the guest-count bands',
    rules.indexOf('which space to offer at which guest count') !== -1, rules);
 ok('Rules says an offer names one space',
@@ -272,16 +271,10 @@ ok('room relationships the CRM cannot express, not a substitute for correct nest
    avail.indexOf('room relationships the booking system cannot already express') !== -1, avail);
 ok('parent/child and combined-space blocking is named',
    avail.indexOf('parent/child rooms, a combined space that blocks its children') !== -1, avail);
-ok('ambiguous statuses get a rule of their own',
-   avail.indexOf('which statuses count as booked') !== -1, avail);
-ok('with a worked example of what counts and what does not',
-   avail.indexOf('a soft hold not yet contracted does not') !== -1, avail);
 ok('turnover buffers and duration caps are asked for',
    avail.indexOf('turnover buffers, duration caps per room') !== -1, avail);
-ok('independently tracked spaces get a bullet of their own',
-   avail.indexOf('spaces tracked and checked separately') !== -1, avail);
-ok('and it says what does not belong: a disclaimer to the guest',
-   avail.indexOf('never a disclaimer or a sentence to say to the guest') !== -1, avail);
+ok('spaces that both fit get a tie-break',
+   avail.indexOf('which space to offer when more than one fits') !== -1, avail);
 ok('the worked example is the real pattern: a buyout blocking the whole day',
    (box(LOCATION_SCHEMA, 'availability_text').placeholder || '').indexOf('even outside its hours') !== -1);
 

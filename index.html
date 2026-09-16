@@ -650,12 +650,10 @@ const LOCATION_SCHEMA = [
   ], placeholder:'e.g. Closed Thanksgiving and Christmas.'},
 
   {type:'block', key:'availability_text', title:'Availability policy', hint:[
-    'What closes the whole venue for a day — a buyout, one event a day, any confirmed booking regardless of its hours',
+    'What closes the whole venue for a day: a buyout, one event a day, etc.',
     'Room relationships the booking system cannot already express: parent/child rooms, a combined space that blocks its children',
-    'Which statuses count as booked, when that is not obvious (a confirmed or tentative hold counts; a soft hold not yet contracted does not)',
     'Turnover buffers, duration caps per room, and the latest allowable end time',
-    'Spaces tracked and checked separately, and which to offer when more than one fits',
-    'Never a disclaimer or a sentence to say to the guest — that is a Rules line, under Assistant behavior'
+    'Which space to offer when more than one fits'
   ], placeholder:'One event a day. Any confirmed booking blocks the whole venue for that day, even outside its hours.'},
 
   {type:'block', key:'pricing_text', title:'Per-unit activity pricing (if applicable)', hint:[
