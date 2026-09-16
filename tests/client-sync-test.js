@@ -152,8 +152,8 @@ var avail = box(LOCATION_SCHEMA, 'availability_text').hint.join(' ').toLowerCase
 var rules = box(CAMPAIGN_SCHEMA, 'rules_text').hint.join(' ').toLowerCase();
 ok('Availability no longer asks which room suits which guest count',
    avail.indexOf('which rooms may be offered') === -1);
-ok('Availability asks about the venue instead',
-   avail.indexOf('one booked space blocks the whole building') !== -1, avail);
+ok('Availability asks what closes the whole venue instead',
+   avail.indexOf('what closes the whole venue for a day') !== -1, avail);
 ok('and points the guest-count question at Rules', avail.indexOf('rules') !== -1, avail);
 ok('Rules asks for the guest-count bands',
    rules.indexOf('which space to offer at which guest count') !== -1, rules);
@@ -161,10 +161,8 @@ ok('Rules says an offer names one space',
    rules.indexOf('no combining two into one offer') !== -1, rules);
 
 section('And what Claude is told about it');
-ok('the template says Availability is not about which space to offer',
-   SKILL_TEXT.indexOf('not which space to offer') !== -1);
 ok('the template sends routing to a Campaign Rule',
-   SKILL_TEXT.indexOf('Guest-count-to-space routing is a Campaign Rule') !== -1);
+   SKILL_TEXT.indexOf('Guest-count-to-space routing is also a Campaign Rule') !== -1);
 ok('the placement test agrees',
    SKILL_TEXT.indexOf('Which space to offer at a guest count is a Rule, never an Availability Policy line') !== -1);
 ok('a capacity is still a Location fact',
@@ -268,6 +266,38 @@ ok('rule 5 refuses a preferred script however firmly it is asked for',
    SKILL_TEXT.indexOf('however firmly it is asked for') !== -1);
 ok('the self-check catches one that got through',
    SKILL_TEXT.indexOf('Anything in Required Wording that nobody is obliged to say') !== -1);
+
+section('What a real availability policy needs to say');
+ok('room relationships the CRM cannot express, not a substitute for correct nesting',
+   avail.indexOf('room relationships the booking system cannot already express') !== -1, avail);
+ok('parent/child and combined-space blocking is named',
+   avail.indexOf('parent/child rooms, a combined space that blocks its children') !== -1, avail);
+ok('ambiguous statuses get a rule of their own',
+   avail.indexOf('which statuses count as booked') !== -1, avail);
+ok('with a worked example of what counts and what does not',
+   avail.indexOf('a soft hold not yet contracted does not') !== -1, avail);
+ok('turnover buffers and duration caps are asked for',
+   avail.indexOf('turnover buffers, duration caps per room') !== -1, avail);
+ok('independently tracked spaces get a bullet of their own',
+   avail.indexOf('spaces tracked and checked separately') !== -1, avail);
+ok('and it says what does not belong: a disclaimer to the guest',
+   avail.indexOf('never a disclaimer or a sentence to say to the guest') !== -1, avail);
+ok('the worked example is the real pattern: a buyout blocking the whole day',
+   (box(LOCATION_SCHEMA, 'availability_text').placeholder || '').indexOf('even outside its hours') !== -1);
+
+section('Why a disclaimer cannot live in Availability Policy');
+ok('the skill explains the architecture: a separate check, sparse facts back',
+   SKILL_TEXT.indexOf('Availability Policy feeds a separate availability check, not Mia directly') !== -1);
+ok('and says plainly that it does not compose anything said to the guest',
+   SKILL_TEXT.indexOf('it does not compose anything said to the guest') !== -1);
+ok('the template repeats the same rule',
+   SKILL_TEXT.indexOf('Never a disclaimer or a sentence to say to the guest -- that is a Rules line') !== -1);
+ok('the self-check catches one that slipped through',
+   SKILL_TEXT.indexOf('A disclaimer, required statement, or sentence to the guest sitting in Availability Policy') !== -1);
+ok('the template still asks about status ambiguity',
+   SKILL_TEXT.indexOf('which statuses count as booked when that is not obvious') !== -1);
+ok('and about room relationships the system cannot already express',
+   SKILL_TEXT.indexOf('room relationships the booking system cannot already express') !== -1);
 
 print('\n' + pass + ' passed, ' + fail + ' failed');
 if (fail) throw new Error(fail + ' failing');

@@ -386,6 +386,7 @@ Understand this before writing a word:
 - **Coordinators' names, titles and scheduling links are injected from account settings.** Only mention a coordinator when something is special (two coordinators routed by lead type, a non-standard follow-up window). Never put a scheduling link in Links or write one into a step: a URL typed here is a second copy that goes stale the day the coordinator changes theirs. Say the handoff includes their scheduling link, and let the platform supply it.
 - **Mia has no concept of a CRM.** Never write "check TripleSeat", "Prospect / Tentative / Definite", or "the system shows". Write "availability".
 - **Mia has no concept of a combined or shared space.** Every offer names exactly one space. Source material that pairs two ("the Loft plus the mezzanine", "the patio and the bar together") cannot be configured as written: offer the single space that fits, and put the pairing in Open Questions, asking which one space to offer at that guest count or whether the pair is sold as one named space.
+- **Availability Policy feeds a separate availability check, not Mia directly.** That check returns a plain yes/no plus a few sparse facts; it does not compose anything said to the guest. A disclaimer, a required statement, or any wording that must be said cannot live in Availability Policy -- write it as a Rules line in Campaign instead.
 ## Authoring rules
 
 These are absolute. Check every one before you output.
@@ -423,7 +424,7 @@ Parking: <one line>
 <one block per space the assistant may offer or describe: room name (and system name if different), privacy, capacity by layout, features, AV, notes>
 
 ## Availability Policy
-<when the venue can host at all, not which space to offer: how many events it runs in a day, whether one booked space blocks the whole building, whole-day blocks, turnover and time-of-day limits. Guest-count-to-space routing is a Campaign Rule>
+<what closes the whole venue for a day (a buyout, one event a day, any confirmed booking regardless of its hours); room relationships the booking system cannot already express (parent/child rooms, a combined space blocking its children); which statuses count as booked when that is not obvious; turnover buffers, duration caps and the latest allowable end time; spaces tracked and checked separately. Never a disclaimer or a sentence to say to the guest -- that is a Rules line. Guest-count-to-space routing is also a Campaign Rule>
 
 ## Pricing
 <only prices the assistant may quote; table with space/item, guest count, days, time, F&B minimum, room fee, notes; per-unit activity pricing if applicable>
@@ -518,6 +519,7 @@ Search your draft and fix every hit before producing the final answer:
 - Any scheduling link written out, in Links or in a step, rather than left to account settings.
 - Anything in Required Wording that nobody is obliged to say.
 - A goal path that does not run from the reply after the name is confirmed through to the handoff, or that names the opening message as a step.
+- A disclaimer, required statement, or sentence to the guest sitting in Availability Policy rather than Rules.
 - Any rule you could not apply to a concrete enquiry without deciding what it meant.
 - Campaign Instructions word count over 2,000.
 Then produce the requested output(s), and nothing else.
@@ -648,12 +650,13 @@ const LOCATION_SCHEMA = [
   ], placeholder:'e.g. Closed Thanksgiving and Christmas.'},
 
   {type:'block', key:'availability_text', title:'Availability policy', hint:[
-    'When the venue can host at all, not which space to offer',
-    'How many events run in a day',
-    'Whether one booked space blocks the whole building',
-    'Whole-day blocks, turnover and time-of-day limits',
-    'Which space suits which guest count goes in Rules, under Assistant behavior'
-  ], placeholder:'e.g. One event a day. If any space is booked, treat the whole venue as booked.'},
+    'What closes the whole venue for a day — a buyout, one event a day, any confirmed booking regardless of its hours',
+    'Room relationships the booking system cannot already express: parent/child rooms, a combined space that blocks its children',
+    'Which statuses count as booked, when that is not obvious (a confirmed or tentative hold counts; a soft hold not yet contracted does not)',
+    'Turnover buffers, duration caps per room, and the latest allowable end time',
+    'Spaces tracked and checked separately, and which to offer when more than one fits',
+    'Never a disclaimer or a sentence to say to the guest — that is a Rules line, under Assistant behavior'
+  ], placeholder:'One event a day. Any confirmed booking blocks the whole venue for that day, even outside its hours.'},
 
   {type:'block', key:'pricing_text', title:'Per-unit activity pricing (if applicable)', hint:[
     'Only prices the assistant is allowed to quote',
