@@ -2130,6 +2130,13 @@ function renderNameGate(){
 ================================================================= */
 const DEFAULT_SETTINGS = { rootFolderName: "ONBOARDING - Custom Prompt Uploads", rootFolderId: "" };
 
+/* What the account header calls this work. Deliberately not the Drive root
+   name: that setting says where the files physically land, and the two are
+   allowed to differ -- renaming the folder in Drive to match this would strand
+   every file already uploaded under the old name. Settings still shows the real
+   folder. */
+const WORKSPACE_LABEL = 'ONBOARDING - Custom Instructions Creation';
+
 function readTopLevelState(){
   state.accounts = readAccounts();
   state.settings = readSettings();
@@ -2358,7 +2365,7 @@ async function renderMain(opts){
     return renderMain();
   }
   title.textContent = account.name;
-  meta.innerHTML = `<span class="mono" style="font-size:11.5px;">${escapeHtml(state.settings.rootFolderName)}/${escapeHtml(account.name)}</span>`;
+  meta.innerHTML = `<span class="mono" style="font-size:11.5px;">${escapeHtml(WORKSPACE_LABEL)} - ${escapeHtml(account.name)}</span>`;
 
   // Only an account the mirror knows nothing about waits on the network. A
   // returning browser paints its cached answers immediately and lets the pull
