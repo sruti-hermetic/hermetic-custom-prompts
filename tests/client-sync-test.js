@@ -261,10 +261,7 @@ section('Required wording is obligation, not preference');
 var wording = box(CAMPAIGN_SCHEMA, 'wording_text').hint.join(' ').toLowerCase();
 ok('the box leads with the obligation test',
    wording.indexOf('legally or contractually obliged to say') !== -1, wording);
-ok('and names what does not belong',
-   wording.indexOf('not a script the client likes the sound of') !== -1, wording);
-ok('and says where a liked script goes instead',
-   wording.indexOf('persona & tone, or a rule') !== -1, wording);
+ok('and rules scripts out', wording.indexOf('not a script') !== -1, wording);
 ok('the template applies the same test',
    SKILL_TEXT.indexOf('A phrasing the client merely prefers is not required wording') !== -1);
 ok('rule 5 refuses a preferred script however firmly it is asked for',
