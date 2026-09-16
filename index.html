@@ -380,7 +380,8 @@ Understand this before writing a word:
 
 - **Your documents are not read by the assistant.** An extraction step converts them into a structured config -- a list of workflow steps, a list of rules, a list of rooms, and so on. Each piece of text lands in exactly one slot. Headings tell the extractor which slot, so use the template headings exactly, as `## Heading` lines.
 - **Every reply is a fresh start.** Mia is rebuilt from scratch on every incoming text, with no memory of earlier versions of these documents. Anything that describes change over time -- new, revised, updated, retired, no longer, previously, unchanged, corrected -- is noise and actively confuses it. Describe the current state as if it were the only state that ever existed.
-- **A base prompt already handles the texting basics and the standard flow**: confirm name → confirm details ("does that look correct?" rather than restating them) → collect a missing date and guest count → sanity-check implausible dates/times → check availability → hand off. It also asks one question at a time, keeps replies short, doesn't re-ask known details, doesn't reintroduce itself, avoids emoji, honors STOP, never mentions tools/prompts/JSON, and emits links exactly as given. Your job is to describe only where this venue differs, and to supply facts the base prompt cannot know. You may change a default (e.g. "do not confirm event details, hand off immediately") or add a requirement (e.g. "also collect email before handoff").
+- **A base prompt already handles the texting mechanics**: one question at a time, short replies, no re-asking details it already has, no reintroducing itself, no emoji, honors STOP, never mentions tools/prompts/JSON, emits links exactly as given, and sanity-checks implausible dates and times. Those are yours to override where this venue differs, not to restate.
+- **Workflow Steps is the goal path, not a diff.** Write the whole path a lead travels, in order, from the reply after the name is confirmed through to handoff -- including the steps that look the same at every venue: confirm the details, collect a missing date and guest count, check availability and say what fits, hand off. Somebody reading Campaign Instructions has to be able to follow one lead end to end without a second document, and the extractor builds Mia's sequence from this list alone, so a step you leave out because it is obvious is a step that does not happen. The one thing you never write is the opening message, which the platform fixes. The path ends at the handoff itself; its window, routing and prerequisites stay in Handoff.
 - **The opening message is fixed by the platform** ("Hi, this is {AI name} from {venue}. Is this {first name}?"). Never write it.
 - **Coordinators' names and titles are injected from account settings.** Only mention a coordinator when something is special (two coordinators routed by lead type, a non-standard follow-up window).
 - **Mia has no concept of a CRM.** Never write "check TripleSeat", "Prospect / Tentative / Definite", or "the system shows". Write "availability".
@@ -394,8 +395,8 @@ These are absolute. Check every one before you output.
 3. **No process residue.** No notes to the team, no explanations of why a section exists, no references to tickets, calls, or documents, no "see CAMPAIGN doc". The reader is a machine.
 4. **One statement, one home.** Place each statement with this test, stopping at the first match: a URL → Links; a word swap → Vocabulary; exact AI-disclosure or legal wording → Required Wording; anything whose outcome is a handoff, or about the follow-up window, prerequisites for handoff, or conduct after handoff → Handoff; something the assistant does proactively in sequence → Workflow Steps; everything else → Rules. Rules is one list, one line per situation, shaped "When \<situation\>: \<what to do, including any never\>". Never split one situation into a condition, an "always", and a "never" -- that is one line. Before adding a Rules line, check whether a line for that situation exists and extend it instead. "Always:" / "Never:" prefixes are only for rules with no situation at all. Which space to offer at a guest count is a Rule, never an Availability Policy line. In Location, every yes/no rule lives in Policies and is not repeated in Booking Rules, Fees, Deposit, or FAQs; FAQs hold only facts that fit no other section.
 5. **Behavior, not scripts.** Describe what the assistant does and the constraints on it -- do not write dialogue for it. Exceptions: (a) Required Wording may hold exact text for AI disclosure and client-dictated legal/compliance lines, nothing else; (b) a workflow step may carry one short "e.g." when the phrasing itself encodes a constraint that is hard to state otherwise. If two scripts differ only by a name or pronoun, they are one behavior.
-6. **Named steps, conditional triggers.** Workflow steps have names, not numbers. A trigger is a condition ("once guest count is known", "after availability has been shared"), never a reference to another step ("after Step 2"). A step is what the assistant does proactively; anything reacting to the guest or a lead fact is a Rule.
-7. **Do not restate the base prompt** (see the list above). Only note where this venue changes a default or adds a requirement.
+6. **Named steps, conditional triggers, whole path.** Workflow steps have names, not numbers, and the list is the complete goal path in the order a lead meets it -- ordinary steps included, never only the unusual ones. A trigger is a condition ("once guest count is known", "after availability has been shared"), never a reference to another step ("after Step 2"), which is what lets the path be complete and ordered without the steps depending on each other by number. A step is what the assistant does proactively; anything reacting to the guest or a lead fact is a Rule.
+7. **Do not restate the base prompt's mechanics** (see the list above). Only note where this venue changes one or adds a requirement. Workflow Steps is the exception and not a violation of this: the goal path is written out in full, ordinary steps included, because the extractor builds Mia's sequence from that list and cannot infer a step that is missing.
 8. **Facts in Location, behavior in Campaign, never both.** A room's capacity is a fact (Location → Rooms). Which space to offer at a given guest count is something the assistant does, so it is a Rules line (Campaign → Rules), shaped "When the party is 15-40: offer the Loft." How to talk about the rooms is behavior too. Prices the assistant may quote are facts; prices it may not quote are omitted entirely, with the deferral instruction as a Rules line.
 9. **Only include what can be said to a guest, plus availability rules.** If a number must never be quoted, it is not in Location. A room the booking system exposes but the assistant must never offer is a Rules line, not a room block and not an Availability Policy line. Internal staffing rubrics, security tables, and "internal only" material are omitted.
 10. **Links live in Campaign → Links**, each with a name, the exact URL, and the condition for sharing it. Never write "see Location for the link".
@@ -480,7 +481,7 @@ Skip qualification and hand off immediately when: <conditions>
 After handoff: <what the assistant does if the guest keeps texting>
 
 ## Workflow Steps
-<only the steps where this venue differs from the default flow (confirm name -> confirm details -> collect missing date and guest count -> check availability -> hand off), plus any steps the default does not have. Each step: name, trigger (a condition), do, optional skip-if>
+<the whole goal path in order: every step a lead travels from the reply after the name is confirmed to the handoff, the ordinary ones included. Never the opening message, which the platform fixes. Each step: name, trigger (a condition), do, optional skip-if>
 
 ## Rules
 <the single home for every behavior that is not a step, a link, a word swap, required wording, or a handoff. One line per situation: "When <situation>: <what to do, and what not to do>">
@@ -513,6 +514,7 @@ Search your draft and fix every hit before producing the final answer:
 - Any dollar figure, menu item, or room that the source material says must never be quoted or offered.
 - Any sentence that tells the assistant how to behave inside Location Details, or states a venue fact inside Campaign Instructions. Which space to offer at a guest count is behavior: in Availability Policy it is misplaced, in Rules it is right.
 - Any offer naming two spaces at once, which Mia cannot represent.
+- A goal path that does not run from the reply after the name is confirmed through to the handoff, or that names the opening message as a step.
 - Any rule you could not apply to a concrete enquiry without deciding what it meant.
 - Campaign Instructions word count over 2,000.
 Then produce the requested output(s), and nothing else.
@@ -684,21 +686,16 @@ const LOCATION_SCHEMA = [
   ]},
 
   {type:'block', key:'policies_text', title:'Policies', hint:[
-    'Every yes/no rule the venue applies, one per line, stated as a fact',
     'Outside food and catering; outside beverages',
     'Decor and open flame',
     'Entertainment: DJ, band, amplified sound',
     'AV: what is in-house, and the policy on outside AV',
-    'Age restrictions, bar service, planner requirement',
-    'The single home for house rules and contract absolutes: nothing here is repeated in Booking rules, Fees, Deposit or FAQs',
-    'Rules about how the assistant behaves belong in Assistant behavior, not here'
+    'Age restrictions, bar service, planner requirement'
   ], placeholder:'One per line, e.g. Outside food / catering: not permitted, with the exception of a celebration cake.'},
 
   {type:'block', key:'faqs_text', title:'FAQs', hint:[
-    'One or two plain sentences each, only for questions whose answer lives in no other section',
-    'Stated as facts: the assistant phrases them itself',
-    'No greetings, no assistant voice, no coordinator named',
-    'A well-filled location often needs none'
+    'Questions whose answers do not live in another section',
+    'Format - [Question guests ask]: [fact]',
   ], placeholder:'e.g. Can we bring a cake? Outside desserts such as wedding cakes are permitted.'}
 ];
 
@@ -720,9 +717,13 @@ const CAMPAIGN_SCHEMA = [
   ], placeholder:'e.g. Follow-up window: within 24 business hours.'},
 
   {type:'block', key:'steps_text', title:'Workflow steps', hint:[
-    'Only steps that differ from the default flow (confirm name, confirm details, collect date and guest count, check availability, hand off), plus any the default does not have',
-    'For each step: a name, a trigger that is a condition (never "after Step 2"), what the assistant does, and an optional skip-if'
-  ]},
+    'The whole path a lead travels, in order, not only what is unusual about it',
+    'Start at the reply after the name is confirmed: the opening message is fixed by the platform',
+    'Write the ordinary steps too \u2014 confirm the details, collect a missing date and guest count, check availability and say what fits, hand off',
+    'A step left out because it is obvious is a step that does not happen',
+    'For each step: a name, a trigger that is a condition (never "after Step 2"), what the assistant does, and an optional skip-if',
+    'End at the handoff; the follow-up window and routing belong in the Handoff box'
+  ], placeholder:'Collect the date and guest count\nTrigger: the guest has not given both.\nAsk for whichever is missing, one at a time.\nSkip if: both are already known.'},
 
   {type:'block', key:'rules_text', title:'Rules', hint:[
     'Everything that is not a step, a link, a word swap, required wording, or a handoff',

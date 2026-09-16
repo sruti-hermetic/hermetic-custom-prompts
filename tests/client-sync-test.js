@@ -182,5 +182,44 @@ ok('the self-check catches a two-space offer',
 ok('the self-check catches an unapplicable rule',
    SKILL_TEXT.indexOf('without deciding what it meant') !== -1);
 
+section('Workflow steps is the whole goal path');
+var steps = box(CAMPAIGN_SCHEMA, 'steps_text');
+var stepHint = steps.hint.join(' ').toLowerCase();
+ok('the box no longer asks only for what differs',
+   stepHint.indexOf('only steps that differ') === -1, stepHint);
+ok('it asks for the whole path in order',
+   stepHint.indexOf('the whole path a lead travels, in order') !== -1, stepHint);
+ok('it names the ordinary steps so they are not skipped',
+   stepHint.indexOf('confirm the details') !== -1 &&
+   stepHint.indexOf('check availability') !== -1 &&
+   stepHint.indexOf('hand off') !== -1, stepHint);
+ok('it carves out the opening message',
+   stepHint.indexOf('opening message is fixed by the platform') !== -1, stepHint);
+ok('it ends the path at the handoff, not in the Handoff box',
+   stepHint.indexOf('follow-up window and routing belong in the handoff box') !== -1, stepHint);
+ok('it shows the step shape', (steps.placeholder || '').indexOf('Trigger:') !== -1 &&
+   (steps.placeholder || '').indexOf('Skip if:') !== -1, steps.placeholder);
+
+section('And Claude is told the same thing');
+ok('the template asks for the whole goal path',
+   SKILL_TEXT.indexOf('the whole goal path in order') !== -1);
+ok('the template still refuses the opening message',
+   SKILL_TEXT.indexOf('Never the opening message, which the platform fixes') !== -1);
+ok('the base prompt keeps the mechanics but not the flow',
+   SKILL_TEXT.indexOf('already handles the texting mechanics') !== -1 &&
+   SKILL_TEXT.indexOf('already handles the texting basics and the standard flow') === -1);
+ok('the goal path is named as such',
+   SKILL_TEXT.indexOf('Workflow Steps is the goal path, not a diff') !== -1);
+ok('a step left out is called out as a step that does not happen',
+   SKILL_TEXT.indexOf('a step you leave out because it is obvious is a step that does not happen') !== -1);
+ok('rule 6 asks for the complete ordered path',
+   SKILL_TEXT.indexOf('the complete goal path in the order') !== -1);
+ok('rule 7 no longer forbids writing the ordinary steps',
+   SKILL_TEXT.indexOf('Workflow Steps is the exception and not a violation of this') !== -1);
+ok('the self-check catches a path that does not reach handoff',
+   SKILL_TEXT.indexOf('does not run from the reply after the name is confirmed through to the handoff') !== -1);
+ok('tone rules are still a diff, not a full restatement',
+   SKILL_TEXT.indexOf('Tone rules: <only where this venue differs from the default') !== -1);
+
 print('\n' + pass + ' passed, ' + fail + ' failed');
 if (fail) throw new Error(fail + ' failing');
