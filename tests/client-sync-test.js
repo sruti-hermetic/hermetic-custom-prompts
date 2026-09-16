@@ -188,21 +188,19 @@ var stepHint = steps.hint.join(' ').toLowerCase();
 ok('the box no longer asks only for what differs',
    stepHint.indexOf('only steps that differ') === -1, stepHint);
 ok('it asks for every step in order', stepHint.indexOf('every step in order') !== -1, stepHint);
-ok('it says the ordinary ones count too',
-   stepHint.indexOf('the ordinary ones too, or they will not happen') !== -1, stepHint);
 ok('it starts after the name and ends at the handoff',
-   stepHint.indexOf('from the reply after the name is confirmed through to the handoff') !== -1, stepHint);
-// The four things the worked example does that a thin answer would not.
+   stepHint.indexOf('from after the name is confirmed to the handoff') !== -1, stepHint);
 ok('it asks for the shape of a step',
    stepHint.indexOf('a name, when it starts as a condition') !== -1 &&
-   stepHint.indexOf('what makes it skip') !== -1, stepHint);
-ok('it asks what a step withholds, not only what it asks',
-   stepHint.indexOf('withholds as well as what it asks') !== -1, stepHint);
-ok('it asks for the branches',
-   stepHint.indexOf('when the answer is not clean') !== -1, stepHint);
-ok('it asks what must happen before handoff',
-   stepHint.indexOf('must happen before the handoff') !== -1, stepHint);
-ok('the guidance stays short enough to read', steps.hint.length <= 5, steps.hint.length + ' bullets');
+   stepHint.indexOf('what skips it') !== -1, stepHint);
+ok('a trigger is a condition, not a step number',
+   stepHint.indexOf('not a step number') !== -1, stepHint);
+ok('it asks what a step holds back, not only what it asks',
+   stepHint.indexOf('holds back as well as asks') !== -1, stepHint);
+ok('the guidance is short enough to read at a glance', steps.hint.length <= 3,
+   steps.hint.length + ' bullets');
+// The worked example is where the branch and the skip now live, since the
+// bullets no longer spell them out.
 ok('the worked example shows trigger, do and skip',
    (steps.placeholder || '').indexOf('Trigger:') !== -1 &&
    (steps.placeholder || '').indexOf('Do:') !== -1 &&
@@ -230,6 +228,47 @@ ok('the self-check catches a path that does not reach handoff',
    SKILL_TEXT.indexOf('does not run from the reply after the name is confirmed through to the handoff') !== -1);
 ok('tone rules are still a diff, not a full restatement',
    SKILL_TEXT.indexOf('Tone rules: <only where this venue differs from the default') !== -1);
+
+section('The scheduling link is a setting, not a link to type');
+var links = box(CAMPAIGN_SCHEMA, 'links_text').hint.join(' ').toLowerCase();
+ok('the Links box says so',
+   links.indexOf('not the coordinator scheduling link') !== -1, links);
+ok('and says where it comes from instead',
+   links.indexOf('account settings') !== -1, links);
+ok('Claude is told the same in the Links template',
+   SKILL_TEXT.indexOf('Not coordinator scheduling links, which come from account settings') !== -1);
+ok('and told why writing one is wrong, not just that it is',
+   SKILL_TEXT.indexOf('a second copy that goes stale') !== -1);
+ok('it rides with the coordinator names it is injected alongside',
+   SKILL_TEXT.indexOf("Coordinators' names, titles and scheduling links are injected from account settings") !== -1);
+ok('the self-check catches one written into a step',
+   SKILL_TEXT.indexOf('Any scheduling link written out, in Links or in a step') !== -1);
+
+section('Vocabulary says how far a substitution reaches');
+var vocab = box(CAMPAIGN_SCHEMA, 'vocabulary_text');
+ok('it is still substitutions only',
+   vocab.hint.join(' ').toLowerCase().indexOf('not rules') !== -1);
+ok('and now says each one holds always by default',
+   vocab.hint.join(' ').toLowerCase().indexOf('holds always, unless you say where it does not') !== -1,
+   vocab.hint.join(' '));
+ok('the example shows an exception being stated',
+   (vocab.placeholder || '').indexOf('except when the guest names a room') !== -1, vocab.placeholder);
+ok('Claude is told the same', SKILL_TEXT.indexOf('Each holds on every reply unless an exception is stated with it') !== -1);
+
+section('Required wording is obligation, not preference');
+var wording = box(CAMPAIGN_SCHEMA, 'wording_text').hint.join(' ').toLowerCase();
+ok('the box leads with the obligation test',
+   wording.indexOf('legally or contractually obliged to say') !== -1, wording);
+ok('and names what does not belong',
+   wording.indexOf('not a script the client likes the sound of') !== -1, wording);
+ok('and says where a liked script goes instead',
+   wording.indexOf('persona & tone, or a rule') !== -1, wording);
+ok('the template applies the same test',
+   SKILL_TEXT.indexOf('A phrasing the client merely prefers is not required wording') !== -1);
+ok('rule 5 refuses a preferred script however firmly it is asked for',
+   SKILL_TEXT.indexOf('however firmly it is asked for') !== -1);
+ok('the self-check catches one that got through',
+   SKILL_TEXT.indexOf('Anything in Required Wording that nobody is obliged to say') !== -1);
 
 print('\n' + pass + ' passed, ' + fail + ' failed');
 if (fail) throw new Error(fail + ' failing');

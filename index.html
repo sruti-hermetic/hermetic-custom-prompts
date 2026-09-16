@@ -383,7 +383,7 @@ Understand this before writing a word:
 - **A base prompt already handles the texting mechanics**: one question at a time, short replies, no re-asking details it already has, no reintroducing itself, no emoji, honors STOP, never mentions tools/prompts/JSON, emits links exactly as given, and sanity-checks implausible dates and times. Those are yours to override where this venue differs, not to restate.
 - **Workflow Steps is the goal path, not a diff.** Write the whole path a lead travels, in order, from the reply after the name is confirmed through to handoff -- including the steps that look the same at every venue: confirm the details, collect a missing date and guest count, check availability and say what fits, hand off. Somebody reading Campaign Instructions has to be able to follow one lead end to end without a second document, and the extractor builds Mia's sequence from this list alone, so a step you leave out because it is obvious is a step that does not happen. The one thing you never write is the opening message, which the platform fixes. The path ends at the handoff itself; its window, routing and prerequisites stay in Handoff.
 - **The opening message is fixed by the platform** ("Hi, this is {AI name} from {venue}. Is this {first name}?"). Never write it.
-- **Coordinators' names and titles are injected from account settings.** Only mention a coordinator when something is special (two coordinators routed by lead type, a non-standard follow-up window).
+- **Coordinators' names, titles and scheduling links are injected from account settings.** Only mention a coordinator when something is special (two coordinators routed by lead type, a non-standard follow-up window). Never put a scheduling link in Links or write one into a step: a URL typed here is a second copy that goes stale the day the coordinator changes theirs. Say the handoff includes their scheduling link, and let the platform supply it.
 - **Mia has no concept of a CRM.** Never write "check TripleSeat", "Prospect / Tentative / Definite", or "the system shows". Write "availability".
 - **Mia has no concept of a combined or shared space.** Every offer names exactly one space. Source material that pairs two ("the Loft plus the mezzanine", "the patio and the bar together") cannot be configured as written: offer the single space that fits, and put the pairing in Open Questions, asking which one space to offer at that guest count or whether the pair is sold as one named space.
 ## Authoring rules
@@ -394,7 +394,7 @@ These are absolute. Check every one before you output.
 2. **No uncertainty in the documents.** If a fact is unconfirmed, conflicting between sources, or missing, it does not appear in the main document at all -- it appears in Open Questions with the specific question to ask. A rule that is stated but cannot be applied without deciding what it means is the same case: it is not testable, so it does not go in. "Saturday events are whole-evening only: one seating, no turnover" tells you nothing about what Mia does with a Saturday enquiry -- whether Saturday has one fixed start time, whether the minimum differs, whether a second enquiry for that date is declined outright. Ask which, rather than picking one. Never write CONFIRM, NOT CONFIRMED, TBD, pending, "Doc 1 says", "worth checking", "note for the team", or brackets holding two candidate values.
 3. **No process residue.** No notes to the team, no explanations of why a section exists, no references to tickets, calls, or documents, no "see CAMPAIGN doc". The reader is a machine.
 4. **One statement, one home.** Place each statement with this test, stopping at the first match: a URL → Links; a word swap → Vocabulary; exact AI-disclosure or legal wording → Required Wording; anything whose outcome is a handoff, or about the follow-up window, prerequisites for handoff, or conduct after handoff → Handoff; something the assistant does proactively in sequence → Workflow Steps; everything else → Rules. Rules is one list, one line per situation, shaped "When \<situation\>: \<what to do, including any never\>". Never split one situation into a condition, an "always", and a "never" -- that is one line. Before adding a Rules line, check whether a line for that situation exists and extend it instead. "Always:" / "Never:" prefixes are only for rules with no situation at all. Which space to offer at a guest count is a Rule, never an Availability Policy line. In Location, every yes/no rule lives in Policies and is not repeated in Booking Rules, Fees, Deposit, or FAQs; FAQs hold only facts that fit no other section.
-5. **Behavior, not scripts.** Describe what the assistant does and the constraints on it -- do not write dialogue for it. Exceptions: (a) Required Wording may hold exact text for AI disclosure and client-dictated legal/compliance lines, nothing else; (b) a workflow step may carry one short "e.g." when the phrasing itself encodes a constraint that is hard to state otherwise. If two scripts differ only by a name or pronoun, they are one behavior.
+5. **Behavior, not scripts.** Describe what the assistant does and the constraints on it -- do not write dialogue for it. Exceptions: (a) Required Wording may hold exact text for AI disclosure and legal/compliance lines the venue is obliged to say, nothing else -- a script the client simply prefers is not obliged wording, however firmly it is asked for, and becomes a tone rule or a Rules line instead; (b) a workflow step may carry one short "e.g." when the phrasing itself encodes a constraint that is hard to state otherwise. If two scripts differ only by a name or pronoun, they are one behavior.
 6. **Named steps, conditional triggers, whole path.** Workflow steps have names, not numbers, and the list is the complete goal path in the order a lead meets it -- ordinary steps included, never only the unusual ones. A trigger is a condition ("once guest count is known", "after availability has been shared"), never a reference to another step ("after Step 2"), which is what lets the path be complete and ordered without the steps depending on each other by number. A step is what the assistant does proactively; anything reacting to the guest or a lead fact is a Rule.
 7. **Do not restate the base prompt's mechanics** (see the list above). Only note where this venue changes one or adds a requirement. Workflow Steps is the exception and not a violation of this: the goal path is written out in full, ordinary steps included, because the extractor builds Mia's sequence from that list and cannot infer a step that is missing.
 8. **Facts in Location, behavior in Campaign, never both.** A room's capacity is a fact (Location → Rooms). Which space to offer at a given guest count is something the assistant does, so it is a Rules line (Campaign → Rules), shaped "When the party is 15-40: offer the Loft." How to talk about the rooms is behavior too. Prices the assistant may quote are facts; prices it may not quote are omitted entirely, with the deferral instruction as a Rules line.
@@ -487,12 +487,13 @@ After handoff: <what the assistant does if the guest keeps texting>
 <the single home for every behavior that is not a step, a link, a word swap, required wording, or a handoff. One line per situation: "When <situation>: <what to do, and what not to do>">
 
 ## Links
-<every URL the assistant may send, with a plain name and the condition for sending it>
+<every URL the assistant may send, with a plain name and the condition for sending it. Not coordinator scheduling links, which come from account settings>
 
 ## Vocabulary
-<word-for-word substitutions only, not a place for rules>
+<word-for-word substitutions only, not a place for rules. Each holds on every reply unless an exception is stated with it>
 
 ## Required Wording
+<only wording the venue is legally or contractually obliged to say word for word. A phrasing the client merely prefers is not required wording: it is a tone rule or a Rules line, and belongs there>
 AI disclosure: "<exact text, or None>"
 Legal / compliance: "<exact text and when it must be included, or None>"
 
@@ -514,6 +515,8 @@ Search your draft and fix every hit before producing the final answer:
 - Any dollar figure, menu item, or room that the source material says must never be quoted or offered.
 - Any sentence that tells the assistant how to behave inside Location Details, or states a venue fact inside Campaign Instructions. Which space to offer at a guest count is behavior: in Availability Policy it is misplaced, in Rules it is right.
 - Any offer naming two spaces at once, which Mia cannot represent.
+- Any scheduling link written out, in Links or in a step, rather than left to account settings.
+- Anything in Required Wording that nobody is obliged to say.
 - A goal path that does not run from the reply after the name is confirmed through to the handoff, or that names the opening message as a step.
 - Any rule you could not apply to a concrete enquiry without deciding what it meant.
 - Campaign Instructions word count over 2,000.
@@ -717,11 +720,9 @@ const CAMPAIGN_SCHEMA = [
   ], placeholder:'e.g. Follow-up window: within 24 business hours.'},
 
   {type:'block', key:'steps_text', title:'Workflow steps', hint:[
-    'Every step in order, from the reply after the name is confirmed through to the handoff \u2014 the ordinary ones too, or they will not happen',
-    'For each: a name, when it starts as a condition (never "after Step 2"), what the assistant does, and what makes it skip',
-    'What a step withholds as well as what it asks, e.g. confirm the date without repeating a time back',
-    'What happens when the answer is not clean: two spaces fit, the count is over the maximum, the guest keeps talking after handoff',
-    'Anything that must happen before the handoff, said as such'
+    'Every step in order, from after the name is confirmed to the handoff',
+    'For each: a name, when it starts as a condition not a step number, what it does, what skips it',
+    'What a step holds back as well as asks, e.g. confirm the date without repeating a time'
   ], placeholder:'Check and share availability\nTrigger: once the date and guest count are known.\nDo: check the date and share the result without waiting to be asked. When two spaces fit, describe both and offer a tour rather than asking the guest to choose.\nSkip if: the guest count is over the maximum.'},
 
   {type:'block', key:'rules_text', title:'Rules', hint:[
@@ -733,18 +734,21 @@ const CAMPAIGN_SCHEMA = [
 
   {type:'block', key:'links_text', title:'Links', hint:[
     'Every URL the assistant may send',
-    'A plain name for each',
-    'The condition for sending it'
+    'A plain name for each, and the condition for sending it',
+    'Not the coordinator scheduling link \u2014 that comes from account settings now'
   ]},
 
   {type:'block', key:'vocabulary_text', title:'Vocabulary', hint:[
-    'Word-for-word substitutions only, not rules'
-  ], placeholder:'Say "celebration" instead of "party".'},
+    'Word-for-word substitutions only, not rules',
+    'Each one holds always, unless you say where it does not'
+  ], placeholder:'Say "celebration" instead of "party".\nSay "space" instead of "room", except when the guest names a room themselves.'},
 
   {type:'block', key:'wording_text', title:'Required wording', hint:[
-    'AI disclosure: the exact approved wording, if any',
-    'Legal or compliance wording: the exact text, and when it is required'
-  ]},
+    'Only wording someone is legally or contractually obliged to say',
+    'AI disclosure: the exact approved text, if any',
+    'Legal or compliance wording: the exact text, and when it is required',
+    'Not a script the client likes the sound of \u2014 that is Persona & tone, or a rule'
+  ], placeholder:'Leave blank unless something must be said word for word.'},
 
   {type:'block', key:'cross_sell_text', title:'Cross-sell', hint:[
     'Only if cross-sell is enabled for this campaign',
