@@ -384,19 +384,20 @@ Understand this before writing a word:
 - **The opening message is fixed by the platform** ("Hi, this is {AI name} from {venue}. Is this {first name}?"). Never write it.
 - **Coordinators' names and titles are injected from account settings.** Only mention a coordinator when something is special (two coordinators routed by lead type, a non-standard follow-up window).
 - **Mia has no concept of a CRM.** Never write "check TripleSeat", "Prospect / Tentative / Definite", or "the system shows". Write "availability".
+- **Mia has no concept of a combined or shared space.** Every offer names exactly one space. Source material that pairs two ("the Loft plus the mezzanine", "the patio and the bar together") cannot be configured as written: offer the single space that fits, and put the pairing in Open Questions, asking which one space to offer at that guest count or whether the pair is sold as one named space.
 ## Authoring rules
 
 These are absolute. Check every one before you output.
 
 1. **Present tense only.** Never write new, revised, updated, retired, no longer, previously, now, unchanged, corrected, or any comparison to an earlier version.
-2. **No uncertainty in the documents.** If a fact is unconfirmed, conflicting between sources, or missing, it does not appear in the main document at all -- it appears in Open Questions with the specific question to ask. Never write CONFIRM, NOT CONFIRMED, TBD, pending, "Doc 1 says", "worth checking", "note for the team", or brackets holding two candidate values.
+2. **No uncertainty in the documents.** If a fact is unconfirmed, conflicting between sources, or missing, it does not appear in the main document at all -- it appears in Open Questions with the specific question to ask. A rule that is stated but cannot be applied without deciding what it means is the same case: it is not testable, so it does not go in. "Saturday events are whole-evening only: one seating, no turnover" tells you nothing about what Mia does with a Saturday enquiry -- whether Saturday has one fixed start time, whether the minimum differs, whether a second enquiry for that date is declined outright. Ask which, rather than picking one. Never write CONFIRM, NOT CONFIRMED, TBD, pending, "Doc 1 says", "worth checking", "note for the team", or brackets holding two candidate values.
 3. **No process residue.** No notes to the team, no explanations of why a section exists, no references to tickets, calls, or documents, no "see CAMPAIGN doc". The reader is a machine.
-4. **One statement, one home.** Place each statement with this test, stopping at the first match: a URL → Links; a word swap → Vocabulary; exact AI-disclosure or legal wording → Required Wording; anything whose outcome is a handoff, or about the follow-up window, prerequisites for handoff, or conduct after handoff → Handoff; something the assistant does proactively in sequence → Workflow Steps; everything else → Rules. Rules is one list, one line per situation, shaped "When \<situation\>: \<what to do, including any never\>". Never split one situation into a condition, an "always", and a "never" -- that is one line. Before adding a Rules line, check whether a line for that situation exists and extend it instead. "Always:" / "Never:" prefixes are only for rules with no situation at all. In Location, every yes/no rule lives in Policies and is not repeated in Booking Rules, Fees, Deposit, or FAQs; FAQs hold only facts that fit no other section.
+4. **One statement, one home.** Place each statement with this test, stopping at the first match: a URL → Links; a word swap → Vocabulary; exact AI-disclosure or legal wording → Required Wording; anything whose outcome is a handoff, or about the follow-up window, prerequisites for handoff, or conduct after handoff → Handoff; something the assistant does proactively in sequence → Workflow Steps; everything else → Rules. Rules is one list, one line per situation, shaped "When \<situation\>: \<what to do, including any never\>". Never split one situation into a condition, an "always", and a "never" -- that is one line. Before adding a Rules line, check whether a line for that situation exists and extend it instead. "Always:" / "Never:" prefixes are only for rules with no situation at all. Which space to offer at a guest count is a Rule, never an Availability Policy line. In Location, every yes/no rule lives in Policies and is not repeated in Booking Rules, Fees, Deposit, or FAQs; FAQs hold only facts that fit no other section.
 5. **Behavior, not scripts.** Describe what the assistant does and the constraints on it -- do not write dialogue for it. Exceptions: (a) Required Wording may hold exact text for AI disclosure and client-dictated legal/compliance lines, nothing else; (b) a workflow step may carry one short "e.g." when the phrasing itself encodes a constraint that is hard to state otherwise. If two scripts differ only by a name or pronoun, they are one behavior.
 6. **Named steps, conditional triggers.** Workflow steps have names, not numbers. A trigger is a condition ("once guest count is known", "after availability has been shared"), never a reference to another step ("after Step 2"). A step is what the assistant does proactively; anything reacting to the guest or a lead fact is a Rule.
 7. **Do not restate the base prompt** (see the list above). Only note where this venue changes a default or adds a requirement.
-8. **Facts in Location, behavior in Campaign, never both.** Capacities are facts. Which rooms may be offered for a guest count is an availability rule (Location → Availability Policy). How to talk about the rooms is behavior (Campaign). Prices the assistant may quote are facts; prices it may not quote are omitted entirely, with the deferral instruction as a Rules line.
-9. **Only include what can be said to a guest, plus availability rules.** If a number must never be quoted, it is not in Location. Rooms the booking system exposes but the assistant must never offer are one exclusion line in Availability Policy, not room blocks. Internal staffing rubrics, security tables, and "internal only" material are omitted.
+8. **Facts in Location, behavior in Campaign, never both.** A room's capacity is a fact (Location → Rooms). Which space to offer at a given guest count is something the assistant does, so it is a Rules line (Campaign → Rules), shaped "When the party is 15-40: offer the Loft." How to talk about the rooms is behavior too. Prices the assistant may quote are facts; prices it may not quote are omitted entirely, with the deferral instruction as a Rules line.
+9. **Only include what can be said to a guest, plus availability rules.** If a number must never be quoted, it is not in Location. A room the booking system exposes but the assistant must never offer is a Rules line, not a room block and not an Availability Policy line. Internal staffing rubrics, security tables, and "internal only" material are omitted.
 10. **Links live in Campaign → Links**, each with a name, the exact URL, and the condition for sharing it. Never write "see Location for the link".
 11. **Length.** Campaign Instructions: aim for about 1,200 words, never exceed 2,000. Location Details: as long as the facts require, with no sentence that is not a fact.
 12. **Formatting.** Template headings exactly, as `## Heading` lines. Bullets for lists, tables for pricing/capacities where useful. `[First Name]`-style brackets only inside Required Wording. A section with nothing to say keeps its heading plus "None." A field with nothing special says "Default."
@@ -421,7 +422,7 @@ Parking: <one line>
 <one block per space the assistant may offer or describe: room name (and system name if different), privacy, capacity by layout, features, AV, notes>
 
 ## Availability Policy
-<plain, testable rules for which rooms may be offered for which guest counts; rooms that must never be offered even if the system shows them free; whole-day blocks; turnover and time-of-day limits>
+<when the venue can host at all, not which space to offer: how many events it runs in a day, whether one booked space blocks the whole building, whole-day blocks, turnover and time-of-day limits. Guest-count-to-space routing is a Campaign Rule>
 
 ## Pricing
 <only prices the assistant may quote; table with space/item, guest count, days, time, F&B minimum, room fee, notes; per-unit activity pricing if applicable>
@@ -510,7 +511,9 @@ Search your draft and fix every hit before producing the final answer:
 - Any quoted dialogue outside Required Wording, other than one "e.g." per workflow step.
 - Any situation appearing in more than one Rules line, or in a Rules line and a workflow step, or in a Rules line and Handoff.
 - Any dollar figure, menu item, or room that the source material says must never be quoted or offered.
-- Any sentence that tells the assistant how to behave inside Location Details, or states a venue fact inside Campaign Instructions.
+- Any sentence that tells the assistant how to behave inside Location Details, or states a venue fact inside Campaign Instructions. Which space to offer at a guest count is behavior: in Availability Policy it is misplaced, in Rules it is right.
+- Any offer naming two spaces at once, which Mia cannot represent.
+- Any rule you could not apply to a concrete enquiry without deciding what it meant.
 - Campaign Instructions word count over 2,000.
 Then produce the requested output(s), and nothing else.
 </script>
@@ -640,11 +643,12 @@ const LOCATION_SCHEMA = [
   ], placeholder:'e.g. Closed Thanksgiving and Christmas.'},
 
   {type:'block', key:'availability_text', title:'Availability policy', hint:[
-    'Which rooms may be offered for which guest counts',
-    'Rooms that must never be offered, even when the booking system shows them free',
-    'Whole-day blocks',
-    'Turnover and time-of-day limits'
-  ], placeholder:'One rule per line, e.g. For 1-60 guests, offer School Night only.'},
+    'When the venue can host at all, not which space to offer',
+    'How many events run in a day',
+    'Whether one booked space blocks the whole building',
+    'Whole-day blocks, turnover and time-of-day limits',
+    'Which space suits which guest count goes in Rules, under Assistant behavior'
+  ], placeholder:'e.g. One event a day. If any space is booked, treat the whole venue as booked.'},
 
   {type:'block', key:'pricing_text', title:'Per-unit activity pricing (if applicable)', hint:[
     'Only prices the assistant is allowed to quote',
@@ -722,8 +726,11 @@ const CAMPAIGN_SCHEMA = [
 
   {type:'block', key:'rules_text', title:'Rules', hint:[
     'Everything that is not a step, a link, a word swap, required wording, or a handoff',
-    'One line per situation: "When X: do Y, never Z"'
-  ], placeholder:'When the guest asks about pricing: never quote a figure; say the coordinator follows up with a tailored quote.'},
+    'One line per situation: "When X: do Y, never Z"',
+    'Which space to offer at which guest count, one line per band',
+    'Spaces never to offer, and when',
+    'Each line names one space: there is no combining two into one offer'
+  ], placeholder:'When the party is 1-14: offer the Press Room.\nWhen the guest asks about pricing: never quote a figure; say the coordinator follows up with a tailored quote.'},
 
   {type:'block', key:'links_text', title:'Links', hint:[
     'Every URL the assistant may send',

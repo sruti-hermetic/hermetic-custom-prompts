@@ -146,5 +146,41 @@ ok('a box somebody has already filled is never overwritten',
 ok('sub-locations is on the retired list, so it is cleaned out of saved records',
    RETIRED_FIELDS.indexOf('sub_venues_text') !== -1);
 
+section('Where a guest-count-to-space rule belongs');
+function box(schema, key){ return schema.filter(function(b){ return b.key === key; })[0]; }
+var avail = box(LOCATION_SCHEMA, 'availability_text').hint.join(' ').toLowerCase();
+var rules = box(CAMPAIGN_SCHEMA, 'rules_text').hint.join(' ').toLowerCase();
+ok('Availability no longer asks which room suits which guest count',
+   avail.indexOf('which rooms may be offered') === -1);
+ok('Availability asks about the venue instead',
+   avail.indexOf('one booked space blocks the whole building') !== -1, avail);
+ok('and points the guest-count question at Rules', avail.indexOf('rules') !== -1, avail);
+ok('Rules asks for the guest-count bands',
+   rules.indexOf('which space to offer at which guest count') !== -1, rules);
+ok('Rules says an offer names one space',
+   rules.indexOf('no combining two into one offer') !== -1, rules);
+
+section('And what Claude is told about it');
+ok('the template says Availability is not about which space to offer',
+   SKILL_TEXT.indexOf('not which space to offer') !== -1);
+ok('the template sends routing to a Campaign Rule',
+   SKILL_TEXT.indexOf('Guest-count-to-space routing is a Campaign Rule') !== -1);
+ok('the placement test agrees',
+   SKILL_TEXT.indexOf('Which space to offer at a guest count is a Rule, never an Availability Policy line') !== -1);
+ok('a capacity is still a Location fact',
+   SKILL_TEXT.indexOf("A room's capacity is a fact (Location \u2192 Rooms)") !== -1);
+ok('Mia is told she has no combined spaces',
+   SKILL_TEXT.indexOf('no concept of a combined or shared space') !== -1);
+ok('a paired offer goes to Open Questions rather than being invented',
+   SKILL_TEXT.indexOf('put the pairing in Open Questions') !== -1);
+ok('a rule that cannot be applied goes to Open Questions',
+   SKILL_TEXT.indexOf('cannot be applied without deciding what it means') !== -1);
+ok('with the whole-evening line as the worked example',
+   SKILL_TEXT.indexOf('Saturday events are whole-evening only') !== -1);
+ok('the self-check catches a two-space offer',
+   SKILL_TEXT.indexOf('Any offer naming two spaces at once') !== -1);
+ok('the self-check catches an unapplicable rule',
+   SKILL_TEXT.indexOf('without deciding what it meant') !== -1);
+
 print('\n' + pass + ' passed, ' + fail + ' failed');
 if (fail) throw new Error(fail + ' failing');
