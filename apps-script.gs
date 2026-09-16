@@ -40,7 +40,7 @@
  * SHEET LAYOUT
  * A tab named "kv": column A is the key, column B onward is the JSON value.
  * Values longer than one cell can hold are split across B, C, D... and
- * rejoined on read, so a long source_material paste is never truncated.
+ * rejoined on read, so a long typed answer is never truncated.
  */
 
 var SHEET_NAME = 'kv';
@@ -178,7 +178,7 @@ function doGet(e) {
 
   // `since` turns this into a delta poll. The sheet still has to be read whole
   // either way, but the response is what actually costs -- a team polling every
-  // 20s must not pull every venue's source_material each time. Rows with no
+  // 20s must not pull every venue's answers each time. Rows with no
   // parseable updatedAt (legacy values, settings written by an older client)
   // are only returned on a full read, which every page load does first.
   if (action === 'getAll') {
@@ -608,8 +608,7 @@ var VIEW_QUEUE_STALE_MS = 10 * 60 * 1000;   // a note this old lost its trigger
 function affectsView_(key) {
   return key === 'hermetic:schema' ||
          key.indexOf('hermetic:account:') === 0 ||
-         key.indexOf('hermetic:venue:') === 0 ||
-         key.indexOf('hermetic:versions:') === 0;
+         key.indexOf('hermetic:venue:') === 0;
 }
 
 function queueViewRebuild_(key) {
@@ -643,9 +642,9 @@ function rebuildViewsQueued() {
   rebuildViews();
 }
 
-/** Everything in kv, parsed into accounts, their locations, and saved prompts. */
+/** Everything in kv, parsed into accounts and their locations. */
 function readModel_() {
-  var model = { accounts: [], venues: {}, versions: {}, schema: null };
+  var model = { accounts: [], venues: {}, schema: null };
   readAll_().forEach(function (r) {
     var o;
     try { o = JSON.parse(r.value); } catch (err) { return; }
@@ -660,10 +659,6 @@ function readModel_() {
       if (o.deleted) return;
       var accountId = r.key.split(':')[2];
       (model.venues[accountId] = model.venues[accountId] || []).push(o);
-      return;
-    }
-    if (r.key.indexOf('hermetic:versions:') === 0) {
-      model.versions[r.key.substring('hermetic:versions:'.length)] = o.entries || [];
     }
   });
 
@@ -810,6 +805,9 @@ function cellText_(value) {
    not loaded since this was added, rather than showing nothing at all. */
 function viewParts_(model, locations) {
   if (model.schema && model.schema.parts && model.schema.parts.length) return model.schema.parts;
+  // Not answers: files and folder links, plus the retired source-material and
+  // generated-output boxes, whose values still sit in records typed before the
+  // console dropped them.
   var skip = { docs: 1, drive_link: 1, source_material: 1, draft_location_doc: 1, draft_campaign_doc: 1, draft_open_questions: 1 };
   var keys = {};
   locations.forEach(function (l) {
@@ -865,14 +863,9 @@ function buildAccountView_(ss, account, model) {
   line('Answers last edited', function (l) { return when_(l.lastEditedAt, tz); });
   line('Last edited by', function (l) { return l.lastWriterName || ''; });
   line('Last saved to this sheet', function (l) { return when_(l.updatedAt, tz); });
-  line('Prompts saved', function (l) {
-    var v = model.versions[l.id] || [];
-    return v.length ? String(v.length) : '';
-  });
-  line('Latest prompt saved', function (l) {
-    var v = model.versions[l.id] || [];
-    return v.length ? when_(v[v.length - 1].savedAt, tz) : '';
-  });
+  // Edited after this, and the console shows the location as outdated: the
+  // answers have moved on since anybody last handed them to Claude.
+  line('Last copied for Claude', function (l) { return when_(l.lastCopiedAt, tz); });
 
   group('FILES');
   line('Uploaded files', function (l) { return fileSummary_(l); });
@@ -884,9 +877,6 @@ function buildAccountView_(ss, account, model) {
       line(section.title, function (l) { return cellText_((l.data || {})[section.key]); });
     });
   });
-
-  group('EXTRA CONTEXT');
-  line('Source material', function (l) { return cellText_((l.data || {}).source_material); });
 
   if (!locations.length) push(['This account has no locations yet.']);
 

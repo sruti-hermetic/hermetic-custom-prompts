@@ -195,14 +195,6 @@
   .badge-destructive{ background:var(--badge-destructive-bg); border-color:var(--badge-destructive-border); color:var(--badge-destructive-text); }
   .badge-warning{ background:var(--badge-warning-bg); border-color:var(--badge-warning-border); color:var(--badge-warning-text); }
 
-  .version-row{ border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:var(--space-3); margin-bottom:var(--space-2); background:var(--clean-linen); }
-  .version-row-head{ display:flex; align-items:center; gap:var(--space-2); }
-  .version-row-head .t-caption{ flex:1; }
-  .version-preview{ font-size:12.5px; color:var(--evening-slate); margin-top:var(--space-1); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .version-full{ display:none; margin-top:var(--space-2); }
-  .version-row.expanded .version-full{ display:block; }
-  .version-full pre{ white-space:pre-wrap; font-size:12.5px; background:var(--canvas); border:1px solid var(--border-default); border-radius:var(--radius-md); padding:var(--space-3); margin:0 0 var(--space-2); font-family:inherit; }
-
   .field{ margin-bottom:var(--space-4); }
   .field label{ display:block; font-size:13px; font-weight:500; margin-bottom:var(--space-1-5); color:var(--night-ink); }
   input[type=text].input, textarea.input{ width:100%; padding:0 var(--space-2-5); border:1px solid var(--border-default); border-radius:var(--radius-md); background:var(--canvas); color:var(--night-ink); font-size:13.5px; }
@@ -311,6 +303,7 @@
   .banner-info{ background:var(--badge-info-bg); border-color:var(--badge-info-border); color:var(--badge-info-text); }
   .banner-success{ background:var(--badge-success-bg); border-color:var(--badge-success-border); color:var(--badge-success-text); }
   .banner-destructive{ background:var(--badge-destructive-bg); border-color:var(--badge-destructive-border); color:var(--badge-destructive-text); }
+  .banner + .row-actions{ margin-top:var(--space-3); }
 
   .settings-grid{ display:grid; gap:var(--space-5); }
 
@@ -552,6 +545,7 @@ const ICONS = {
   'upload': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>',
   'users': '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   'refresh-cw': '<path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-6.7-3H8"/><path d="M3 12a9 9 0 0 1 9-9 9 9 0 0 1 6.7 3H16"/><polyline points="3 4 3 9 8 9"/><polyline points="21 20 21 15 16 15"/>',
+  'clock': '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
   'copy-plus': '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/><line x1="15.5" y1="12" x2="15.5" y2="18"/><line x1="12.5" y1="15" x2="18.5" y2="15"/>'
 };
 function icon(name, cls, sizePx){
@@ -589,7 +583,7 @@ function escapeAttr(str){ return escapeHtml(str); }
    FIELD SCHEMAS (mirrors the v2 Location / Campaign templates,
    per "Appendix A: Section map for engineering")
 ================================================================= */
-const DOC_TYPES = ['Menu', 'Private dining packet', 'Event deck', 'Venue guide', 'Inquiry form', 'Gallery photos', 'Policy', 'FAQs', 'TS room setup', 'Other'];
+const DOC_TYPES = ['Menu', 'Pricing doc/matrix', 'Private dining packet', 'Event deck', 'Venue guide', 'Inquiry form', 'Gallery photos', 'Policy', 'FAQs', 'TS room setup', 'Other'];
 
 const ROOM_FIELDS = [
   {path:'name', label:'Room name', kind:'text'},
@@ -768,8 +762,7 @@ const VENUE_PARTS = [
 ];
 
 function newVenueData(){
-  const data = { source_material:'', drive_link:'', docs:[],
-    draft_location_doc:'', draft_campaign_doc:'', draft_open_questions:'' };
+  const data = { drive_link:'', docs:[] };
   [...LOCATION_SCHEMA, ...CAMPAIGN_SCHEMA].forEach(sec => data[sec.key] = '');
   return data;
 }
@@ -932,7 +925,6 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const RECORD_KINDS = {
   account:  { prefix: 'hermetic:account:',  scalars: ['name', 'drive_link', 'deleted'] },
   venue:    { prefix: 'hermetic:venue:',    scalars: ['name', 'deleted'] },
-  versions: { prefix: 'hermetic:versions:' },
   presence: { prefix: 'hermetic:presence:' },
   settings: { prefix: 'hermetic:settings'   }
 };
@@ -946,7 +938,6 @@ function kindOfKey(key){
 }
 function accountKey(id){ return `hermetic:account:${id}`; }
 function venueKey(accountId, venueId){ return `hermetic:venue:${accountId}:${venueId}`; }
-function versionsKey(venueId){ return `hermetic:versions:${venueId}`; }
 
 function newId(prefix){
   return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7);
@@ -1066,6 +1057,12 @@ function mergeVenue(local, remote){
   out.data.docs = docs.docs;
   out.docsRemoved = docs.docsRemoved;
   out.lastEditedAt = Math.max(local.lastEditedAt || 0, remote.lastEditedAt || 0);
+  // The later side wins: whoever copied last did so, and a merge that forgot it
+  // would tell the other browser the venue had gone back to being uncopied.
+  // Left off entirely when neither side has it -- inventing a zero here would
+  // make every client push every venue back once to say nothing.
+  const copiedAt = Math.max(local.lastCopiedAt || 0, remote.lastCopiedAt || 0);
+  if (copiedAt) out.lastCopiedAt = copiedAt;
   return out;
 }
 
@@ -1084,22 +1081,7 @@ function mergeSettings(local, remote){
   return out;
 }
 
-/* Saved versions are append-only, so the union of both sides is the right
-   answer -- two people saving a version during the same call keep both. */
-function mergeVersions(local, remote){
-  const byStamp = new Map();
-  for (const v of [...(local.entries || []), ...(remote.entries || [])]){
-    if (!v) continue;
-    const k = String(v.savedAt || 0) + ':' + String(v.legacyKind || '');
-    if (!byStamp.has(k)) byStamp.set(k, v);
-  }
-  const entries = [...byStamp.values()]
-    .sort((a, b) => (a.savedAt || 0) - (b.savedAt || 0))
-    .slice(-MAX_VERSIONS_PER_ITEM);
-  return blankRecord({ entries });
-}
-
-const MERGERS = { account: mergeAccount, venue: mergeVenue, versions: mergeVersions, settings: mergeSettings };
+const MERGERS = { account: mergeAccount, venue: mergeVenue, settings: mergeSettings };
 
 function mergeRecords(kind, local, remote){
   if (!local) return remote;
@@ -1157,6 +1139,32 @@ let writerRunning = false;
 let writeFailures = 0;
 let lastWriteError = '';
 
+/* How often queued work is allowed up to the Sheet. Every edit reaches the
+   local mirror the instant it is typed; this is only about the round trip.
+   Without it a save went up on every debounce, so filling in one card meant a
+   POST every second or so -- a lane Apps Script shares with everybody else's
+   polls, and a status pill that never stopped flickering. The queue is keyed by
+   record, so a minute of typing in one box collapses into one write. */
+const SYNC_INTERVAL_MS = 30000;
+let lastWriteAt = 0;
+let lastSyncedAt = 0;      // when the queue last emptied, for the pill's tooltip
+let writeTimer = null;
+
+/* Queue work for the next window. An idle console still saves at once: the
+   wait only applies when something went up inside the last interval. */
+function scheduleWrite(){
+  if (!syncUrl || !writeQueue.size || writerRunning || writeTimer) return;
+  const due = Math.max(0, lastWriteAt + SYNC_INTERVAL_MS - Date.now());
+  writeTimer = setTimeout(()=>{ writeTimer = null; runWriter(); }, due);
+}
+/* Skip the wait: the tab is going away, or something is waiting on the Sheet
+   being up to date. */
+function writeNow(){
+  clearTimeout(writeTimer);
+  writeTimer = null;
+  runWriter();
+}
+
 function persistDirty(){
   try{ localStorage.setItem('hermetic:dirtyKeys', JSON.stringify([...writeQueue.keys()])); }
   catch(e){}
@@ -1179,10 +1187,28 @@ function saveRecord(key, record){
   if (syncUrl){
     writeQueue.set(key, record);
     persistDirty();
-    runWriter();
+    scheduleWrite();
   }
   renderSyncPill();
   return record;
+}
+
+/* fetch() waits forever by default. One request that never answers -- a dropped
+   connection, Apps Script hanging on to the lane -- left the writer sitting in
+   an await that could not finish: the queue stayed full, the pill span forever,
+   and nothing else ever went up. A request that has not answered inside this is
+   treated as a failure, which the retry path already knows how to handle. */
+const REQUEST_TIMEOUT_MS = 25000;
+async function fetchWithTimeout(url, opts){
+  const ctrl = new AbortController();
+  const timer = setTimeout(()=> ctrl.abort(), REQUEST_TIMEOUT_MS);
+  try{
+    return await fetch(url, Object.assign({}, opts, { signal: ctrl.signal }));
+  }catch(e){
+    throw (e && e.name === 'AbortError')
+      ? new Error('The Sheet did not answer in time')
+      : e;
+  }finally{ clearTimeout(timer); }
 }
 
 function backoffMs(failures){
@@ -1192,6 +1218,7 @@ function backoffMs(failures){
 async function runWriter(){
   if (writerRunning || !syncUrl) return;
   writerRunning = true;
+  lastWriteAt = Date.now();
   try{
     while (writeQueue.size){
       const key = writeQueue.keys().next().value;
@@ -1220,10 +1247,13 @@ async function runWriter(){
     }
   }finally{
     writerRunning = false;
+    lastWriteAt = Date.now();
+    if (!writeQueue.size) lastSyncedAt = lastWriteAt;
     renderSyncPill();
     // A save that arrived while the loop was on its way out found writerRunning
-    // still true and did nothing. Pick it up rather than leave it sitting.
-    if (writeQueue.size) runWriter();
+    // still true and did nothing. Pick it up on the next window rather than
+    // leave it sitting.
+    scheduleWrite();
   }
 }
 
@@ -1237,7 +1267,7 @@ async function pushRecord(key, record){
   for (let attempt = 0; attempt < 6; attempt++){
     let data;
     try{
-      const res = await fetch(syncUrl, {
+      const res = await fetchWithTimeout(syncUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
@@ -1281,10 +1311,11 @@ function requeueDirty(){
     const record = localRead(key);
     if (record && typeof record === 'object') writeQueue.set(key, record);
   }
-  if (writeQueue.size){ persistDirty(); runWriter(); }
+  if (writeQueue.size){ persistDirty(); writeNow(); }
 }
 
 function flushWrites(){
+  writeNow();
   return new Promise(resolve => {
     const tick = () => (writeQueue.size ? setTimeout(tick, 150) : resolve());
     tick();
@@ -1319,7 +1350,7 @@ async function pull({ full } = {}){
   try{
     const url = `${syncUrl}?action=getAll&prefix=${encodeURIComponent(KV_PREFIX)}` +
                 (since ? `&since=${since}` : '');
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url);
     const data = await res.json();
     if (!data || !Array.isArray(data.items)) throw new Error('getAll returned no items');
     if (typeof data.serverVersion === 'number') serverVersion = data.serverVersion;
@@ -1350,8 +1381,14 @@ function startPolling(){
   // they come back matters more than the interval does.
   document.addEventListener('visibilitychange', ()=>{
     if (!document.hidden){ pullNow(); heartbeat(); }
+    // Going away: a tab that is hidden may never come back, and queued work
+    // must not sit out the rest of its window on a machine nobody returns to.
+    else writeNow();
   });
-  window.addEventListener('online', ()=>{ pullNow(); runWriter(); });
+  window.addEventListener('online', ()=>{ pullNow(); writeNow(); });
+  // Last chance before the tab closes. What does not make it stays in
+  // hermetic:dirtyKeys and goes up on the next load.
+  window.addEventListener('pagehide', writeNow);
 }
 
 function applyRemote(items){
@@ -1377,13 +1414,6 @@ function applyRemote(items){
       continue;
     }
 
-    // Version history predating records was a bare array in the row.
-    if (!remote && kind === 'versions'){
-      try{
-        const arr = JSON.parse(item.value);
-        if (Array.isArray(arr)) remote = { rev: 0, updatedAt: 0, fieldTs: {}, entries: arr };
-      }catch(e){}
-    }
     if (!remote) continue;
 
     if (kind === 'presence'){ applyPresence(remote); continue; }
@@ -1641,11 +1671,40 @@ async function copyDocumentInDrive({ segments, category, fileId, filename }){
 const FILE_CHECK_TTL_MS = 60000;
 const fileCheckedAt = new Map();      // location id -> when Drive last answered
 
+/* Drive is somewhere people tidy up in another tab, and the console has to
+   notice on its own. The check used to run only from a repaint, so a card left
+   open on screen was never asked about again: a file deleted in Drive sat there
+   looking fine until somebody collapsed the card or pressed the refresh button.
+   Open cards are now asked on a timer, and again whenever this tab comes back to
+   the front -- which is the moment right after the deleting was done. */
+let fileSweepTimer = null;
+function sweepOpenLocationFiles(opts){
+  if (!syncUrl || document.hidden) return;
+  if (state.view !== 'main' || !state.currentAccountId) return;
+  for (const venueId of state.openItemIds){
+    if (readVenue(state.currentAccountId, venueId)){
+      verifyLocationFiles(state.currentAccountId, venueId, opts);
+    }
+  }
+}
+function startFileSweep(){
+  if (!syncUrl || fileSweepTimer) return;
+  fileSweepTimer = setInterval(()=> sweepOpenLocationFiles(), FILE_CHECK_TTL_MS);
+  document.addEventListener('visibilitychange', ()=>{
+    if (!document.hidden) sweepOpenLocationFiles({ maxAge: 5000 });
+  });
+}
+
 async function verifyLocationFiles(accountId, venueId, opts){
   if (!syncUrl) return;
   if (serverVersion && serverVersion < 5) return;     // backend has no checkFiles
-  const force = !!(opts && opts.force);
-  if (!force && Date.now() - (fileCheckedAt.get(venueId) || 0) < FILE_CHECK_TTL_MS) return;
+  // How old an answer may be and still be trusted. The button forces a fresh
+  // one; coming back to the tab settles for a few seconds old, since the usual
+  // reason for switching back is having just changed something in Drive.
+  const maxAge = (opts && opts.force) ? 0
+    : (opts && typeof opts.maxAge === 'number') ? opts.maxAge
+    : FILE_CHECK_TTL_MS;
+  if (Date.now() - (fileCheckedAt.get(venueId) || 0) < maxAge) return;
 
   const record = readVenue(accountId, venueId);
   const ids = (((record || {}).data || {}).docs || []).filter(d => d.fileId).map(d => d.fileId);
@@ -1686,7 +1745,7 @@ async function verifyLocationFiles(accountId, venueId, opts){
 /* =================================================================
    STATE
 ================================================================= */
-/* Nothing shared is cached here. Accounts, venues and versions are read from
+/* Nothing shared is cached here. Accounts and venues are read from
    the mirror at render time, so a pull that lands in the background shows up on
    the next paint without any cache to invalidate. What stays is view state:
    what is selected, what is expanded. */
@@ -1696,11 +1755,8 @@ let state = {
   view: 'main',                  // 'main' or 'settings'; a background repaint respects it
   settings: { rootFolderName: "ONBOARDING - Custom Prompt Uploads", rootFolderId: "" },
   openItemIds: new Set(),
-  openVersionKeys: new Set(),
   sidebarCollapsed: false
 };
-
-const MAX_VERSIONS_PER_ITEM = 8;
 
 /* =================================================================
    DERIVED READS
@@ -1731,13 +1787,6 @@ function readVenue(accountId, venueId){
   const rec = localRead(venueKey(accountId, venueId));
   return rec && !rec.deleted ? rec : null;
 }
-function readVersions(venueId){
-  const rec = localRead(versionsKey(venueId));
-  if (!rec) return [];
-  // Version history predating records was a bare array in the row.
-  if (Array.isArray(rec)) return rec;
-  return Array.isArray(rec.entries) ? rec.entries : [];
-}
 function readSettings(){
   const rec = localRead('hermetic:settings') || {};
   return {
@@ -1766,15 +1815,21 @@ function editVenue(accountId, venueId, mutate){
   if (!touched.noTouch) record.lastEditedAt = at;
   return saveRecord(key, record);
 }
-/* noTouch is for the generated-output boxes: pasting Claude's answer back in is
-   not an edit to the answers, and must not make every saved version look stale. */
-function setVenueField(accountId, venueId, field, value, opts){
+function setVenueField(accountId, venueId, field, value){
   return editVenue(accountId, venueId, (record, at) => {
     setAtPath(record.data, field, value);
-    const paths = ['data.' + field];
-    paths.noTouch = !!(opts && opts.noTouch);
-    return paths;
+    return ['data.' + field];
   });
+}
+/* Copying for Claude is the moment the answers leave the console, so it is the
+   moment the venue stops being outdated. It is not an edit: the stamp must not
+   move lastEditedAt, or every copy would immediately mark itself stale. */
+function markVenueCopied(accountId, venueId){
+  const key = venueKey(accountId, venueId);
+  const record = localRead(key);
+  if (!record) return null;
+  record.lastCopiedAt = Date.now();
+  return saveRecord(key, record);
 }
 function createVenue(accountId, name){
   const at = Date.now();
@@ -1795,19 +1850,14 @@ function createVenue(accountId, name){
    eat the venue it came from. So: new id, new key, rev starts at zero, and
    every field stamped now.
 
-   Answers and source material carry over. The generated documents and the
-   version history do not: they are outputs, produced for the venue they were
-   generated against, and a copy that arrived pre-marked "Up to date" would be
-   claiming it had been through a review it has never had. Files are attached
-   afterwards, one at a time, as each Drive copy lands. */
+   The answers carry over. The copy has never been handed to Claude under its
+   own name, so it starts out uncopied rather than arriving pre-marked as done.
+   Files are attached afterwards, one at a time, as each Drive copy lands. */
 function duplicateVenueRecord(sourceAccountId, sourceVenueId, targetAccountId, name){
   const src = readVenue(sourceAccountId, sourceVenueId);
   if (!src) return null;
   const at = Date.now();
   const data = JSON.parse(JSON.stringify(src.data || newVenueData()));
-  data.draft_location_doc = '';
-  data.draft_campaign_doc = '';
-  data.draft_open_questions = '';
   data.docs = [];
   data.drive_link = '';
   const record = blankRecord({
@@ -1859,13 +1909,6 @@ function deleteAccount(accountId){
   return saveRecord(key, record);
 }
 
-function saveVersions(venueId, entries){
-  const key = versionsKey(venueId);
-  const existing = localRead(key);
-  const record = (existing && !Array.isArray(existing)) ? existing : blankRecord({});
-  record.entries = entries.slice(-MAX_VERSIONS_PER_ITEM);
-  return saveRecord(key, record);
-}
 function saveSettings(patch){
   const key = 'hermetic:settings';
   const existing = localRead(key);
@@ -1894,6 +1937,32 @@ function formatTimestamp(ms){
    the same result instead of fighting. The old rows are left in the
    Sheet untouched -- they cost nothing and they are the way back.
 ================================================================= */
+/* The source material box and the three generated-output boxes are gone from
+   the console, but their text is still sitting in every record filled in before
+   they went, pulled down on every sync and shown to nobody. Clear it once.
+
+   The cleared fields are stamped now, not left unstamped: a teammate's browser
+   still holds the old text, and an erasure that did not carry a time would lose
+   the merge against it and be quietly undone on the next poll. It is not an
+   edit, though -- wiping a box the console no longer has must not make a
+   location look like its answers have moved on. */
+const RETIRED_FIELDS = ['source_material', 'draft_location_doc', 'draft_campaign_doc', 'draft_open_questions'];
+function stripRetiredFields(){
+  for (const acc of readAccounts()){
+    for (const venue of readVenues(acc.id)){
+      if (!RETIRED_FIELDS.some(f => (venue.data || {})[f] !== undefined)) continue;
+      editVenue(acc.id, venue.id, (record) => {
+        const gone = RETIRED_FIELDS.filter(f => record.data[f] !== undefined);
+        if (!gone.length) return null;
+        gone.forEach(f => { delete record.data[f]; });
+        const paths = gone.map(f => 'data.' + f);
+        paths.noTouch = true;
+        return paths;
+      });
+    }
+  }
+}
+
 function migrateToRecords(){
   const legacyAccounts = localRead('hermetic:accounts');
   if (Array.isArray(legacyAccounts)){
@@ -1974,23 +2043,8 @@ function mergeLegacyPair(id, name, loc, camp){
       data[key] = src[key] && typeof src[key] === 'object' ? JSON.parse(JSON.stringify(src[key])) : src[key];
     }
   }
-  data.source_material = [ld.source_material, cd.source_material].filter(Boolean).join('\n\n');
   data.drive_link = ld.drive_link || cd.drive_link || '';
   data.docs = [...(ld.docs || []), ...(cd.docs || [])];
-  data.draft_location_doc = ld.draft_doc || '';
-  data.draft_campaign_doc = cd.draft_doc || '';
-  data.draft_open_questions = [ld.draft_open_questions, cd.draft_open_questions].filter(Boolean).join('\n\n');
-
-  // Version history from both old records, kept in order and labelled.
-  const merged = [];
-  for (const [src, kind] of [[loc, 'location'], [camp, 'campaign']]){
-    if (!src) continue;
-    readVersions(src.id).forEach(v => merged.push({ ...v, legacyKind: kind }));
-  }
-  if (merged.length){
-    merged.sort((a,b) => (a.savedAt||0) - (b.savedAt||0));
-    saveVersions(id, merged);
-  }
   return {
     id,
     name,
@@ -1999,23 +2053,35 @@ function mergeLegacyPair(id, name, loc, camp){
   };
 }
 
+/* Nothing here animates. The pill sits in the corner of the screen all day, and
+   a spinner that restarts on every keystroke, every poll and every repaint reads
+   as "something is wrong" even when everything is fine. It answers one question
+   -- is this person's work safe -- and it only changes when the answer does. */
 function renderSyncPill(){
   const el = document.getElementById('syncStatusPill');
   if (!el) return;
-  const pill = (kind, ico, text, spin) =>
-    `<span class="badge badge-${kind}" style="width:100%; justify-content:center;">${icon(ico, spin ? 'icon spin' : 'icon', 12)}${text}</span>`;
-  if (!syncUrl){ el.innerHTML = pill('slate','info','Not connected'); return; }
-  // Three states, and the third is the point: a write that keeps failing must
-  // never be able to look like a write that succeeded.
-  if (writeQueue.size && writeFailures > 0){
-    el.innerHTML = pill('destructive','alert-triangle','Not saved yet, retrying');
-    el.title = lastWriteError || '';
+  const pill = (kind, ico, text) =>
+    `<span class="badge badge-${kind}" style="width:100%; justify-content:center;">${icon(ico, 'icon', 12)}${text}</span>`;
+  if (!syncUrl){
+    el.title = 'Answers are saved in this browser only. Connect the Sheet in Settings to share them.';
+    el.innerHTML = pill('slate','info','Not connected');
     return;
   }
-  el.title = '';
-  el.innerHTML = writeQueue.size
-    ? pill('info','loader-2','Saving…', true)
-    : pill('success','check-circle','Saved');
+  // A write that keeps failing must never be able to look like one that worked.
+  if (writeQueue.size && writeFailures > 0){
+    el.title = lastWriteError || '';
+    el.innerHTML = pill('destructive','alert-triangle','Not saved yet, retrying');
+    return;
+  }
+  // Typed but not sent yet is not an error and not a wait anybody needs to watch:
+  // it is already safe in this browser, and it survives a reload.
+  if (writeQueue.size){
+    el.title = 'Saved in this browser. Goes up to the shared Sheet within 30 seconds.';
+    el.innerHTML = pill('slate','check-circle','Saved here');
+    return;
+  }
+  el.title = lastSyncedAt ? 'Everything is up on the shared Sheet as of ' + formatTimestamp(lastSyncedAt) : '';
+  el.innerHTML = pill('success','check-circle','Saved');
 }
 
 /* Who else is in the account on screen. Rendered on its own so a pull can
@@ -2086,21 +2152,24 @@ function onRemoteChange(){
   renderMain({ preserveFocus: true, background: true });
 }
 
+/* Whatever is being typed outranks the repaint, whichever box it is in. The
+   answer boxes are found again by item and field; everything else -- the new
+   location name, the settings fields -- by id. Only the bound boxes used to be
+   covered, so a poll landing mid-word emptied the new location box and took the
+   caret with it, which made a name of any length impossible to finish typing. */
 function focusSnapshot(){
   const el = document.activeElement;
-  if (!el || !el.dataset || !el.dataset.bind) return null;
-  return {
-    item: el.dataset.item,
-    bind: el.dataset.bind,
-    value: el.value,
-    start: el.selectionStart,
-    end: el.selectionEnd,
-    scrollTop: el.scrollTop
-  };
+  if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA' && el.tagName !== 'SELECT')) return null;
+  const at = { value: el.value, start: el.selectionStart, end: el.selectionEnd, scrollTop: el.scrollTop };
+  if (el.dataset && el.dataset.bind) return { ...at, item: el.dataset.item, bind: el.dataset.bind };
+  if (el.id) return { ...at, id: el.id };
+  return null;
 }
 function restoreFocus(snap){
   if (!snap) return;
-  const el = document.querySelector(`[data-item="${snap.item}"][data-bind="${snap.bind}"]`);
+  const el = snap.id
+    ? document.getElementById(snap.id)
+    : document.querySelector(`[data-item="${snap.item}"][data-bind="${snap.bind}"]`);
   if (!el) return;
   el.value = snap.value;       // keystrokes not yet flushed outrank the repaint
   el.focus();
@@ -2120,6 +2189,7 @@ async function init(){
 
   // First paint comes straight out of the local mirror, with no network wait.
   migrateToRecords();
+  stripRetiredFields();
   readTopLevelState();
   renderSyncPill();
   renderSidebar();
@@ -2132,9 +2202,11 @@ async function init(){
   // it, because the rows it needs to fold may only have arrived just now.
   const changed = await hydrate();
   migrateToRecords();
+  stripRetiredFields();
   publishSchema();
   startPolling();
   startHeartbeat();
+  startFileSweep();
   if (!changed) return;
   onRemoteChange();
 }
@@ -2186,7 +2258,7 @@ async function confirmDeleteAccount(accountId){
     body: `<p>This removes the account for everyone on the team, and it cannot be undone.</p>
       <ul>
         <li><strong>${locations.length === 0 ? 'No locations' : locations.length === 1 ? '1 location' : locations.length + ' locations'}</strong> will be deleted with it${locations.length ? `: ${escapeHtml(locations.map(l => l.name).join(', '))}` : ''}</li>
-        <li>Every answer and saved prompt in ${locations.length === 1 ? 'it' : 'them'} goes too</li>
+        <li>Every answer in ${locations.length === 1 ? 'it' : 'them'} goes too</li>
         <li>Files already in Google Drive are <strong>not</strong> deleted</li>
       </ul>
       ${peers.length ? `<p style="margin-top:var(--space-3);"><strong>${escapeHtml(peers.map(p => p.name).join(', '))}</strong> ${peers.length === 1 ? 'is' : 'are'} in this account right now.</p>` : ''}`,
@@ -2328,18 +2400,6 @@ function renderSchemaSection(itemId, data, sec){
     </div>`;
 }
 
-/* Version entries hold both documents. Entries saved before the two tabs were
-   combined hold a single `doc` plus the kind it came from. */
-/* Location first, matching the order the skill produces the blocks in for
-   material covering a location and its campaign together. */
-function versionDocs(v){
-  if (v.locationDoc !== undefined || v.campaignDoc !== undefined){
-    return [['Location Details', v.locationDoc || ''], ['Campaign Instructions', v.campaignDoc || '']];
-  }
-  const label = v.legacyKind === 'campaign' ? 'Campaign Instructions' : 'Location Details';
-  return [[`${label} (saved before locations were combined)`, v.doc || '']];
-}
-
 /* A file chip says what Drive currently reports about the file, not only what
    it was called when it was uploaded. A file that is gone stops being a link:
    offering one that leads nowhere is worse than saying plainly that it went. */
@@ -2364,9 +2424,12 @@ function renderDocChip(itemId, d, i){
 function renderVenue(item){
   const isOpen = state.openItemIds.has(item.id);
   const docs = item.data.docs || [];
-  const versions = readVersions(item.id);
-  const latestVersion = versions.length ? versions[versions.length - 1] : null;
-  const isStale = latestVersion && (item.lastEditedAt || 0) > latestVersion.savedAt;
+  /* The badge tracks one thing: whether what is in the boxes has been handed to
+     Claude since it was last changed. An answer edited after the last copy is
+     an answer Claude has not seen. */
+  const copiedAt = item.lastCopiedAt || 0;
+  const isStale = copiedAt > 0 && (item.lastEditedAt || 0) > copiedAt;
+  const chosenCategory = pendingCategory.get(item.id) || DOC_TYPES[0];
 
   const parts = VENUE_PARTS.map(part => `<div class="part">
         <div class="part-head">
@@ -2380,7 +2443,7 @@ function renderVenue(item){
     <div class="card-header" data-toggle="${item.id}">
       ${icon('chevron-right','icon chev')}
       <span class="name t-title">${escapeHtml(item.name)}</span>
-      ${isStale ? `<span class="badge badge-warning" title="Answers changed since the prompts were saved">${icon('alert-triangle','icon',12)}Outdated</span>` : (latestVersion ? `<span class="badge badge-success">${icon('check-circle','icon',12)}Up to date</span>` : `<span class="badge badge-slate">No prompts saved</span>`)}
+      ${isStale ? `<span class="badge badge-warning" title="Answers changed since this was last copied for Claude">${icon('alert-triangle','icon',12)}Outdated</span>` : (copiedAt ? `<span class="badge badge-success" title="Copied for Claude on ${escapeAttr(formatTimestamp(copiedAt))}">${icon('check-circle','icon',12)}Up to date</span>` : `<span class="badge badge-slate">Not copied yet</span>`)}
       ${item.data.drive_link ? `<a href="${item.data.drive_link}" target="_blank" rel="noopener" class="badge badge-success" onclick="event.stopPropagation()">${icon('link-2','icon',12)}Folder</a>` : `<span class="badge badge-slate">No files yet</span>`}
       <button class="icon-btn" data-duplicate="${item.id}" title="Duplicate location" onclick="event.stopPropagation()">${icon('copy-plus')}</button>
       <button class="icon-btn" data-delete="${item.id}" title="Delete location" onclick="event.stopPropagation()">${icon('trash-2')}</button>
@@ -2391,8 +2454,8 @@ function renderVenue(item){
         ${banner('info','paperclip','Upload knowledge base files, then attach the same files to the Claude chat. The fields below cover only what the files cannot.')}
         <div class="doc-list">${docs.map((d,i)=>renderDocChip(item.id, d, i)).join('')}${docs.length ? `<button class="icon-btn" data-recheck-files="${item.id}" title="Check these files against Google Drive">${icon('refresh-cw','icon',13)}</button>` : ''}</div>
         <div class="upload-row">
-          <select class="input" id="docCategory-${item.id}">
-            ${DOC_TYPES.map(t=>`<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('')}
+          <select class="input" id="docCategory-${item.id}" data-category-for="${item.id}">
+            ${DOC_TYPES.map(t=>`<option value="${escapeAttr(t)}"${t === chosenCategory ? ' selected' : ''}>${escapeHtml(t)}</option>`).join('')}
           </select>
           <input type="file" id="docFile-${item.id}" class="file-input" data-file-for="${item.id}">
           <label class="file-picker" for="docFile-${item.id}" data-picker-for="${item.id}">
@@ -2414,59 +2477,11 @@ function renderVenue(item){
       <hr class="section-divider">
       ${parts}
       <hr class="section-divider">
-      <div class="subsection">
-        <div class="t-overline">Source material (optional)</div>
-        <textarea class="input" data-item="${item.id}" data-bind="source_material" placeholder="Paste call notes or transcript excerpts here for extra context." style="min-height:80px;">${escapeHtml(item.data.source_material||'')}</textarea>
-      </div>
+      ${isStale ? banner('info', 'alert-triangle', `Answers have changed since this was last copied for Claude on ${formatTimestamp(copiedAt)}. Copy it again so Claude works from the current answers.`) : ''}
       <div class="row-actions" style="display:flex; gap:var(--space-2);">
         <button class="btn btn-primary" data-copy-claude="${item.id}">${icon('copy')}Copy for Claude</button>
       </div>
       <div class="t-caption" style="margin-top:var(--space-2);">Paste this into a Claude.ai chat, attach the client files listed above, and Claude returns the Location Details, the Campaign Instructions, and the open questions.</div>
-
-      <hr class="section-divider">
-      <div class="subsection">
-        <div class="t-overline">Generated output</div>
-        ${isStale ? banner('info', 'alert-triangle', `Answers have changed since these prompts were saved on ${formatTimestamp(latestVersion.savedAt)}. Consider regenerating and saving again.`) : ''}
-        <div class="field">
-          <label>Location Details (paste Claude's first block here)</label>
-          <textarea class="input" data-item="${item.id}" data-bind="draft_location_doc" data-no-touch="true" style="min-height:120px;">${escapeHtml(item.data.draft_location_doc||'')}</textarea>
-        </div>
-        <div class="field">
-          <label>Campaign Instructions (paste Claude's second block here)</label>
-          <textarea class="input" data-item="${item.id}" data-bind="draft_campaign_doc" data-no-touch="true" style="min-height:120px;">${escapeHtml(item.data.draft_campaign_doc||'')}</textarea>
-        </div>
-        <div class="field">
-          <label>Open questions for the client (paste Claude's third block here)</label>
-          <textarea class="input" data-item="${item.id}" data-bind="draft_open_questions" data-no-touch="true" style="min-height:80px;">${escapeHtml(item.data.draft_open_questions||'')}</textarea>
-        </div>
-        <button class="btn btn-outline" data-save-version="${item.id}">${icon('check-circle')}Save these prompts</button>
-
-        <div style="margin-top:var(--space-4);">
-          <div class="t-overline">Saved prompts${versions.length ? ` (${versions.length})` : ''}</div>
-          ${versions.length === 0 ? `<div class="t-caption">No prompts saved yet. Paste the output above and save it.</div>` : versions.slice().reverse().map((v, ri) => {
-            const idx = versions.length - 1 - ri;
-            const key = `${item.id}:${idx}`;
-            const expanded = state.openVersionKeys.has(key);
-            const blocks = versionDocs(v);
-            const previewSource = (blocks.find(b => (b[1]||'').trim()) || ['',''])[1];
-            const preview = previewSource.replace(/\s+/g,' ').trim().slice(0,90);
-            return `<div class="version-row ${expanded?'expanded':''}" data-version-key="${key}">
-              <div class="version-row-head">
-                <span class="t-caption" style="color:var(--night-ink); font-weight:500;">${formatTimestamp(v.savedAt)}${idx === versions.length-1 ? ' · latest' : ''}</span>
-                <button class="btn btn-ghost compact" data-toggle-version="${key}">${expanded ? 'Hide' : 'View'}</button>
-                <button class="icon-btn" data-copy-version="${key}" title="Copy these prompts">${icon('copy')}</button>
-                <button class="icon-btn" data-restore-version="${key}" title="Restore into the fields above">${icon('upload')}</button>
-              </div>
-              ${!expanded ? `<div class="version-preview">${escapeHtml(preview)}${preview.length===90?'…':''}</div>` : ''}
-              <div class="version-full">
-                ${blocks.map(([label, body]) => `<div class="t-caption" style="margin-bottom:4px;">${escapeHtml(label)}</div><pre>${escapeHtml(body||'(empty)')}</pre>`).join('')}
-                <div class="t-caption" style="margin-bottom:4px;">Open questions</div>
-                <pre>${escapeHtml(v.openQuestions||'(empty)')}</pre>
-              </div>
-            </div>`;
-          }).join('')}
-        </div>
-      </div>
     </div>
   </div>`;
 }
@@ -2518,7 +2533,6 @@ async function copyForClaude(account, item){
   const fileList = docs.length
     ? docs.map(d => `- ${d.category || 'Other'}: ${d.name}${d.link ? ` (${d.link})` : ''}`).join('\n')
     : 'None uploaded in the console.';
-  const sourceMaterial = (item.data.source_material || '').trim();
   /* Everything above the divider is the skill, unchanged. Everything below is
      only this location's material and which of the skill's three cases applies.
      The console always collects a location and its campaign together, so that
@@ -2546,7 +2560,7 @@ ${carried ? `\nFACTS TYPED IN BEFORE THESE SECTIONS MOVED TO FILE UPLOAD. Treat 
 COLLECTED ANSWERS: ASSISTANT BEHAVIOR (for Campaign Instructions):
 
 ${behavior}
-${sourceMaterial ? `\nRAW SOURCE MATERIAL (call notes, documents):\n\n${sourceMaterial}\n` : ''}
+
 ---
 
 This material covers one location and its campaign together.`;
@@ -2635,12 +2649,6 @@ function openDuplicateDialog(account, item){
       <label>New location name</label>
       <input type="text" class="input" id="dupName" value="${escapeAttr(item.name + ' (copy)')}">
     </div>
-    ${state.accounts.length > 1 ? `<div class="field">
-      <label>Account</label>
-      <select class="input" id="dupAccount">
-        ${state.accounts.map(a => `<option value="${escapeAttr(a.id)}"${a.id === account.id ? ' selected' : ''}>${escapeHtml(a.name)}</option>`).join('')}
-      </select>
-    </div>` : ''}
     ${docs.length ? `<div class="field">
       <label class="modal-check">
         <input type="checkbox" id="dupFiles"${canCopyFiles ? ' checked' : ' disabled'}>
@@ -2651,7 +2659,7 @@ function openDuplicateDialog(account, item){
         }</span>
       </label>
     </div>` : ''}
-    <div class="t-caption">Answers and source material are copied. Generated output and saved prompts are not, since those belong to the location they were produced for.</div>
+    <div class="t-caption">The copy is added to ${escapeHtml(account.name)}, alongside the location it came from. Every answer is copied; it starts out as not yet copied for Claude, since nothing has been generated for it under its own name.</div>
     <div id="dupStatus"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="dupCancel">Cancel</button>
@@ -2671,8 +2679,11 @@ function openDuplicateDialog(account, item){
     const name = nameEl.value.trim();
     if (!name){ statusEl.innerHTML = banner('destructive','alert-triangle','Give the new location a name.'); return; }
 
-    const accountSel = document.getElementById('dupAccount');
-    const targetId = accountSel ? accountSel.value : account.id;
+    // The copy belongs to the account being looked at. Moving a location
+    // between accounts is a different job from duplicating one, and offering
+    // both on the same button only made it easy to file a copy somewhere
+    // nobody expected to find it.
+    const targetId = account.id;
     const targetAccount = readAccount(targetId);
     if (!targetAccount){ statusEl.innerHTML = banner('destructive','alert-triangle','That account is no longer there.'); return; }
 
@@ -2777,6 +2788,14 @@ const busyUploads = new Set();
 /* Files chosen but not yet uploaded, by location. Kept outside the DOM because
    a re-render replaces the file input and takes the selection with it. */
 const pendingFiles = new Map();
+/* The category a person picked, held outside the DOM for the same reason the
+   chosen file is. The card is rebuilt on every poll, every Drive check and
+   every other card opening, and each rebuild made a fresh <select> sitting on
+   its first option -- so picking "Pricing doc/matrix" and then pausing for a
+   moment quietly put it back to "Menu", and the file went up filed as a menu.
+   It is deliberately not cleared after an upload: several files of the same
+   kind in a row is the normal case. */
+const pendingCategory = new Map();     // venue id -> category chosen for the next upload
 
 function wireVenuesList(account, items){
   const addBtn = document.getElementById('btnAddVenue');
@@ -2817,13 +2836,12 @@ function wireVenuesList(account, items){
       const id = el.dataset.delete;
       const item = readVenue(account.id, id);
       if (!item) return;
-      const savedPrompts = readVersions(id).length;
       const fileCount = (item.data.docs || []).length;
       const ok = await confirmDialog({
         title: `Delete ${item.name}?`,
         body: `<p>This removes the location for everyone on the team, and it cannot be undone.</p>
           <ul>
-            <li>Every answer typed into it goes${savedPrompts ? `, along with ${savedPrompts === 1 ? 'the saved prompt' : `all ${savedPrompts} saved prompts`}` : ''}</li>
+            <li>Every answer typed into it goes</li>
             <li>${fileCount ? `The ${fileCount === 1 ? 'file' : fileCount + ' files'} uploaded here stay in Google Drive` : 'Nothing in Google Drive is affected'}</li>
           </ul>`,
         confirmLabel: 'Delete location',
@@ -2845,8 +2863,7 @@ function wireVenuesList(account, items){
   const timers = new Map();
   const commit = (el) => {
     const itemId = el.dataset.item;
-    setVenueField(account.id, itemId, el.dataset.bind, el.value,
-                  { noTouch: el.dataset.noTouch === 'true' });
+    setVenueField(account.id, itemId, el.dataset.bind, el.value);
   };
   document.querySelectorAll('[data-bind]').forEach(el=>{
     const key = el.dataset.item + ':' + el.dataset.bind;
@@ -2892,6 +2909,10 @@ function wireVenuesList(account, items){
     }
     showChosenFile(itemId);
   };
+
+  document.querySelectorAll('[data-category-for]').forEach(el=>{
+    el.addEventListener('change', ()=> pendingCategory.set(el.dataset.categoryFor, el.value));
+  });
 
   document.querySelectorAll('[data-file-for]').forEach(el=>{
     const itemId = el.dataset.fileFor;
@@ -3067,70 +3088,18 @@ function wireVenuesList(account, items){
       if (!item) return;
       try{
         await copyForClaude(account, item);
-        el.innerHTML = icon('check-circle') + 'Copied';
-        setTimeout(()=>{ el.innerHTML = icon('copy') + 'Copy for Claude'; }, 1500);
+        // Only a copy that actually reached the clipboard clears the badge.
+        markVenueCopied(account.id, item.id);
+        await renderMain({ preserveFocus: true });
+        const again = document.querySelector(`[data-copy-claude="${item.id}"]`);
+        if (again){
+          again.innerHTML = icon('check-circle') + 'Copied';
+          setTimeout(()=>{ again.innerHTML = icon('copy') + 'Copy for Claude'; }, 1500);
+        }
       }catch(e){ alert('Could not copy: ' + e.message); }
     });
   });
 
-  document.querySelectorAll('[data-save-version]').forEach(el=>{
-    el.addEventListener('click', async ()=>{
-      const itemId = el.dataset.saveVersion;
-      const item = readVenue(account.id, itemId);
-      if (!item) return;
-      const locationDoc = (item.data.draft_location_doc || '').trim();
-      const campaignDoc = (item.data.draft_campaign_doc || '').trim();
-      const openQuestions = (item.data.draft_open_questions || '').trim();
-      if (!locationDoc && !campaignDoc && !openQuestions){ alert('Paste the generated output above before saving.'); return; }
-      const versions = readVersions(itemId);
-      versions.push({ savedAt: Date.now(), savedBy: displayName || '', locationDoc, campaignDoc, openQuestions });
-      saveVersions(itemId, versions);
-      state.openItemIds.add(itemId);
-      await renderMain();
-    });
-  });
-
-  document.querySelectorAll('[data-toggle-version]').forEach(el=>{
-    el.addEventListener('click', ()=>{
-      const key = el.dataset.toggleVersion;
-      if (state.openVersionKeys.has(key)) state.openVersionKeys.delete(key); else state.openVersionKeys.add(key);
-      renderMain();
-    });
-  });
-
-  document.querySelectorAll('[data-copy-version]').forEach(el=>{
-    el.addEventListener('click', async ()=>{
-      const [itemId, idxStr] = el.dataset.copyVersion.split(':');
-      const v = readVersions(itemId)[parseInt(idxStr,10)];
-      if (!v) return;
-      const text = versionDocs(v).map(([label, body]) => `${label.toUpperCase()}\n\n${body}`).join('\n\n')
-        + `\n\nOPEN QUESTIONS FOR THE CLIENT\n\n${v.openQuestions || ''}`;
-      try{ await navigator.clipboard.writeText(text); el.innerHTML = icon('check-circle'); setTimeout(()=>{ el.innerHTML = icon('copy'); }, 1200); }catch(e){}
-    });
-  });
-
-  document.querySelectorAll('[data-restore-version]').forEach(el=>{
-    el.addEventListener('click', async ()=>{
-      const [itemId, idxStr] = el.dataset.restoreVersion.split(':');
-      const v = readVersions(itemId)[parseInt(idxStr,10)];
-      if (!v) return;
-      if (!confirm('Replace what is in the boxes above with this saved set? Nothing you have already saved is deleted.')) return;
-      editVenue(account.id, itemId, (record)=>{
-        if (v.locationDoc !== undefined || v.campaignDoc !== undefined){
-          record.data.draft_location_doc = v.locationDoc || '';
-          record.data.draft_campaign_doc = v.campaignDoc || '';
-        } else if (v.legacyKind === 'campaign'){
-          record.data.draft_campaign_doc = v.doc || '';
-        } else {
-          record.data.draft_location_doc = v.doc || '';
-        }
-        record.data.draft_open_questions = v.openQuestions || '';
-        return ['data.draft_location_doc', 'data.draft_campaign_doc', 'data.draft_open_questions'];
-      });
-      state.openItemIds.add(itemId);
-      await renderMain();
-    });
-  });
 }
 
 /* =================================================================
@@ -3248,12 +3217,9 @@ function renderSettings(){
   });
 
   document.getElementById('btnExport').addEventListener('click', async ()=>{
-    const bundle = { accounts: readAccounts(), settings: state.settings, venues:{}, versions:{} };
+    const bundle = { accounts: readAccounts(), settings: state.settings, venues:{} };
     for (const acc of bundle.accounts){
       bundle.venues[acc.id] = readVenues(acc.id);
-      for (const item of bundle.venues[acc.id]){
-        bundle.versions[item.id] = readVersions(item.id);
-      }
     }
     const blob = new Blob([JSON.stringify(bundle, null, 2)], { type:'application/json' });
     const url = URL.createObjectURL(blob);
@@ -3307,7 +3273,8 @@ function renderSettings(){
           foldLegacyBlocks(data);
           const rec = blankRecord({
             id: v.id, accountId: accId, name: v.name || 'Untitled', deleted: !!v.deleted,
-            createdAt: v.createdAt || at, lastEditedAt: at, data, docsRemoved: v.docsRemoved || []
+            createdAt: v.createdAt || at, lastEditedAt: at, lastCopiedAt: v.lastCopiedAt || 0,
+            data, docsRemoved: v.docsRemoved || []
           });
           ['name','deleted'].forEach(f => stampField(rec, f, (v.fieldTs && v.fieldTs[f]) || at));
           Object.keys(data).forEach(k => {
@@ -3317,12 +3284,6 @@ function renderSettings(){
           });
           importRecord(venueKey(accId, v.id), rec);
         }
-      }
-
-      for (const itemId of Object.keys(bundle.versions || {})){
-        const entries = bundle.versions[itemId];
-        if (!Array.isArray(entries) || !entries.length) continue;
-        importRecord(versionsKey(itemId), blankRecord({ entries }));
       }
 
       if (bundle.settings) saveSettings({
