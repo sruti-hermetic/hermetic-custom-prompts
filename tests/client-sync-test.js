@@ -187,18 +187,28 @@ var steps = box(CAMPAIGN_SCHEMA, 'steps_text');
 var stepHint = steps.hint.join(' ').toLowerCase();
 ok('the box no longer asks only for what differs',
    stepHint.indexOf('only steps that differ') === -1, stepHint);
-ok('it asks for the whole path in order',
-   stepHint.indexOf('the whole path a lead travels, in order') !== -1, stepHint);
-ok('it names the ordinary steps so they are not skipped',
-   stepHint.indexOf('confirm the details') !== -1 &&
-   stepHint.indexOf('check availability') !== -1 &&
-   stepHint.indexOf('hand off') !== -1, stepHint);
-ok('it carves out the opening message',
-   stepHint.indexOf('opening message is fixed by the platform') !== -1, stepHint);
-ok('it ends the path at the handoff, not in the Handoff box',
-   stepHint.indexOf('follow-up window and routing belong in the handoff box') !== -1, stepHint);
-ok('it shows the step shape', (steps.placeholder || '').indexOf('Trigger:') !== -1 &&
+ok('it asks for every step in order', stepHint.indexOf('every step in order') !== -1, stepHint);
+ok('it says the ordinary ones count too',
+   stepHint.indexOf('the ordinary ones too, or they will not happen') !== -1, stepHint);
+ok('it starts after the name and ends at the handoff',
+   stepHint.indexOf('from the reply after the name is confirmed through to the handoff') !== -1, stepHint);
+// The four things the worked example does that a thin answer would not.
+ok('it asks for the shape of a step',
+   stepHint.indexOf('a name, when it starts as a condition') !== -1 &&
+   stepHint.indexOf('what makes it skip') !== -1, stepHint);
+ok('it asks what a step withholds, not only what it asks',
+   stepHint.indexOf('withholds as well as what it asks') !== -1, stepHint);
+ok('it asks for the branches',
+   stepHint.indexOf('when the answer is not clean') !== -1, stepHint);
+ok('it asks what must happen before handoff',
+   stepHint.indexOf('must happen before the handoff') !== -1, stepHint);
+ok('the guidance stays short enough to read', steps.hint.length <= 5, steps.hint.length + ' bullets');
+ok('the worked example shows trigger, do and skip',
+   (steps.placeholder || '').indexOf('Trigger:') !== -1 &&
+   (steps.placeholder || '').indexOf('Do:') !== -1 &&
    (steps.placeholder || '').indexOf('Skip if:') !== -1, steps.placeholder);
+ok('and shows a branch rather than a single clean path',
+   (steps.placeholder || '').indexOf('When two spaces fit') !== -1, steps.placeholder);
 
 section('And Claude is told the same thing');
 ok('the template asks for the whole goal path',

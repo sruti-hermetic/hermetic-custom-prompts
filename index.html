@@ -717,16 +717,14 @@ const CAMPAIGN_SCHEMA = [
   ], placeholder:'e.g. Follow-up window: within 24 business hours.'},
 
   {type:'block', key:'steps_text', title:'Workflow steps', hint:[
-    'The whole path a lead travels, in order, not only what is unusual about it',
-    'Start at the reply after the name is confirmed: the opening message is fixed by the platform',
-    'Write the ordinary steps too \u2014 confirm the details, collect a missing date and guest count, check availability and say what fits, hand off',
-    'A step left out because it is obvious is a step that does not happen',
-    'For each step: a name, a trigger that is a condition (never "after Step 2"), what the assistant does, and an optional skip-if',
-    'End at the handoff; the follow-up window and routing belong in the Handoff box'
-  ], placeholder:'Collect the date and guest count\nTrigger: the guest has not given both.\nAsk for whichever is missing, one at a time.\nSkip if: both are already known.'},
+    'Every step in order, from the reply after the name is confirmed through to the handoff \u2014 the ordinary ones too, or they will not happen',
+    'For each: a name, when it starts as a condition (never "after Step 2"), what the assistant does, and what makes it skip',
+    'What a step withholds as well as what it asks, e.g. confirm the date without repeating a time back',
+    'What happens when the answer is not clean: two spaces fit, the count is over the maximum, the guest keeps talking after handoff',
+    'Anything that must happen before the handoff, said as such'
+  ], placeholder:'Check and share availability\nTrigger: once the date and guest count are known.\nDo: check the date and share the result without waiting to be asked. When two spaces fit, describe both and offer a tour rather than asking the guest to choose.\nSkip if: the guest count is over the maximum.'},
 
   {type:'block', key:'rules_text', title:'Rules', hint:[
-    'Everything that is not a step, a link, a word swap, required wording, or a handoff',
     'One line per situation: "When X: do Y, never Z"',
     'Which space to offer at which guest count, one line per band',
     'Spaces never to offer, and when',
