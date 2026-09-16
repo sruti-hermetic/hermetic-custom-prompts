@@ -2658,7 +2658,7 @@ function openDuplicateDialog(account, item){
     </div>
     ${docs.length ? `<div class="field">
       <label class="modal-check">
-        <input type="checkbox" id="dupFiles"${canCopyFiles ? ' checked' : ' disabled'}>
+        <input type="checkbox" id="dupFiles"${canCopyFiles ? '' : ' disabled'}>
         <span>Copy the ${docs.length === 1 ? 'uploaded file' : docs.length + ' uploaded files'} into the new location's Drive folder${
           staleBackend ? ' (not available until the connection is updated)' :
           (!syncUrl ? ' (needs a connection first)' :
@@ -2666,7 +2666,6 @@ function openDuplicateDialog(account, item){
         }</span>
       </label>
     </div>` : ''}
-    <div class="t-caption">The copy is added to ${escapeHtml(account.name)}, alongside the location it came from. Every answer is copied; it starts out as not yet copied for Claude, since nothing has been generated for it under its own name.</div>
     <div id="dupStatus"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="dupCancel">Cancel</button>
