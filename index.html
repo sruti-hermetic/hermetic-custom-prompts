@@ -1355,6 +1355,9 @@ async function pull({ full } = {}){
     if (!data || !Array.isArray(data.items)) throw new Error('getAll returned no items');
     if (typeof data.serverVersion === 'number') serverVersion = data.serverVersion;
     changed = applyRemote(data.items);
+    // A full read is the only moment this browser can see what the Sheet does
+    // not have, so it is the only moment local-only work can be noticed.
+    if (since === 0) queueLocalOnly(data.items);
     // Trust the server's clock over ours -- browser clocks on a team of laptops
     // disagree by enough to skip a row. The pad re-reads a small overlap.
     lastPullAt = Math.max(0, (typeof data.now === 'number' ? data.now : Date.now()) - CLOCK_PAD_MS);
@@ -1389,6 +1392,46 @@ function startPolling(){
   // Last chance before the tab closes. What does not make it stays in
   // hermetic:dirtyKeys and goes up on the next load.
   window.addEventListener('pagehide', writeNow);
+}
+
+/* Records this browser holds that the Sheet has never seen.
+
+   Nothing else pushes them. applyRemote only walks the rows that came back, so
+   a key the Sheet is missing is a key nothing ever compares against, and the
+   write queue only holds what was edited this session or left dirty by the
+   last one. An account made before the sync URL was pasted, or a queued write
+   lost when the tab closed and localStorage would not keep the dirty list,
+   therefore stayed on one laptop for good -- while the pill said Synced and
+   the spreadsheet showed that account's locations with no account to file them
+   under.
+
+   Queued as they stand rather than re-saved: this is not an edit, and bumping
+   the revision would claim it was one. If the Sheet has since gained the row,
+   the write conflicts and merges like any other. */
+function queueLocalOnly(items){
+  if (!syncUrl) return 0;
+  const remote = new Set(items.map(it => it && it.key).filter(Boolean));
+  let queued = 0;
+  for (const key of localKeys(KV_PREFIX)){
+    if (remote.has(key)) continue;
+    // Presence republishes itself on the heartbeat, the schema has its own
+    // publisher, and a legacy list is folded by migrateToRecords rather than
+    // uploaded. Anything else that is only here is work that has not landed.
+    const kind = kindOfKey(key);
+    if (kind !== 'account' && kind !== 'venue' && kind !== 'settings') continue;
+    const record = localRead(key);
+    // Arrays pass a bare typeof check and are not records; parseRecord rejects
+    // them everywhere else and so does this.
+    if (!record || typeof record !== 'object' || Array.isArray(record)) continue;
+    writeQueue.set(key, record);
+    queued++;
+  }
+  if (queued){
+    console.warn('Sending ' + queued + ' record(s) the Sheet had never seen.');
+    persistDirty();
+    writeNow();
+  }
+  return queued;
 }
 
 function applyRemote(items){
@@ -2211,9 +2254,18 @@ async function init(){
   renderNameGate();
 
   if (!syncUrl) return;
+  await startSync();
+}
 
-  // Then reconcile with the Sheet in one request. Migration runs again after
-  // it, because the rows it needs to fold may only have arrived just now.
+/* Everything that only makes sense once there is a Sheet to talk to. Split out
+   of init because pasting the URL in Settings has to do exactly this too: it
+   used to save the string and stop there, so until the page was reloaded
+   nothing polled, nobody's presence showed, the schema was never published, and
+   work already in this browser was never reconciled against the Sheet. The
+   first person to set the tool up would not notice; the tenth would. */
+async function startSync(){
+  // Reconcile with the Sheet in one request. Migration runs again after it,
+  // because the rows it needs to fold may only have arrived just now.
   const changed = await hydrate();
   migrateToRecords();
   stripRetiredFields();
@@ -3193,11 +3245,23 @@ function renderSettings(){
     renderNameGate();
   });
 
-  document.getElementById('btnSaveSyncUrl').addEventListener('click', ()=>{
+  document.getElementById('btnSaveSyncUrl').addEventListener('click', async ()=>{
+    const previous = syncUrl;
     syncUrl = document.getElementById('syncUrlInput').value.trim();
     localStorage.setItem('hermetic:syncUrl', syncUrl);
     renderSyncPill();
-    document.getElementById('syncTestStatus').innerHTML = banner('success','check-circle','Saved. Click "Test connection" to verify it works.');
+    if (!syncUrl || syncUrl === previous){
+      document.getElementById('syncTestStatus').innerHTML = banner('success','check-circle','Saved. Click "Test connection" to verify it works.');
+      return;
+    }
+    // A URL pasted into a browser that has been used offline is the moment its
+    // accounts and locations finally have somewhere to go. hydrate() sends them.
+    document.getElementById('syncTestStatus').innerHTML = banner('info','loader-2','Saved. Catching up with the Sheet…', true);
+    kvHydrating = null;
+    kvHydrated = false;
+    lastPullAt = 0;
+    await startSync();
+    document.getElementById('syncTestStatus').innerHTML = banner('success','check-circle','Saved and connected. Click "Test connection" if you want the details.');
   });
   document.getElementById('btnTestSync').addEventListener('click', async ()=>{
     const url = document.getElementById('syncUrlInput').value.trim();
