@@ -1460,12 +1460,19 @@ function publishSchema(){
   // by every browser on every load.
   if (stored && JSON.stringify(stored.parts) === JSON.stringify(parts)) return;
   const payload = { parts, updatedAt: Date.now() };
-  localWrite(key, payload);
-  fetch(syncUrl, {
+  // Mirrored only once the Sheet has it. Writing it locally first and hoping
+  // meant that a single failed publish -- a flaky load, a deployment being
+  // updated -- left this browser believing the schema was up while the Sheet
+  // had never seen it, and the check above then skipped it on every later load.
+  // The row stayed missing for good and the readable view fell back to guessing
+  // section names from whatever keys the data happened to carry.
+  fetchWithTimeout(syncUrl, {
     method: 'POST',
     headers: { 'Content-Type':'text/plain;charset=utf-8' },
     body: JSON.stringify({ action:'set', key, value: JSON.stringify(payload) })
-  }).catch(()=>{});   // the next load republishes it
+  }).then(res => res.json())
+    .then(data => { if (data && !data.error) localWrite(key, payload); })
+    .catch(()=>{});   // the next load republishes it
 }
 
 /* =================================================================
@@ -3209,8 +3216,8 @@ function renderSettings(){
           ? banner('info','alert-triangle','Connected. One thing is missing: duplicating a location will not bring its files across until this is updated.')
           : result.serverVersion < 5
             ? banner('info','alert-triangle','Connected. Two things are missing until this is updated: the console will not notice files renamed or deleted in Google Drive, and edits typed straight into the Google Sheet will not show up here.')
-            : result.serverVersion < 7
-              ? banner('info','alert-triangle','Connected. One thing is missing: the Google Sheet will keep showing the raw data tab rather than a readable one, and it will not update itself after a save, until this is updated.')
+            : result.serverVersion < 8
+              ? banner('info','alert-triangle','Connected. One thing is missing: the readable tabs in the Google Sheet stop updating themselves after a while and have to be refreshed by hand, until this is updated.')
               : banner('success','check-circle','Connected. Everything is saving, your team can work at the same time, the Google Sheet keeps a readable copy up to date, and changes made in Google Drive or the Sheet show up here.');
   });
 

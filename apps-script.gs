@@ -7,7 +7,9 @@
  * Drive prompt, then Deploy > New deployment > Web app, "Execute as: Me", "Who
  * has access: Anyone". Copy the /exec URL into the app's Settings > Google
  * Sheet sync. On later edits use Deploy > Manage deployments > New version,
- * which keeps the same /exec URL.
+ * which keeps the same /exec URL. Then reload the spreadsheet and run
+ * Hermetic > Keep the view up to date once, and Hermetic > Check the readable
+ * view to confirm it took.
  *
  * SCOPES
  * A deployment runs with the scopes granted when it was last authorized, not
@@ -27,6 +29,14 @@
  * time. Reading key-by-key meant a cold page load spent 3 + one-per-venue
  * serial round trips before rendering anything. getAll returns every
  * hermetic: key in a single bulk sheet read, so a cold load costs one call.
+ *
+ * THE READABLE TABS
+ * kv is the protocol and is unreadable on purpose. A tab per account is built
+ * beside it from the same rows, and kept up to date by one standing trigger
+ * that drains a list of accounts marked stale by each save. The trigger needs
+ * the script.scriptapp scope, which a deployment authorized before that scope
+ * was in the manifest does not hold -- the same trap as Drive above, with the
+ * same fix, and Hermetic > Check the readable view says which one you are in.
  *
  * CONCURRENT EDITORS
  * Several people use this at once, each on a live customer call. Two things
@@ -82,7 +92,7 @@ function sheet_() {
  * nothing on a script that predates it -- which is exactly the failure you
  * would not notice until two people had overwritten each other.
  */
-var SERVER_VERSION = 7;
+var SERVER_VERSION = 8;
 
 function findRow_(sh, key) {
   var last = sh.getLastRow();
@@ -168,10 +178,28 @@ function doGet(e) {
       drive.error = drive.error || err.message || String(err);
     }
     drive.ok = drive.canRead && drive.canWrite;
+    // Row counts by kind: a venue with no account row of its own is the shape
+    // of a spreadsheet whose tabs cannot be built, and it is invisible from the
+    // console, which only ever shows accounts it can already see.
+    var rows = { accounts: 0, venues: 0, schema: false, orphanVenues: 0 };
+    var accountIds = {}, venueOwners = {};
+    readAll_().forEach(function (it) {
+      if (it.key === 'hermetic:schema') { rows.schema = true; return; }
+      if (it.key.indexOf('hermetic:account:') === 0) {
+        rows.accounts++; accountIds[it.key.substring(17)] = true; return;
+      }
+      if (it.key.indexOf('hermetic:venue:') === 0) {
+        rows.venues++; venueOwners[it.key.split(':')[2]] = true;
+      }
+    });
+    Object.keys(venueOwners).forEach(function (id) { if (!accountIds[id]) rows.orphanVenues++; });
+
     return json_({
       serverVersion: SERVER_VERSION,
       drive: drive,
       sheetRows: sheet_().getLastRow(),
+      rows: rows,
+      view: viewStatus_(),
       fix: drive.ok ? null : REAUTH_HINT
     });
   }
@@ -260,9 +288,9 @@ function setKey_(body) {
     lock.releaseLock();
   }
 
-  // The readable tabs are downstream of this write, so ask for a refresh --
+  // The readable tabs are downstream of this write, so mark them stale --
   // outside the lock, and never in a way that can fail the save itself.
-  queueViewRebuild_(key);
+  markViewDirty_(key);
   return json_({ ok: true });
 }
 
@@ -345,6 +373,10 @@ function normalizeEditedRow_(sh, row, e) {
   record.updatedAt = now;
   record.lastWriter = 'sheet';
   writeRow_(sh, row, key, chunksOf_(JSON.stringify(record)));
+  // Typing straight into kv is a save like any other, so the tab that displays
+  // it has to follow. Without this the only edits the view ever saw were the
+  // ones that came through the console.
+  markViewDirty_(key);
 }
 
 /**
@@ -550,101 +582,299 @@ function checkFiles_(body) {
    So rather than change kv, this builds a tab per account beside it:
    one row per section, one column per location, with the times things
    were created and last touched at the top. Generated, disposable,
-   and rebuilt from kv every time -- kv stays the single source of
-   truth and nothing here can drift from it.
+   and rebuilt from kv -- kv stays the single source of truth and
+   nothing here can drift from it.
 
    The section names come from the console, published into a
    hermetic:schema row, so renaming a section there renames the row
    here without anyone maintaining a second list.
+
+   HOW A SAVE REACHES THE TAB
+   A save marks the account it touched dirty -- one document property,
+   written outside the lock, which cannot fail the save -- and a single
+   standing trigger drains the dirty list once a minute. Only the
+   accounts on that list are rebuilt, so one specialist typing into one
+   venue costs one tab, not the whole spreadsheet.
+
+   This replaced a scheme that created a one-off trigger per save.
+   That had two failure modes and hit both: a project is capped at 20
+   triggers, and a trigger that fails to fire is never cleaned up, so
+   the caps filled and every later attempt to queue a refresh threw --
+   silently, by design, because a refresh must never cost somebody
+   their answer. The view then stopped moving for good. One standing
+   trigger cannot accumulate, and ensureViewTrigger_ puts it back if it
+   is ever missing.
 ================================================================== */
-var VIEW_REGISTRY_KEY = 'hermetic.viewTabs';
-var VIEW_CELL_LIMIT = 2000;   // keep one long transcript from swallowing a row
+var VIEW_REGISTRY_KEY = 'hermetic.viewTabs';      // {accountId: tab name}
+var VIEW_DIRTY_PREFIX = 'hermetic.dirty.';        // one property per account awaiting a rebuild
+var VIEW_DIRTY_ALL    = '*';                      // stands for "every account"
+var VIEW_STATUS_KEY   = 'hermetic.viewStatus';    // what the last drain did, for ?action=diag
+var VIEW_SWEPT_KEY    = 'hermetic.viewSweptAt';
+var VIEW_CHECKED_KEY  = 'hermetic.viewTriggerCheckedAt';
+var VIEW_TICK         = 'drainViewQueue';         // the one standing trigger's handler
+var VIEW_SWEEP_MS     = 6 * 60 * 60 * 1000;       // belt and braces: a full rebuild this often
+var VIEW_BUDGET_MS    = 4 * 60 * 1000;            // stop well inside the 6 minute wall
+var VIEW_RECHECK_MS   = 10 * 60 * 1000;           // how often a save re-checks the trigger exists
+var VIEW_CELL_LIMIT   = 2000;   // keep one long transcript from swallowing a row
 var VIEW_NOTE = 'Generated from the console. Anything typed on this tab is replaced the next time it refreshes, so make changes in the tool.';
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Hermetic')
-    .addItem('Refresh readable view', 'rebuildViews')
+    .addItem('Refresh readable view now', 'rebuildViews')
+    .addItem('Check the readable view', 'showViewStatus')
     .addSeparator()
     .addItem('Show the raw data tab', 'showRawTab')
     .addItem('Hide the raw data tab', 'hideRawTab')
     .addSeparator()
-    .addItem('Refresh automatically every hour', 'installViewRefresh')
-    .addItem('Stop refreshing automatically', 'removeViewRefresh')
+    .addItem('Keep the view up to date', 'installViewRefresh')
+    .addItem('Stop keeping it up to date', 'removeViewRefresh')
     .addToUi();
+}
+
+/* ---- The standing trigger ------------------------------------------------ */
+
+function viewTriggers_() {
+  // rebuildViews and rebuildViewsQueued are the handlers older versions of this
+  // file installed. They are collected here so switching over removes them.
+  var handlers = { drainViewQueue: 1, rebuildViews: 1, rebuildViewsQueued: 1 };
+  return ScriptApp.getProjectTriggers().filter(function (t) {
+    return handlers[t.getHandlerFunction()] === 1;
+  });
 }
 
 function installViewRefresh() {
   removeViewRefresh();
-  ScriptApp.newTrigger('rebuildViews').timeBased().everyHours(1).create();
-  rebuildViews();
-  SpreadsheetApp.getActive().toast('The readable view will refresh every hour.', 'Hermetic', 5);
+  ScriptApp.newTrigger(VIEW_TICK).timeBased().everyMinutes(1).create();
+  PropertiesService.getDocumentProperties().setProperty(VIEW_CHECKED_KEY, String(Date.now()));
+  markEverythingDirty_();
+  drainViewQueue();
+  SpreadsheetApp.getActive().toast(
+    'The readable view will now follow the tool, about a minute behind.', 'Hermetic', 6);
 }
 
 function removeViewRefresh() {
-  ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (t.getHandlerFunction() === 'rebuildViews') ScriptApp.deleteTrigger(t);
+  viewTriggers_().forEach(function (t) { ScriptApp.deleteTrigger(t); });
+  PropertiesService.getDocumentProperties().deleteProperty(VIEW_CHECKED_KEY);
+}
+
+/**
+ * Put the standing trigger back if it has gone -- someone ran "stop", a
+ * migration removed it, the project was copied. Called on every save, so it
+ * only actually looks every VIEW_RECHECK_MS: getProjectTriggers is a round trip
+ * and a save is on somebody's critical path.
+ */
+function ensureViewTrigger_(force) {
+  var props = PropertiesService.getDocumentProperties();
+  var checked = Number(props.getProperty(VIEW_CHECKED_KEY) || 0);
+  if (!force && checked && Date.now() - checked < VIEW_RECHECK_MS) return;
+  var live = viewTriggers_();
+  var good = live.filter(function (t) { return t.getHandlerFunction() === VIEW_TICK; });
+  // Anything that is not our one minute trigger is a leftover taking up a slot.
+  live.forEach(function (t) {
+    if (t.getHandlerFunction() !== VIEW_TICK || t !== good[0]) ScriptApp.deleteTrigger(t);
   });
+  if (!good.length) ScriptApp.newTrigger(VIEW_TICK).timeBased().everyMinutes(1).create();
+  props.setProperty(VIEW_CHECKED_KEY, String(Date.now()));
 }
 
-/* ---- Refreshing after a save ----------------------------------------------
-   Without this the readable tabs only moved when somebody remembered to click
-   the menu, which meant that in practice they never moved: a save from the
-   console rewrote kv and stopped there, and the spreadsheet a venue manager
-   opens still showed nothing but JSON.
+/* ---- The dirty list ------------------------------------------------------ */
 
-   Rebuilding inline at the end of setKey_ is not an option -- the console is
-   waiting on that POST while somebody is on a call, and the rebuild is seconds
-   of Sheets formatting. So the save only leaves a note, and a one-off trigger
-   does the work a moment later. The delay is also a debounce: typing a long
-   answer saves many times, and they all collapse into the one refresh that
-   runs after the typing stops.
---------------------------------------------------------------------------- */
-var VIEW_QUEUE_KEY = 'hermetic.viewRebuildQueuedAt';
-var VIEW_QUEUE_DELAY_MS = 45 * 1000;
-var VIEW_QUEUE_STALE_MS = 10 * 60 * 1000;   // a note this old lost its trigger
-
-/** Keys the readable view is built from. Presence beats every other key for
-    write volume and changes nothing anyone reads, so it must not queue. */
-function affectsView_(key) {
-  return key === 'hermetic:schema' ||
-         key.indexOf('hermetic:account:') === 0 ||
-         key.indexOf('hermetic:venue:') === 0;
+/** Which account a key belongs to: an id, '*' for all of them, or null. */
+function accountOfKey_(key) {
+  if (key === 'hermetic:schema') return VIEW_DIRTY_ALL;   // section titles, on every tab
+  if (key.indexOf('hermetic:account:') === 0) return key.substring(17);
+  if (key.indexOf('hermetic:venue:') === 0) return key.split(':')[2] || null;
+  return null;   // presence and settings change nothing anyone reads here
 }
 
-function queueViewRebuild_(key) {
+/**
+ * Note that an account needs rebuilding. One property per account rather than
+ * one list, because two saves landing together would each read the list, add
+ * their own id, and write it back -- and the second would lose the first.
+ * Distinct keys cannot collide that way.
+ */
+function markViewDirty_(key) {
   try {
-    if (!affectsView_(key)) return;
-    var props = PropertiesService.getDocumentProperties();
-    var pending = Number(props.getProperty(VIEW_QUEUE_KEY) || 0);
-    // A refresh is already on its way and will pick this write up too.
-    if (pending && Date.now() - pending < VIEW_QUEUE_STALE_MS) return;
-    props.setProperty(VIEW_QUEUE_KEY, String(Date.now()));
-    ScriptApp.newTrigger('rebuildViewsQueued').timeBased().after(VIEW_QUEUE_DELAY_MS).create();
+    var account = accountOfKey_(key);
+    if (!account) return;
+    PropertiesService.getDocumentProperties()
+      .setProperty(VIEW_DIRTY_PREFIX + account, String(Date.now()));
+    ensureViewTrigger_(false);
   } catch (err) {
     // Saving the customer's answer matters more than the tab that displays it.
-    // Losing a refresh costs a stale view until the next save or the next hour;
+    // A lost mark costs a stale tab until the next save or the next sweep;
     // throwing here would cost the answer.
-    try { PropertiesService.getDocumentProperties().deleteProperty(VIEW_QUEUE_KEY); } catch (e) {}
     console.error('Could not queue a view refresh: ' + (err && err.message || err));
   }
 }
 
-/** The queued refresh. Separate from rebuildViews so that clearing up spent
-    one-off triggers cannot delete the hourly one, which shares a handler. */
-function rebuildViewsQueued() {
-  var props = PropertiesService.getDocumentProperties();
-  props.deleteProperty(VIEW_QUEUE_KEY);
-  // A fired one-off trigger stays in the project list until it is deleted, and
-  // the list is capped, so this clears its own -- and any that failed to fire.
-  ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (t.getHandlerFunction() === 'rebuildViewsQueued') ScriptApp.deleteTrigger(t);
+function markEverythingDirty_() {
+  PropertiesService.getDocumentProperties()
+    .setProperty(VIEW_DIRTY_PREFIX + VIEW_DIRTY_ALL, String(Date.now()));
+}
+
+/** The dirty marks, as {accountId: stamp}. */
+function readDirty_(props) {
+  var all = props.getProperties();
+  var out = {};
+  Object.keys(all).forEach(function (k) {
+    if (k.indexOf(VIEW_DIRTY_PREFIX) === 0) out[k.substring(VIEW_DIRTY_PREFIX.length)] = all[k];
   });
-  rebuildViews();
+  return out;
+}
+
+/**
+ * Clear a mark, but only if it still says what it said when we read it. A save
+ * that landed while this account was being rebuilt has moved the stamp on, and
+ * deleting it would drop that edit until the next sweep.
+ */
+function clearDirty_(props, account, stamp) {
+  if (props.getProperty(VIEW_DIRTY_PREFIX + account) !== stamp) return;
+  props.deleteProperty(VIEW_DIRTY_PREFIX + account);
+}
+
+/* ---- The drain ----------------------------------------------------------- */
+
+/**
+ * The standing trigger's handler, and the only thing that writes a view tab.
+ * Rebuilds the accounts on the dirty list and nothing else, within a time
+ * budget: whatever it does not reach stays marked and is picked up a minute
+ * later, so a spreadsheet with more accounts than fit in one execution still
+ * converges instead of dying on the wall clock.
+ */
+function drainViewQueue() {
+  // A rebuild can outlast the minute between ticks. Two of them interleaving
+  // would fight over the same tabs, so the second simply stands down -- its
+  // work is still on the dirty list and the next tick will take it.
+  var lock = LockService.getDocumentLock();
+  try { if (!lock.tryLock(1000)) return; } catch (err) { return; }
+
+  var started = Date.now();
+  var props = PropertiesService.getDocumentProperties();
+  var status = { at: started, built: [], dropped: [], left: 0, ms: 0, error: null };
+  try {
+    var dirty = readDirty_(props);
+    var sweptAt = Number(props.getProperty(VIEW_SWEPT_KEY) || 0);
+    var sweepDue = !sweptAt || started - sweptAt > VIEW_SWEEP_MS;
+    if (!Object.keys(dirty).length && !sweepDue) return;   // nothing to do: the common case
+
+    var model = readModelSafely_();
+    var registry = readRegistry_();
+
+    // "Everything" is expanded into a mark per account before any work starts,
+    // so a sweep that runs out of budget resumes where it stopped rather than
+    // starting over. Registry ids are included: an account whose row has gone
+    // is exactly the one whose tab needs removing.
+    if (dirty[VIEW_DIRTY_ALL] || sweepDue) {
+      var marks = {};
+      var stamp = String(started);
+      model.accounts.forEach(function (a) { marks[VIEW_DIRTY_PREFIX + a.id] = stamp; });
+      Object.keys(registry).forEach(function (id) { marks[VIEW_DIRTY_PREFIX + id] = stamp; });
+      if (Object.keys(marks).length) props.setProperties(marks);
+      props.deleteProperty(VIEW_DIRTY_PREFIX + VIEW_DIRTY_ALL);
+      props.setProperty(VIEW_SWEPT_KEY, stamp);
+      dirty = readDirty_(props);
+      delete dirty[VIEW_DIRTY_ALL];
+    }
+
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var byId = {};
+    model.accounts.forEach(function (a) { byId[a.id] = a; });
+
+    var deadline = started + VIEW_BUDGET_MS;
+    var ids = Object.keys(dirty).sort();
+    var structural = false;
+
+    for (var i = 0; i < ids.length; i++) {
+      // The budget is checked after the first account and never before it. A run
+      // that begins already over -- a slow read of a large kv, a tick that waited
+      // on the lock -- would otherwise build nothing, and so would every tick
+      // after it: the view would stop for good while the list only grew. One
+      // account per run is slow; no accounts per run is broken.
+      if (i > 0 && Date.now() > deadline) { status.left = ids.length - i; break; }
+      var id = ids[i];
+      if (byId[id]) {
+        var before = registry[id];
+        registry[id] = buildAccountView_(ss, byId[id], model, registry);
+        if (registry[id] !== before) structural = true;
+        status.built.push(registry[id]);
+      } else if (registry[id]) {
+        // The account was deleted, or its row never existed. Either way the tab
+        // it used to own has nothing behind it now.
+        var stale = ss.getSheetByName(registry[id]);
+        if (stale && ss.getSheets().length > 1) ss.deleteSheet(stale);
+        status.dropped.push(registry[id]);
+        delete registry[id];
+        structural = true;
+      }
+      clearDirty_(props, id, dirty[id]);
+      writeRegistry_(registry);
+    }
+
+    var names = Object.keys(registry).map(function (k) { return registry[k]; });
+    // Nothing readable left to show -- the last account went, or none has been
+    // made yet. Bring kv back before the tabs go, because Sheets will not let
+    // the file end up with every tab hidden.
+    if (!names.length) {
+      var raw = ss.getSheetByName(SHEET_NAME);
+      if (raw && raw.isSheetHidden()) raw.showSheet();
+    } else if (structural) {
+      tidyTabs_(ss, names);
+    }
+    SpreadsheetApp.flush();
+  } catch (err) {
+    status.error = (err && err.message) || String(err);
+    console.error('Readable view rebuild failed: ' + status.error);
+  } finally {
+    status.ms = Date.now() - started;
+    if (status.built.length > 12) status.built = status.built.slice(0, 12).concat(['+' + (status.built.length - 12) + ' more']);
+    try { props.setProperty(VIEW_STATUS_KEY, JSON.stringify(status)); } catch (e) {}
+    try { lock.releaseLock(); } catch (e) {}
+  }
+}
+
+/** The menu's "refresh now": mark the lot and drain it here and now. */
+function rebuildViews() {
+  markEverythingDirty_();
+  PropertiesService.getDocumentProperties().deleteProperty(VIEW_SWEPT_KEY);
+  drainViewQueue();
+  var left = Object.keys(readDirty_(PropertiesService.getDocumentProperties())).length;
+  try {
+    SpreadsheetApp.getActive().toast(
+      left ? left + ' more to go; the rest follow within a minute or two.' : 'The readable view is up to date.',
+      'Hermetic', 5);
+  } catch (err) {}
+  return left;
+}
+
+/** A trigger left over from the previous scheme. Hand the work on and go. */
+function rebuildViewsQueued() {
+  try { ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'rebuildViewsQueued') ScriptApp.deleteTrigger(t);
+  }); } catch (err) {}
+  drainViewQueue();
+}
+
+/* ---- What the view knows ------------------------------------------------- */
+
+function readRegistry_() {
+  var raw = PropertiesService.getDocumentProperties().getProperty(VIEW_REGISTRY_KEY);
+  var parsed;
+  try { parsed = JSON.parse(raw || '{}'); } catch (err) { return {}; }
+  // The previous scheme stored a bare list of tab names with no account ids.
+  // There is nothing to recover from it; the tabs are re-adopted by name below.
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+  return parsed;
+}
+
+function writeRegistry_(registry) {
+  PropertiesService.getDocumentProperties().setProperty(VIEW_REGISTRY_KEY, JSON.stringify(registry));
 }
 
 /** Everything in kv, parsed into accounts and their locations. */
 function readModel_() {
   var model = { accounts: [], venues: {}, schema: null };
+  var seenAccount = {};
   readAll_().forEach(function (r) {
     var o;
     try { o = JSON.parse(r.value); } catch (err) { return; }
@@ -652,6 +882,7 @@ function readModel_() {
 
     if (r.key === 'hermetic:schema') { model.schema = o; return; }
     if (r.key.indexOf('hermetic:account:') === 0) {
+      seenAccount[r.key.substring(17)] = true;
       if (!o.deleted) model.accounts.push(o);
       return;
     }
@@ -662,36 +893,40 @@ function readModel_() {
     }
   });
 
+  // Locations whose account row is missing entirely -- never written, or lost.
+  // Without this they are invisible here: the view is built from account rows,
+  // so a whole customer's answers can sit in kv with no tab to read them on.
+  // An account row that exists and says deleted is not this case and stays gone.
+  Object.keys(model.venues).forEach(function (id) {
+    if (seenAccount[id]) return;
+    var created = model.venues[id].reduce(function (min, v) {
+      return Math.min(min, v.createdAt || Date.now());
+    }, Date.now());
+    model.accounts.push({ id: id, name: 'Unfiled locations', createdAt: created, orphan: true });
+  });
+
   var byCreated = function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); };
   model.accounts.sort(byCreated);
   Object.keys(model.venues).forEach(function (k) { model.venues[k].sort(byCreated); });
   return model;
 }
 
-function rebuildViews() {
-  // The lock covers the read of kv and nothing else. Writing the tabs takes
-  // seconds of Sheets formatting, and setKey_ waits on the same lock, so
-  // holding it for the whole rebuild blocks every save the team makes while it
-  // runs -- and on a busy sheet the rebuild loses the race the other way and
-  // dies on a lock timeout, which is exactly what it used to do.
-  var model = readModelSafely_();
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var built = [];
-  for (var i = 0; i < model.accounts.length; i++) {
-    built.push(buildAccountView_(ss, model.accounts[i], model));
+/**
+ * kv, read under the lock when the lock is available and without it when it is
+ * not. A row caught mid-write is half cleared and fails to parse, so readModel_
+ * skips it and that one location is missing until the next refresh. A view that
+ * is briefly one location short beats a view that refuses to build at all
+ * because saves are busy.
+ */
+function readModelSafely_() {
+  var lock = LockService.getScriptLock();
+  var held = false;
+  try { held = lock.tryLock(10000); } catch (err) { held = false; }
+  try {
+    return readModel_();
+  } finally {
+    if (held) lock.releaseLock();
   }
-  // Nothing readable left to show -- the last account was deleted, or none has
-  // been made yet. Bring kv back before the stale tabs go, because Sheets will
-  // not let the file end up with every tab hidden.
-  if (!built.length) {
-    var raw = ss.getSheetByName(SHEET_NAME);
-    if (raw && raw.isSheetHidden()) raw.showSheet();
-  }
-  dropStaleViews_(ss, built);
-  PropertiesService.getDocumentProperties().setProperty(VIEW_REGISTRY_KEY, JSON.stringify(built));
-  if (built.length) tidyTabs_(ss, built);
-  SpreadsheetApp.flush();
-  return built.length;
 }
 
 /**
@@ -700,20 +935,26 @@ function rebuildViews() {
  * because the first thing anyone saw on opening this file was a wall of JSON.
  * Hidden, not deleted: kv is still the only source of truth, the script still
  * reads and writes it by name, and the Hermetic menu brings it back in a click.
+ *
+ * Only run when a tab has appeared or gone. Reordering every tab on every save
+ * is a pile of Sheets calls to reach the order they were already in, and it
+ * yanks the active tab out from under anyone reading the spreadsheet.
  */
 function tidyTabs_(ss, built) {
-  for (var i = 0; i < built.length; i++) {
-    var sh = ss.getSheetByName(built[i]);
+  var order = built.slice().sort();
+  for (var i = 0; i < order.length; i++) {
+    var sh = ss.getSheetByName(order[i]);
     if (!sh) continue;
     if (sh.isSheetHidden()) sh.showSheet();
     ss.setActiveSheet(sh);
     ss.moveActiveSheet(i + 1);
   }
-  ss.setActiveSheet(ss.getSheetByName(built[0]));
+  var first = ss.getSheetByName(order[0]);
+  if (first) ss.setActiveSheet(first);
 
   ss.getSheets().forEach(function (sh) {
     var name = sh.getName();
-    if (built.indexOf(name) !== -1 || sh.isSheetHidden()) return;
+    if (order.indexOf(name) !== -1 || sh.isSheetHidden()) return;
     if (name === SHEET_NAME) { sh.hideSheet(); return; }
     // Only the untouched default tab, never a sheet somebody has put work in.
     if (/^Sheet\d+$/.test(name) && sh.getLastRow() === 0 && sh.getLastColumn() === 0) sh.hideSheet();
@@ -747,40 +988,68 @@ function hideRawTab() {
 }
 
 /**
- * kv, read under the lock when the lock is available and without it when it is
- * not. A row caught mid-write is half cleared and fails to parse, so readModel_
- * skips it and that one location is missing until the next refresh. A view that
- * is briefly one location short beats a view that refuses to build at all
- * because saves are busy.
+ * Why the view is or is not moving, in one place. The whole machine is
+ * invisible when it works and equally invisible when it does not -- a save that
+ * cannot queue a refresh is swallowed on purpose -- so this is the only way to
+ * tell the two apart without reading the execution log. Also served from
+ * ?action=diag, so it can be checked without opening the spreadsheet.
  */
-function readModelSafely_() {
-  var lock = LockService.getScriptLock();
-  var held = false;
-  try { held = lock.tryLock(10000); } catch (err) { held = false; }
+function viewStatus_() {
+  var props = PropertiesService.getDocumentProperties();
+  var status = {};
+  try { status = JSON.parse(props.getProperty(VIEW_STATUS_KEY) || '{}'); } catch (err) {}
+  var out = {
+    trigger: false,
+    triggerCount: 0,
+    pending: Object.keys(readDirty_(props)),
+    lastRunAt: status.at || null,
+    lastRunMs: status.ms || null,
+    lastBuilt: status.built || [],
+    lastError: status.error || null,
+    sweptAt: Number(props.getProperty(VIEW_SWEPT_KEY) || 0) || null,
+    tabs: readRegistry_(),
+    triggerError: null
+  };
   try {
-    return readModel_();
-  } finally {
-    if (held) lock.releaseLock();
+    var live = viewTriggers_();
+    out.triggerCount = live.length;
+    out.trigger = live.some(function (t) { return t.getHandlerFunction() === VIEW_TICK; });
+    out.projectTriggers = ScriptApp.getProjectTriggers().length;
+  } catch (err) {
+    // The signature of a deployment authorized before script.scriptapp was in
+    // the manifest: it can write the sheet and cannot own a trigger, so the
+    // view never refreshes itself and nothing says why.
+    out.triggerError = (err && err.message) || String(err);
   }
+  return out;
 }
 
-/* Tabs this script made last time that no account answers for any more, which
-   is how a deleted or renamed account stops leaving a tab behind. Only tabs in
-   the registry are ever removed, so a tab somebody else made is safe. */
-function dropStaleViews_(ss, keep) {
-  var previous = [];
-  try {
-    previous = JSON.parse(PropertiesService.getDocumentProperties().getProperty(VIEW_REGISTRY_KEY) || '[]');
-  } catch (err) { previous = []; }
-  previous.forEach(function (name) {
-    if (keep.indexOf(name) !== -1) return;
-    var sh = ss.getSheetByName(name);
-    if (sh && ss.getSheets().length > 1) ss.deleteSheet(sh);
-  });
+function showViewStatus() {
+  var v = viewStatus_();
+  var tz = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
+  var lines = [];
+  lines.push(v.trigger
+    ? 'Automatic refresh: ON (every minute).'
+    : 'Automatic refresh: OFF. Run Hermetic > Keep the view up to date.');
+  if (v.triggerError) {
+    lines.push('');
+    lines.push('This script cannot own a trigger: ' + v.triggerError);
+    lines.push('Open Extensions > Apps Script, run authorize(), accept every prompt, ' +
+               'then Deploy > Manage deployments > edit > New version.');
+  }
+  lines.push('Accounts with a tab: ' + Object.keys(v.tabs).length);
+  lines.push('Waiting to be rebuilt: ' + v.pending.length);
+  lines.push('Last checked: ' + (v.lastRunAt ? when_(v.lastRunAt, tz) + ' (' +
+             Math.round((v.lastRunMs || 0) / 100) / 10 + 's)' : 'never'));
+  if (v.lastBuilt.length) lines.push('Last rebuilt: ' + v.lastBuilt.join(', '));
+  if (v.lastError) lines.push('Last error: ' + v.lastError);
+  SpreadsheetApp.getUi().alert('Hermetic readable view', lines.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
 }
+
+/* ---- Building one tab ---------------------------------------------------- */
 
 /** A tab name Sheets will accept, and that is not already spoken for. */
-function safeSheetName_(name, ss, taken) {
+function safeSheetName_(name, taken) {
   var base = String(name || 'Account').replace(/[\[\]\*\/\\\?:]/g, ' ').trim().substring(0, 90) || 'Account';
   if (base.toLowerCase() === SHEET_NAME) base = base + ' (account)';
   var candidate = base, n = 2;
@@ -828,34 +1097,59 @@ function fileSummary_(location) {
   }).join('\n');
 }
 
-function buildAccountView_(ss, account, model) {
+/**
+ * The tab this account owns, adopting the one it had last time even if the
+ * account has since been renamed. Names are claimed by account id, so two
+ * accounts called the same thing get a tab each -- before this, the second one
+ * found the first one's tab by name and overwrote it, and one customer's
+ * answers silently replaced another's.
+ */
+function accountSheet_(ss, account, registry) {
+  var claimed = {};
+  Object.keys(registry).forEach(function (id) {
+    if (id !== account.id) claimed[registry[id]] = true;
+  });
+  var taken = ss.getSheets().map(function (s) { return s.getName(); })
+    .filter(function (n) { return claimed[n] || n === SHEET_NAME; });
+
+  var wanted = safeSheetName_(account.name, taken);
+  var mine = registry[account.id] ? ss.getSheetByName(registry[account.id]) : null;
+  if (mine) {
+    if (mine.getName() !== wanted && !ss.getSheetByName(wanted)) mine.setName(wanted);
+    return mine;
+  }
+  // No tab on record. Adopt one standing under this name -- that is how tabs
+  // built before the registry existed are picked back up instead of duplicated.
+  var byName = ss.getSheetByName(wanted);
+  if (byName && !claimed[wanted] && wanted !== SHEET_NAME) return byName;
+  return ss.insertSheet(safeSheetName_(account.name,
+    ss.getSheets().map(function (s) { return s.getName(); })));
+}
+
+function buildAccountView_(ss, account, model, registry) {
   var tz = ss.getSpreadsheetTimeZone();
   var locations = model.venues[account.id] || [];
-  var taken = ss.getSheets().map(function (s) { return s.getName(); });
-  var existing = null;
-
-  // Reuse the tab this account had last time, whatever it is called now.
-  var previous = [];
-  try { previous = JSON.parse(PropertiesService.getDocumentProperties().getProperty(VIEW_REGISTRY_KEY) || '[]'); } catch (err) {}
-  var wanted = safeSheetName_(account.name, ss, taken.filter(function (n) { return n !== account.name; }));
-  existing = ss.getSheetByName(wanted);
-  var sh = existing || ss.insertSheet(wanted);
-  sh.clear();
-  sh.clearFormats();
+  var sh = accountSheet_(ss, account, registry);
+  // Last time's merged note row spans the columns it had then. An account that
+  // has since lost a location writes a narrower grid, and setValues over a
+  // merge it only half covers throws -- so break the merges before clearing.
+  if (sh.getLastRow()) sh.getRange(1, 1, sh.getLastRow(), sh.getMaxColumns()).breakApart();
+  sh.clear();   // contents and formats both; clearFormats afterwards is a second round trip for nothing
 
   var header = [''].concat(locations.map(function (l) { return l.name || 'Untitled'; }));
   var grid = [];
   var groupRows = [];      // rows to style as a section heading
+  var blank = locations.map(function () { return ''; });
   var push = function (row) { grid.push(row); return grid.length; };
-  var group = function (title) { groupRows.push(push([title].concat(locations.map(function () { return ''; })))); };
-  var line = function (label, valueOf) {
-    push([label].concat(locations.map(valueOf)));
-  };
+  var group = function (title) { groupRows.push(push([title].concat(blank))); };
+  var line = function (label, valueOf) { push([label].concat(locations.map(valueOf))); };
 
-  push([account.name || 'Account'].concat(locations.map(function () { return ''; })));
-  push([VIEW_NOTE].concat(locations.map(function () { return ''; })));
-  push(['Refreshed ' + when_(Date.now(), tz)].concat(locations.map(function () { return ''; })));
-  push([''].concat(locations.map(function () { return ''; })));
+  push([account.name || 'Account'].concat(blank));
+  push([(account.orphan
+    ? 'These locations have no account record in the tool. They are shown here so the answers are not lost. '
+    : '') + VIEW_NOTE].concat(blank));
+  push(['Refreshed ' + when_(Date.now(), tz)].concat(blank));
+  push([''].concat(blank));
   var headerRow = push(header);
 
   group('WHEN');
@@ -903,13 +1197,16 @@ function styleAccountView_(sh, rows, width, headerRow, groupRows) {
     .setVerticalAlignment('middle');
   sh.getRange(1, 1, rows, 1).setFontWeight('bold').setFontColor('#1f2a44');
 
-  groupRows.forEach(function (r) {
-    sh.getRange(r, 1, 1, width).setBackground('#eef1f6').setFontWeight('bold').setFontColor('#3b4a63')
-      .setFontSize(9);
-  });
+  // One call for all of them: a tab with twenty sections was twenty round trips
+  // to say the same thing twenty times.
+  if (groupRows.length) {
+    sh.getRangeList(groupRows.map(function (r) {
+      return sh.getRange(r, 1, 1, width).getA1Notation();
+    })).setBackground('#eef1f6').setFontWeight('bold').setFontColor('#3b4a63').setFontSize(9);
+  }
 
   sh.setColumnWidth(1, 210);
-  for (var c = 2; c <= width; c++) sh.setColumnWidth(c, 340);
+  if (width > 1) sh.setColumnWidths(2, width - 1, 340);
   sh.setFrozenRows(headerRow);
   sh.setFrozenColumns(1);
   if (rows > headerRow) {
@@ -919,10 +1216,15 @@ function styleAccountView_(sh, rows, width, headerRow, groupRows) {
 
   // A warning rather than a lock: people need to copy out of this tab, and a
   // dismissible prompt says "your typing will be replaced" better than a
-  // permission error does.
-  var existing = sh.getProtections(SpreadsheetApp.ProtectionType.SHEET);
-  existing.forEach(function (p) { p.remove(); });
-  sh.protect().setDescription(VIEW_NOTE).setWarningOnly(true);
+  // permission error does. Re-applied only when it is missing -- removing and
+  // recreating a protection on every rebuild is two slow calls to end up where
+  // it started.
+  var mine = sh.getProtections(SpreadsheetApp.ProtectionType.SHEET)
+    .filter(function (p) { return p.getDescription() === VIEW_NOTE; });
+  if (!mine.length) {
+    sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function (p) { p.remove(); });
+    sh.protect().setDescription(VIEW_NOTE).setWarningOnly(true);
+  }
 }
 
 function folderByName_(parent, name) {
