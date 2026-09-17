@@ -2544,7 +2544,7 @@ function renderVenue(item){
     <div class="card-body">
       <div class="subsection">
         <div class="t-overline">Client files (start here)</div>
-        ${banner('info','paperclip','Upload knowledge base files, then attach the same files to the Claude chat. The fields below cover only what the files cannot.')}
+        ${banner('info','paperclip','Upload knowledge base files. Attach the same files to the Claude chat if you don\'t have the Google Drive connector enabled in Claude. The fields below cover only what the files cannot.')}
         <div class="doc-list">${docs.map((d,i)=>renderDocChip(item.id, d, i)).join('')}${docs.length ? `<button class="icon-btn" data-recheck-files="${item.id}" title="Check these files against Google Drive">${icon('refresh-cw','icon',13)}</button>` : ''}</div>
         <div class="upload-row">
           <select class="input" id="docCategory-${item.id}" data-category-for="${item.id}">
