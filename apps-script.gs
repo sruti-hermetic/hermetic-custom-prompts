@@ -75,6 +75,23 @@ function isAuthError_(err) {
          msg.indexOf('ScriptError') !== -1;
 }
 
+/**
+ * Errors DriveApp throws that say nothing about whether a file still exists --
+ * a per-user rate limit tripped by a team all checking files at once, or a
+ * transient hiccup in Drive itself. checkFiles_ used to treat every non-auth
+ * error the same as "this id is gone", so a rate limit hit mid-batch reported
+ * every file after it as deleted from Drive -- including one someone had
+ * uploaded a minute earlier. Recognized separately so those ids are left
+ * unreported instead of wrongly marked gone.
+ */
+function isTransientDriveError_(err) {
+  var msg = (err && err.message) || String(err);
+  return msg.indexOf('too many times') !== -1 ||      // rate limit
+         msg.indexOf('Internal error') !== -1 ||
+         msg.indexOf('Service unavailable') !== -1 ||
+         msg.indexOf('try again') !== -1;
+}
+
 function sheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName(SHEET_NAME);
@@ -133,24 +150,69 @@ function json_(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-/** Every row as {key, value}, with continuation columns rejoined. */
+/**
+ * Every row as {key, value}, with continuation columns rejoined, briefly
+ * cached. getAll is a bulk read of the whole sheet -- every client polls it
+ * every 20s, on top of every page load -- and a team's kv grows without
+ * bound, so the read it pays for keeps getting bigger. Apps Script also runs
+ * one request at a time per user, so a slow read here queues up whoever is
+ * behind it, which is exactly the "someone's new account takes a while to
+ * show up" complaint: not a wrong answer, a slow one, at the worst possible
+ * layer to be slow at.
+ *
+ * A short cache lets several polls landing within the same few seconds --
+ * normal with more than one or two people on the tool -- share one sheet
+ * read instead of paying for their own. KV_CACHE_TTL_S bounds how stale that
+ * shared answer can be; invalidateReadCache_ (called right after every
+ * write) keeps the common case -- no write racing a read -- serving fresh
+ * data immediately, and the TTL is only what a genuinely concurrent write
+ * can hide behind.
+ */
+var KV_CACHE_KEY = 'hermetic.kvCache';
+var KV_CACHE_TTL_S = 5;
+
 function readAll_() {
+  var cache = kvCache_();
+  if (cache) {
+    try {
+      var cached = cache.get(KV_CACHE_KEY);
+      if (cached) return JSON.parse(cached);
+    } catch (err) {}   // an unreadable entry is no worse than no entry
+  }
+
   var sh = sheet_();
   var last = sh.getLastRow();
-  if (last < 2) return [];
-  var rows = sh.getRange(2, 1, last - 1, Math.max(2, sh.getLastColumn())).getValues();
   var out = [];
-  for (var i = 0; i < rows.length; i++) {
-    var key = String(rows[i][0] || '').trim();
-    if (!key) continue;
-    var value = '';
-    for (var c = 1; c < rows[i].length; c++) {
-      if (rows[i][c] === '' || rows[i][c] === null) break;
-      value += String(rows[i][c]);
+  if (last >= 2) {
+    var rows = sh.getRange(2, 1, last - 1, Math.max(2, sh.getLastColumn())).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      var key = String(rows[i][0] || '').trim();
+      if (!key) continue;
+      var value = '';
+      for (var c = 1; c < rows[i].length; c++) {
+        if (rows[i][c] === '' || rows[i][c] === null) break;
+        value += String(rows[i][c]);
+      }
+      out.push({ key: key, value: value });
     }
-    out.push({ key: key, value: value });
+  }
+
+  if (cache) {
+    try { cache.put(KV_CACHE_KEY, JSON.stringify(out), KV_CACHE_TTL_S); }
+    catch (err) {}    // over the 100KB cache entry limit; every call just reads the sheet
   }
   return out;
+}
+
+function kvCache_() {
+  try { return CacheService.getDocumentCache(); } catch (err) { return null; }
+}
+
+/** Called right after any write lands, so the next read is never the one
+ *  serving a just-written row out of a cache built before it existed. */
+function invalidateReadCache_() {
+  var cache = kvCache_();
+  if (cache) { try { cache.remove(KV_CACHE_KEY); } catch (err) {} }
 }
 
 function doGet(e) {
@@ -284,6 +346,7 @@ function setKey_(body) {
     if (!row) row = Math.max(sh.getLastRow() + 1, 2);
     writeRow_(sh, row, key, chunks);
     SpreadsheetApp.flush();
+    invalidateReadCache_();
   } finally {
     lock.releaseLock();
   }
@@ -373,6 +436,7 @@ function normalizeEditedRow_(sh, row, e) {
   record.updatedAt = now;
   record.lastWriter = 'sheet';
   writeRow_(sh, row, key, chunksOf_(JSON.stringify(record)));
+  invalidateReadCache_();
   // Typing straight into kv is a save like any other, so the tab that displays
   // it has to follow. Without this the only edits the view ever saw were the
   // ones that came through the console.
@@ -466,6 +530,62 @@ function resolveRoot_(body) {
 }
 
 /**
+ * The venue's own folder -- <root>/<segments...> -- for listing what is
+ * really in it, never for writing. Unlike resolveRoot_/destinationFolder_,
+ * nothing here is created: a folder that does not exist yet just means
+ * nothing has been uploaded for this venue, which is not an error, only an
+ * empty answer. Returns null the moment any level of the path is missing.
+ */
+function findFolder_(body) {
+  var id = String(body.rootFolderId || '').trim();
+  var folder = null;
+  if (id) {
+    try { folder = DriveApp.getFolderById(id); }
+    catch (err) { if (isAuthError_(err)) throw err; }
+  }
+  if (!folder) {
+    var name = String(body.rootFolderName || '').trim() || DEFAULT_ROOT;
+    var rootIt = DriveApp.getFoldersByName(name);
+    if (!rootIt.hasNext()) return null;
+    folder = rootIt.next();
+  }
+  var segments = body.segments || [];
+  for (var i = 0; i < segments.length; i++) {
+    if (!segments[i]) continue;
+    var it = folder.getFoldersByName(String(segments[i]));
+    if (!it.hasNext()) return null;
+    folder = it.next();
+  }
+  return folder;
+}
+
+/**
+ * Every non-trashed file under a folder, one level of category subfolders
+ * deep -- a file filed under a category is labelled with that category's
+ * name; one sitting loose in the venue folder itself (or a level the console
+ * never made, from someone tidying by hand) is labelled with the label the
+ * caller is already using at that depth. Capped in both directions so a
+ * folder somebody has turned into a general dumping ground cannot make one
+ * request read all of Drive.
+ */
+var LIST_FILES_DEPTH = 2;
+var LIST_FILES_MAX = 300;
+function collectFiles_(folder, label, out, depth) {
+  if (depth > LIST_FILES_DEPTH || out.length >= LIST_FILES_MAX) return;
+  var files = folder.getFiles();
+  while (files.hasNext() && out.length < LIST_FILES_MAX) {
+    var f = files.next();
+    if (f.isTrashed()) continue;
+    out.push({ fileId: f.getId(), name: f.getName(), category: label, link: f.getUrl() });
+  }
+  var subs = folder.getFolders();
+  while (subs.hasNext() && out.length < LIST_FILES_MAX) {
+    var sub = subs.next();
+    collectFiles_(sub, sub.getName(), out, depth + 1);
+  }
+}
+
+/**
  * Saves an uploaded file into <root>/<segments...>/<category>, creating
  * folders as needed. Reconstructed from the client's uploadFile call -- if your
  * existing deployment already lays folders out differently, keep your version
@@ -533,10 +653,15 @@ function copyFile_(body) {
 }
 
 /**
- * What actually became of each uploaded file. Drive is a shared folder that
- * people tidy: files get renamed, dragged into other folders, and thrown away,
- * none of which the console would otherwise ever hear about. It would go on
- * showing a chip that links to a file nobody can open.
+ * What actually became of each uploaded file, and -- when the caller sends
+ * `segments` -- what Drive holds for this venue that the console does not
+ * know about at all yet. Drive is a shared folder that people tidy: files
+ * get renamed, dragged into other folders, thrown away, or dropped straight
+ * in by hand rather than through the console's own upload button, none of
+ * which the console would otherwise ever hear about. Without the second half
+ * it would go on showing a chip that links to a file nobody can open, and
+ * would never notice a menu that landed in the folder any way other than its
+ * own Upload button.
  *
  * Reports per id rather than failing as a whole, because one deleted file must
  * not stop the other nine being checked. The exception is a missing Drive
@@ -562,12 +687,33 @@ function checkFiles_(body) {
       };
     } catch (err) {
       if (isAuthError_(err)) return driveError_(err);
-      // getFileById throws for a file deleted outright, or one this account can
-      // no longer see. Either way the console can no longer offer it.
+      // A rate limit or a Drive hiccup says nothing about this file; reporting
+      // it as gone would be a guess, and the console takes silence as "no news"
+      // and leaves the file exactly as it was.
+      if (isTransientDriveError_(err)) continue;
+      // Anything else is getFileById throwing because the file was deleted
+      // outright, or this account can no longer see it. Either way the console
+      // can no longer offer it.
       out[id] = { exists: false, trashed: false };
     }
   }
-  return json_({ files: out });
+
+  var result = { files: out };
+  if (body.segments) {
+    try {
+      var folder = findFolder_(body);
+      var found = [];
+      if (folder) collectFiles_(folder, 'Other', found, 0);
+      result.found = found;
+    } catch (err) {
+      if (isAuthError_(err)) return driveError_(err);
+      // Could not list the folder for some other reason (a rate limit, a
+      // hiccup): say nothing about what is in it rather than reporting it
+      // empty, which the console would read as "every file in Drive is one I
+      // already know about" and never ask again this session.
+    }
+  }
+  return json_(result);
 }
 
 /* ==================================================================

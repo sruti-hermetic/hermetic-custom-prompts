@@ -118,10 +118,6 @@ ok('nothing offers sub-venues any more', out.toLowerCase().indexOf('sub-location
    out.toLowerCase().indexOf('sub-venue') === -1);
 ok('an empty box still reports itself, so Claude knows it was asked',
    serializePart(LOCATION_SCHEMA, newVenueData()).indexOf('Policies:\nNone.') !== -1);
-ok('the skill template no longer asks for Sub-Venues',
-   SKILL_TEXT.indexOf('## Sub-Venues') === -1);
-ok('the skill template still asks for Policies and FAQs',
-   SKILL_TEXT.indexOf('## Policies') !== -1 && SKILL_TEXT.indexOf('## FAQs') !== -1);
 ok('Claude is no longer told policies come only from the files',
    FILE_SOURCED_LABEL.toLowerCase().indexOf('polic') === -1 &&
    FILE_SOURCED_LABEL.toLowerCase().indexOf('faq') === -1, FILE_SOURCED_LABEL);
@@ -159,26 +155,6 @@ ok('Rules asks for the guest-count bands',
 ok('Rules says an offer names one space',
    rules.indexOf('no combining two into one offer') !== -1, rules);
 
-section('And what Claude is told about it');
-ok('the template sends routing to a Campaign Rule',
-   SKILL_TEXT.indexOf('Guest-count-to-space routing is also a Campaign Rule') !== -1);
-ok('the placement test agrees',
-   SKILL_TEXT.indexOf('Which space to offer at a guest count is a Rule, never an Availability Policy line') !== -1);
-ok('a capacity is still a Location fact',
-   SKILL_TEXT.indexOf("A room's capacity is a fact (Location \u2192 Rooms)") !== -1);
-ok('Mia is told she has no combined spaces',
-   SKILL_TEXT.indexOf('no concept of a combined or shared space') !== -1);
-ok('a paired offer goes to Open Questions rather than being invented',
-   SKILL_TEXT.indexOf('put the pairing in Open Questions') !== -1);
-ok('a rule that cannot be applied goes to Open Questions',
-   SKILL_TEXT.indexOf('cannot be applied without deciding what it means') !== -1);
-ok('with the whole-evening line as the worked example',
-   SKILL_TEXT.indexOf('Saturday events are whole-evening only') !== -1);
-ok('the self-check catches a two-space offer',
-   SKILL_TEXT.indexOf('Any offer naming two spaces at once') !== -1);
-ok('the self-check catches an unapplicable rule',
-   SKILL_TEXT.indexOf('without deciding what it meant') !== -1);
-
 section('Workflow steps is the whole goal path');
 var steps = box(CAMPAIGN_SCHEMA, 'steps_text');
 var stepHint = steps.hint.join(' ').toLowerCase();
@@ -207,41 +183,12 @@ ok('and shows a branch rather than a single clean path',
 ok('and stays short enough to read past',
    (steps.placeholder || '').length < 170, (steps.placeholder || '').length + ' chars');
 
-section('And Claude is told the same thing');
-ok('the template asks for the whole goal path',
-   SKILL_TEXT.indexOf('the whole goal path in order') !== -1);
-ok('the template still refuses the opening message',
-   SKILL_TEXT.indexOf('Never the opening message, which the platform fixes') !== -1);
-ok('the base prompt keeps the mechanics but not the flow',
-   SKILL_TEXT.indexOf('already handles the texting mechanics') !== -1 &&
-   SKILL_TEXT.indexOf('already handles the texting basics and the standard flow') === -1);
-ok('the goal path is named as such',
-   SKILL_TEXT.indexOf('Workflow Steps is the goal path, not a diff') !== -1);
-ok('a step left out is called out as a step that does not happen',
-   SKILL_TEXT.indexOf('a step you leave out because it is obvious is a step that does not happen') !== -1);
-ok('rule 6 asks for the complete ordered path',
-   SKILL_TEXT.indexOf('the complete goal path in the order') !== -1);
-ok('rule 7 no longer forbids writing the ordinary steps',
-   SKILL_TEXT.indexOf('Workflow Steps is the exception and not a violation of this') !== -1);
-ok('the self-check catches a path that does not reach handoff',
-   SKILL_TEXT.indexOf('does not run from the reply after the name is confirmed through to the handoff') !== -1);
-ok('tone rules are still a diff, not a full restatement',
-   SKILL_TEXT.indexOf('Tone rules: <only where this venue differs from the default') !== -1);
-
 section('The scheduling link is a setting, not a link to type');
 var links = box(CAMPAIGN_SCHEMA, 'links_text').hint.join(' ').toLowerCase();
 ok('the Links box says so',
    links.indexOf('not the coordinator scheduling link') !== -1, links);
 ok('and says where it comes from instead',
    links.indexOf('account settings') !== -1, links);
-ok('Claude is told the same in the Links template',
-   SKILL_TEXT.indexOf('Not coordinator scheduling links, which come from account settings') !== -1);
-ok('and told why writing one is wrong, not just that it is',
-   SKILL_TEXT.indexOf('a second copy that goes stale') !== -1);
-ok('it rides with the coordinator names it is injected alongside',
-   SKILL_TEXT.indexOf("Coordinators' names, titles and scheduling links are injected from account settings") !== -1);
-ok('the self-check catches one written into a step',
-   SKILL_TEXT.indexOf('Any scheduling link written out, in Links or in a step') !== -1);
 
 section('Vocabulary says how far a substitution reaches');
 var vocab = box(CAMPAIGN_SCHEMA, 'vocabulary_text');
@@ -252,19 +199,12 @@ ok('and now says each one holds always by default',
    vocab.hint.join(' '));
 ok('the example shows an exception being stated',
    (vocab.placeholder || '').indexOf('except when the guest names a room') !== -1, vocab.placeholder);
-ok('Claude is told the same', SKILL_TEXT.indexOf('Each holds on every reply unless an exception is stated with it') !== -1);
 
 section('Required wording is obligation, not preference');
 var wording = box(CAMPAIGN_SCHEMA, 'wording_text').hint.join(' ').toLowerCase();
 ok('the box leads with the obligation test',
    wording.indexOf('legally or contractually obliged to say') !== -1, wording);
 ok('and rules scripts out', wording.indexOf('not a script') !== -1, wording);
-ok('the template applies the same test',
-   SKILL_TEXT.indexOf('A phrasing the client merely prefers is not required wording') !== -1);
-ok('rule 5 refuses a preferred script however firmly it is asked for',
-   SKILL_TEXT.indexOf('however firmly it is asked for') !== -1);
-ok('the self-check catches one that got through',
-   SKILL_TEXT.indexOf('Anything in Required Wording that nobody is obliged to say') !== -1);
 
 section('What a real availability policy needs to say');
 ok('room relationships the CRM cannot express, not a substitute for correct nesting',
@@ -278,19 +218,64 @@ ok('spaces that both fit get a tie-break',
 ok('the worked example is the real pattern: a buyout blocking the whole day',
    (box(LOCATION_SCHEMA, 'availability_text').placeholder || '').indexOf('even outside its hours') !== -1);
 
-section('Why a disclaimer cannot live in Availability Policy');
-ok('the skill explains the architecture: a separate check, sparse facts back',
-   SKILL_TEXT.indexOf('Availability Policy feeds a separate availability check, not Mia directly') !== -1);
-ok('and says plainly that it does not compose anything said to the guest',
-   SKILL_TEXT.indexOf('it does not compose anything said to the guest') !== -1);
-ok('the template repeats the same rule',
-   SKILL_TEXT.indexOf('Never a disclaimer or a sentence to say to the guest -- that is a Rules line') !== -1);
-ok('the self-check catches one that slipped through',
-   SKILL_TEXT.indexOf('A disclaimer, required statement, or sentence to the guest sitting in Availability Policy') !== -1);
-ok('the template still asks about status ambiguity',
-   SKILL_TEXT.indexOf('which statuses count as booked when that is not obvious') !== -1);
-ok('and about room relationships the system cannot already express',
-   SKILL_TEXT.indexOf('room relationships the booking system cannot already express') !== -1);
+section('What Drive says happened to the files');
+var docA = {name:'Menu.pdf', link:'https://old-link', category:'Menu', fileId:'f_a'};
+var docB = {name:'Pricing.pdf', link:'https://link-b', category:'Pricing doc/matrix', fileId:'f_b'};
+ok('a file not asked about is left exactly as it was',
+   applyFileCheck([docA], {}).docs[0] === docA);
+var deleted = applyFileCheck([docA], {f_a:{exists:false}});
+ok('a file Drive no longer has is marked gone, not dropped',
+   deleted.changed && deleted.docs[0].gone === 'deleted' && deleted.docs.length === 1);
+var trashed = applyFileCheck([docA], {f_a:{exists:true, trashed:true}});
+ok('a trashed file is marked trashed, keeping its name and category',
+   trashed.changed && trashed.docs[0].gone === 'trashed' &&
+   trashed.docs[0].name === docA.name && trashed.docs[0].category === docA.category);
+var restored = applyFileCheck([Object.assign({}, docA, {gone:'trashed'})], {f_a:{exists:true, trashed:false, name:docA.name}});
+ok('a file restored out of the trash loses its gone mark',
+   restored.changed && restored.docs[0].gone === undefined);
+var renamed = applyFileCheck([docA], {f_a:{exists:true, trashed:false, name:'New name.pdf'}});
+ok('a rename in Drive updates the name',
+   renamed.changed && renamed.docs[0].name === 'New name.pdf');
+var moved = applyFileCheck([docA], {f_a:{exists:true, trashed:false, folderName:'Pricing'}});
+ok('a move records the folder it landed in',
+   moved.changed && moved.docs[0].folderName === 'Pricing');
+var same = applyFileCheck([docA], {f_a:{exists:true, trashed:false, name:docA.name, url:docA.link, folderName:null}});
+ok('nothing to report leaves changed false',
+   same.changed === false);
+
+var found = [
+  {fileId:'f_a', name:'Menu.pdf', link:'https://old-link', category:'Menu'},          // already tracked
+  {fileId:'f_new', name:'Banquet menu.pdf', link:'https://new-link', category:'Menu'} // dropped straight into Drive
+];
+var picked = applyFoundFiles([docA], [], found);
+ok('a file Drive has and the console already knows is not duplicated',
+   picked.docs.filter(function(d){ return d.fileId === 'f_a'; }).length === 1);
+ok('a file uploaded straight into Drive is picked up',
+   picked.changed && picked.docs.some(function(d){ return d.fileId === 'f_new' && d.name === 'Banquet menu.pdf'; }));
+var removedOne = applyFoundFiles([], ['f_new'], found.filter(function(f){ return f.fileId === 'f_new'; }));
+ok('a file someone removed from the list on purpose is not brought back',
+   removedOne.changed === false && removedOne.docs.length === 0);
+ok('nothing new in Drive leaves changed false',
+   applyFoundFiles([docA, docB], [], [{fileId:'f_a'}, {fileId:'f_b'}]).changed === false);
+ok('a file with no category is filed as Other',
+   applyFoundFiles([], [], [{fileId:'f_c', name:'Loose file.pdf', link:'https://l'}]).docs[0].category === 'Other');
+
+/* The skill's own wording (redaction rules, wording tests, template shapes)
+ * moved out of this public repo in "Stop embedding the private skill text in
+ * the public repo" and lives only in the private hermetic-venue-config-writer
+ * skill now, so it cannot be checked from here any more -- there used to be
+ * dozens of ok()s above pinned to exact SKILL_TEXT phrases, and they went with
+ * it. What is left in index.html, and so what is left to test, is the one line
+ * that tells Claude which skill to run and what to run it on. */
+section('What the console tells Claude to run');
+ok('it names the skill Claude must invoke',
+   SKILL_INVOCATION.indexOf('"hermetic-venue-config-writer" skill') !== -1, SKILL_INVOCATION);
+ok('it asks for all three documents',
+   SKILL_INVOCATION.indexOf('LOCATION DETAILS') !== -1 &&
+   SKILL_INVOCATION.indexOf('CAMPAIGN INSTRUCTIONS') !== -1 &&
+   SKILL_INVOCATION.indexOf('OPEN QUESTIONS FOR THE CLIENT') !== -1, SKILL_INVOCATION);
+ok('it points the skill at the material that follows, not at nothing',
+   SKILL_INVOCATION.indexOf('from the material below') !== -1, SKILL_INVOCATION);
 
 print('\n' + pass + ' passed, ' + fail + ' failed');
 if (fail) throw new Error(fail + ' failing');

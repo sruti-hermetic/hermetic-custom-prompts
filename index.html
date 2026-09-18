@@ -893,6 +893,23 @@ function applyFileCheck(docs, info){
   return { docs: next, changed };
 }
 
+/* Files Drive has that the console does not know about yet -- uploaded
+   straight into the venue's folder rather than through the console's own
+   Upload button, so nothing here ever put them in data.docs to begin with.
+   Matched by id, so a file already tracked is never duplicated; one whose id
+   is in docsRemoved stays out -- removing it from the list was a decision
+   about the console, and finding it still sitting in Drive on the next check
+   must not silently undo that decision. */
+function applyFoundFiles(docs, docsRemoved, found){
+  const known = new Set((docs || []).map(d => d.fileId).filter(Boolean));
+  const removed = new Set(docsRemoved || []);
+  const additions = (found || [])
+    .filter(f => f && f.fileId && !known.has(f.fileId) && !removed.has(f.fileId))
+    .map(f => ({ name: f.name, link: f.link, category: f.category || 'Other', fileId: f.fileId }));
+  if (!additions.length) return { docs: docs || [], changed: false };
+  return { docs: [...(docs || []), ...additions], changed: true };
+}
+
 function mergeVenue(local, remote){
   const out = blankRecord({
     id: local.id || remote.id,
@@ -1616,20 +1633,35 @@ async function verifyLocationFiles(accountId, venueId, opts){
   if (Date.now() - (fileCheckedAt.get(venueId) || 0) < maxAge) return;
 
   const record = readVenue(accountId, venueId);
-  const ids = (((record || {}).data || {}).docs || []).filter(d => d.fileId).map(d => d.fileId);
-  if (!ids.length) return;
+  if (!record) return;
+  const account = readAccount(accountId);
+  // Still worth asking Drive even with nothing to check by id: that is
+  // exactly the case of a venue whose files were all dropped straight into
+  // its Drive folder rather than uploaded through the console, so the
+  // console has never had an id to ask about in the first place.
+  const ids = (record.data.docs || []).filter(d => d.fileId).map(d => d.fileId);
   fileCheckedAt.set(venueId, Date.now());
 
-  let info;
+  let data;
   try{
     const res = await fetch(syncUrl, {
       method:'POST',
       headers:{ 'Content-Type':'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action:'checkFiles', fileIds: ids })
+      body: JSON.stringify({
+        action: 'checkFiles',
+        fileIds: ids,
+        // Asks the backend to also list what is actually in the venue's Drive
+        // folder, so a file that landed there some way other than the
+        // console's own Upload button gets picked up too. Only sent when
+        // there is an account to name the folder by; an orphaned venue with
+        // no account row has no folder path to ask about.
+        segments: account ? [account.name, record.name] : undefined,
+        rootFolderId: extractFolderId(state.settings.rootFolderId),
+        rootFolderName: state.settings.rootFolderName
+      })
     });
-    const data = await readScriptJson(res);
+    data = await readScriptJson(res);
     if (data.error) throw new Error(data.error);
-    info = data.files || {};
   }catch(e){
     // Not being able to ask is not the same as the files being gone, so nothing
     // is marked. Clear the stamp so the next open tries again.
@@ -1640,9 +1672,10 @@ async function verifyLocationFiles(accountId, venueId, opts){
 
   let applied = false;
   editVenue(accountId, venueId, (rec)=>{
-    const result = applyFileCheck(rec.data.docs, info);
-    if (!result.changed) return null;
-    rec.data.docs = result.docs;
+    const checked = applyFileCheck(rec.data.docs, data.files || {});
+    const found = applyFoundFiles(checked.docs, rec.docsRemoved, data.found);
+    if (!checked.changed && !found.changed) return null;
+    rec.data.docs = found.docs;
     applied = true;
     const paths = ['data.docs'];
     paths.noTouch = true;    // Drive being tidied is not an edit to the answers
@@ -2379,7 +2412,7 @@ function renderVenue(item){
         <div class="t-overline">Client files</div>
         <div class="t-caption">Upload knowledge base files here, or attach them to the Claude chat directly if the Google Drive connector isn't enabled. The fields below cover only what the files don't.</div>
         ${banner('info','alert-triangle','The agent can\'t send these files to guests. Add a link in the Links section for anything to be sent out.')}
-        <div class="doc-list">${docs.map((d,i)=>renderDocChip(item.id, d, i)).join('')}${docs.length ? `<button class="icon-btn" data-recheck-files="${item.id}" title="Check these files against Google Drive">${icon('refresh-cw','icon',13)}</button>` : ''}</div>
+        <div class="doc-list">${docs.map((d,i)=>renderDocChip(item.id, d, i)).join('')}<button class="icon-btn" data-recheck-files="${item.id}" title="Check Google Drive: confirm these files, and pull in any file that was added straight to Drive instead of through Upload">${icon('refresh-cw','icon',13)}</button></div>
         <div class="upload-row">
           <select class="input" id="docCategory-${item.id}" data-category-for="${item.id}">
             ${DOC_TYPES.map(t=>`<option value="${escapeAttr(t)}"${t === chosenCategory ? ' selected' : ''}>${escapeHtml(t)}</option>`).join('')}

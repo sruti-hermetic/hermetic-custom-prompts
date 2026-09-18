@@ -32,7 +32,7 @@ echo ""
 echo "=== Sending work to the Sheet (index.html) ==="
 CUT=$(mktemp -t hermetic-cut)
 python3 - "$DIR/../index.html" "$CUT" <<'PY'
-import re, sys, json
+import re, sys
 src = open(sys.argv[1], encoding='utf-8').read()
 def grab(name):
     m = re.search(r'\nfunction ' + name + r'\(.*?\n\}\n', src, re.S)
@@ -44,19 +44,21 @@ parts = [
 ]
 parts += [grab(n) for n in ['localRead', 'localKeys', 'kindOfKey', 'queueLocalOnly',
                             'getAtPath', 'setAtPath', 'newVenueData', 'serializePart',
-                            'foldLegacyBlocks']]
-# the schema blocks and the skill text the console hands to Claude
+                            'foldLegacyBlocks', 'applyFileCheck', 'applyFoundFiles']]
+# the schema blocks, and the line that tells Claude which skill to run --
+# the skill's own text used to live here too, but it moved out into the
+# private skill itself (see "Stop embedding the private skill text in the
+# public repo"), so there is nothing left here to check it against.
 for pattern in [r"const LOCATION_SCHEMA = \[.*?\n\];",
                 r"const CAMPAIGN_SCHEMA = \[.*?\n\];",
                 r"const POLICY_FIELDS = \[.*?\n\];",
                 r"const FAQ_FIELDS = \[.*?\n\];",
                 r"const RETIRED_FIELDS = \[.*?\];",
-                r"const FILE_SOURCED_LABEL = .*?;"]:
+                r"const FILE_SOURCED_LABEL = .*?;",
+                r"const SKILL_INVOCATION = .*?;"]:
     m = re.search(pattern, src, re.S)
     if not m: raise SystemExit('tests: could not find ' + pattern)
     parts.append(m.group(0))
-skill = re.search(r'<script[^>]*id="skillText"[^>]*>(.*?)</script>', src, re.S)
-parts.append('const SKILL_TEXT = ' + json.dumps(skill.group(1).strip()) + ';')
 open(sys.argv[2], 'w', encoding='utf-8').write('\n'.join(parts))
 PY
 TMP2=$(mktemp -t hermetic-client)
