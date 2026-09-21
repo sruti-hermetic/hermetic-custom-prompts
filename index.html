@@ -276,6 +276,8 @@
   .subsection{ margin-bottom:var(--space-5); }
   .outline{ margin:0 0 var(--space-2); padding-left:17px; color:var(--mid-slate); font-size:12.5px; line-height:1.55; }
   .outline li{ margin-bottom:1px; }
+  .outline .outline-sub{ margin:2px 0 3px; padding-left:16px; list-style:disc; }
+  .outline .outline-sub li{ margin-bottom:0; }
   textarea.input.block-input{ min-height:96px; }
   .section-divider{ border:none; border-top:1px solid var(--border-subtle); margin:var(--space-5) 0; }
   .field-pair{ display:grid; grid-template-columns:1fr 1fr; gap:var(--space-3); }
@@ -553,15 +555,19 @@ const CAMPAIGN_SCHEMA = [
 
   {type:'block', key:'steps_text', title:'Workflow steps', hint:[
     'Every step in order, from after the name is confirmed to the handoff',
-    'For each: a name, when it starts as a condition (not a step number), what it does, what skips it',
-    'What a step holds back as well as asks'
-  ], placeholder:'Share availability\nTrigger: once date and guest count are known.\nDo: say what fits, unasked. If two fit, describe both.\nSkip if: the count is over the maximum.'},
+    'Steps include confirm the date and guest count, check availability, offer alternative venues, hand off',
+    ['EXAMPLE: Offer alternative venues:',
+      'Trigger: the date is unavailable and the guest is open to another space.',
+      'Do: offer the other space that fits the guest count, one option at a time.',
+      'Done when: the guest accepts an option or declines them all.',
+      'Skip if: no space fits the guest count, or the guest is not open to alternative dates.']
+  ]},
 
   {type:'block', key:'rules_text', title:'Rules', hint:[
     'One line per situation: "When X: do Y, never Z"',
-    'Which space to offer at which guest count, one line per band',
-    'Spaces never to offer, and when',
-    'Each line names one space: there is no combining two into one offer'
+    'Which space to offer at which guest count, and which spaces never to offer, and when',
+    'Pricing (never quote a figure; say the coordinator follows up with a tailored quote) or how to talk about a date that is unavailable',
+    'There is no combining two spaces into one'
   ], placeholder:'When the party is 1-14: offer the Press Room.\nWhen the guest asks about pricing: never quote a figure; say the coordinator follows up with a tailored quote.'},
 
   {type:'block', key:'links_text', title:'Links', hint:[
@@ -2351,7 +2357,14 @@ function renderVenuesList(items){
 
 function renderSchemaSection(itemId, data, sec){
   if (sec.type !== 'block') return '';
-  const outline = (sec.hint || []).map(h => `<li>${escapeHtml(h)}</li>`).join('');
+  const outline = (sec.hint || []).map(h => {
+    if (Array.isArray(h)){
+      const [label, ...sub] = h;
+      const subList = sub.map(s => `<li>${escapeHtml(s)}</li>`).join('');
+      return `<li>${escapeHtml(label)}<ul class="outline-sub">${subList}</ul></li>`;
+    }
+    return `<li>${escapeHtml(h)}</li>`;
+  }).join('');
   return `<div class="subsection">
       <div class="t-overline">${escapeHtml(sec.title)}</div>
       ${outline ? `<ul class="outline">${outline}</ul>` : ''}
