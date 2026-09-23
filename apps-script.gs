@@ -57,15 +57,17 @@ var SHEET_NAME = 'kv';
 var CELL_LIMIT = 45000;   // Sheets caps a cell at 50k characters; leave headroom.
 var DEFAULT_ROOT = 'ONBOARDING - Custom Prompt Uploads';
 
-var REAUTH_HINT =
-  'This deployment cannot write to Drive. Read-only Drive access is not enough ' +
-  '-- uploads create folders and files, which needs the full ' +
-  'https://www.googleapis.com/auth/drive scope. (1) Check appsscript.json lists ' +
-  'that exact scope, not drive.readonly or drive.file. (2) Revoke the old grant ' +
+var REAUTH_STEPS =
+  ' (1) Check appsscript.json lists that exact scope. (2) Revoke the old grant ' +
   'at https://myaccount.google.com/permissions -- Google will not re-prompt ' +
   'while a partial grant is on file, so authorize() silently keeps the narrow ' +
   'token. (3) Run authorize() and tick every box on the consent screen. ' +
   '(4) Deploy > Manage deployments > edit > New version.';
+
+var REAUTH_HINT =
+  'This deployment cannot write to Drive. Read-only Drive access is not enough ' +
+  '-- uploads create folders and files, which needs the full ' +
+  'https://www.googleapis.com/auth/drive scope.' + REAUTH_STEPS;
 
 /** Apps Script phrases missing-scope failures this way; a real Drive error won't. */
 function isAuthError_(err) {
@@ -73,6 +75,20 @@ function isAuthError_(err) {
   return msg.indexOf('do not have permission') !== -1 ||
          msg.indexOf('Required permissions') !== -1 ||
          msg.indexOf('ScriptError') !== -1;
+}
+
+/**
+ * Different calls need different scopes -- DriveApp needs drive, the direct
+ * UrlFetchApp.fetch in startUpload_ needs script.external_request -- and
+ * Apps Script names the missing one right in the error ("Required
+ * permissions: <scope>"). Naming it beats REAUTH_HINT's Drive-only wording,
+ * which sends someone to check a scope that was never the problem.
+ */
+function scopeErrorHint_(err) {
+  var msg = (err && err.message) || String(err);
+  var m = msg.match(/Required permissions?:\s*(\S+)/);
+  if (!m) return REAUTH_HINT;
+  return 'This deployment is missing a scope it now needs: ' + m[1] + '.' + REAUTH_STEPS;
 }
 
 /**
@@ -613,7 +629,7 @@ function driveResult_(file, folder) {
 
 function driveError_(err) {
   var msg = err.message || String(err);
-  if (isAuthError_(err)) msg = REAUTH_HINT + ' (Google said: ' + msg + ')';
+  if (isAuthError_(err)) msg = scopeErrorHint_(err) + ' (Google said: ' + msg + ')';
   return json_({ error: msg });
 }
 
