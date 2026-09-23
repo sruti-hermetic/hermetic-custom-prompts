@@ -3011,13 +3011,16 @@ function wireVenuesList(account, items){
           if (pct) pct.textContent = 'Sending ' + percent + '%';
           return;
         }
-        // Opening the Drive upload session: a quick round trip to Apps
-        // Script with nothing to measure, so the bar just shows it is alive.
+        // Either opening the Drive upload session or, after the send itself
+        // errored, confirming with Drive whether the file landed anyway --
+        // both are a round trip with nothing to measure, so the bar just
+        // shows it is alive.
+        const label = name === 'confirming' ? 'Confirming…' : 'Starting…';
         fill.classList.add('indeterminate');
         const startedAt = Date.now();
         const tick = ()=>{
           if (!pct) return;
-          pct.textContent = 'Starting… ' + Math.round((Date.now() - startedAt) / 1000) + 's';
+          pct.textContent = label + ' ' + Math.round((Date.now() - startedAt) / 1000) + 's';
         };
         tick();
         clearInterval(elapsedTimer);
@@ -3051,6 +3054,9 @@ function wireVenuesList(account, items){
       const ui = uploadIndicator(itemId);
       ui.start(file.name);
       statusEl.innerHTML = '';
+      // Known before the attempt, so a landed-but-errored upload (see catch
+      // below) can be told apart from a file that was already there.
+      const beforeIds = new Set((item.data.docs || []).map(d => d.fileId).filter(Boolean));
       try{
         const result = await uploadDocumentToDrive({
           segments: [account.name, item.name], category: categoryEl.value, file,
@@ -3072,7 +3078,24 @@ function wireVenuesList(account, items){
         state.openItemIds.add(itemId);
         await renderMain();
       }catch(err){
+        // A large file is the case most likely to land here: Drive can take
+        // the bytes and lose the connection on the way back, which reads as
+        // a failure even though nothing needs re-sending. Rather than flash
+        // an error that turns out to be wrong, ask Drive directly -- same
+        // check the venue's Drive files use to notice a file dropped in
+        // outside the console -- and keep the spinner up while it answers.
+        ui.phase('confirming', 0);
+        await verifyLocationFiles(account.id, itemId, { force: true });
+        const after = readVenue(account.id, itemId);
+        const landed = after && (after.data.docs || [])
+          .some(d => d.fileId && !beforeIds.has(d.fileId) && d.name === file.name);
         ui.stop();
+        if (landed){
+          pendingFiles.delete(itemId);
+          state.openItemIds.add(itemId);
+          await renderMain();
+          return;
+        }
         statusEl.innerHTML = banner('destructive','alert-triangle','Upload failed: ' + err.message);
       }
     });
