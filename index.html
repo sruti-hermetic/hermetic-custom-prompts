@@ -1561,14 +1561,66 @@ async function uploadDocumentToDrive({ segments, category, file, onPhase }){
    report upload progress at all, so this is the one request in the file
    that goes through XHR instead -- Drive's upload endpoint supports the
    CORS preflight that provokes, unlike the Apps Script web app the rest of
-   this file talks to. */
-function putFileToUploadUrl(uploadUrl, file, onProgress){
+   this file talks to.
+
+   One automatic retry on failure: a dropped connection here does not mean
+   Drive has nothing, it often means the response just never made it back --
+   so the retry asks Drive how many bytes it actually has (checkUploadStatus_)
+   and sends only what's missing, rather than resending the whole file into a
+   session Drive may already consider complete. */
+async function putFileToUploadUrl(uploadUrl, file, onProgress){
+  try{
+    return await putRange_(uploadUrl, file, 0, onProgress);
+  }catch(err){
+    const status = await checkUploadStatus_(uploadUrl, file.size);
+    if (status.complete) return status.body;
+    return await putRange_(uploadUrl, file, status.nextByte, onProgress);
+  }
+}
+
+/* Queries a resumable session with an empty, header-only PUT: Drive answers
+   308 with the range it has (or nothing, if it has none) when the upload is
+   incomplete, and 200/201 with the finished file when it already went
+   through -- which is exactly the case a dropped response looks like from
+   here. */
+function checkUploadStatus_(uploadUrl, totalSize){
   return new Promise((resolve, reject)=>{
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', uploadUrl, true);
+    xhr.setRequestHeader('Content-Range', 'bytes */' + totalSize);
+    xhr.onload = () => {
+      if (xhr.status === 200 || xhr.status === 201){
+        try{ resolve({ complete: true, body: JSON.parse(xhr.responseText) }); }
+        catch(e){ reject(new Error('Drive said the upload finished but sent back something unreadable.')); }
+        return;
+      }
+      if (xhr.status === 308){
+        const range = xhr.getResponseHeader('Range');
+        const m = range && range.match(/-(\d+)$/);
+        resolve({ complete: false, nextByte: m ? parseInt(m[1], 10) + 1 : 0 });
+        return;
+      }
+      reject(new Error('Drive would not say how much of the upload it had (status ' + xhr.status + ').'));
+    };
+    xhr.onerror = () => reject(new Error('Network error while checking the upload with Drive.'));
+    xhr.send();
+  });
+}
+
+/* Sends file[start:] to a resumable session, reporting progress against the
+   whole file rather than just this range so a resume doesn't jump the
+   percentage backwards. */
+function putRange_(uploadUrl, file, start, onProgress){
+  return new Promise((resolve, reject)=>{
+    const total = file.size;
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl, true);
     xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+    if (start > 0){
+      xhr.setRequestHeader('Content-Range', 'bytes ' + start + '-' + (total - 1) + '/' + total);
+    }
     if (xhr.upload && onProgress){
-      xhr.upload.onprogress = (e)=>{ if (e.lengthComputable) onProgress(e.loaded / e.total); };
+      xhr.upload.onprogress = (e)=>{ if (e.lengthComputable) onProgress((start + e.loaded) / total); };
     }
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300){
@@ -1579,7 +1631,7 @@ function putFileToUploadUrl(uploadUrl, file, onProgress){
       }
     };
     xhr.onerror = () => reject(new Error('Network error while sending the file to Drive.'));
-    xhr.send(file);
+    xhr.send(start > 0 ? file.slice(start) : file);
   });
 }
 
