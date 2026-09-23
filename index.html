@@ -1492,19 +1492,6 @@ function extractFolderId(input){
   if (m) return m[1];
   return s;
 }
-/* Reading the file is the one leg of an upload whose length the browser will
-   actually tell us, so it is the one that gets a real percentage. */
-function fileToBase64(file, onProgress){
-  return new Promise((resolve, reject)=>{
-    const reader = new FileReader();
-    if (onProgress){
-      reader.onprogress = (e)=>{ if (e.lengthComputable) onProgress(e.loaded / e.total); };
-    }
-    reader.onload = () => { if (onProgress) onProgress(1); resolve(reader.result.split(',')[1]); };
-    reader.onerror = () => reject(new Error('Could not read file'));
-    reader.readAsDataURL(file);
-  });
-}
 /**
  * Apps Script answers with HTML, not JSON, whenever the request never reaches
  * doPost -- a sign-in page when the deployment is not shared with "Anyone", a
@@ -1535,48 +1522,71 @@ function parseScriptText(text){
     throw new Error('The script returned a web page instead of data' + (title ? ' ("' + title + '")' : '') + '. That usually means the script hit an error. Check Apps Script > Executions for the failing run.');
   }
 }
-/* WHY THERE IS NO PERCENTAGE ON THE NETWORK LEG
-   XMLHttpRequest is the only thing that reports how much of a request body has
-   gone out, and reaching it costs more than it is worth here: per the XHR spec,
-   registering any listener on xhr.upload sets the use-CORS-preflight flag, so
-   the browser sends an OPTIONS request first. An Apps Script web app has no
-   doOptions and never answers one, the preflight fails, and the upload fails
-   with it. A plain fetch with a text/plain body stays a simple request and goes
-   straight through, which is why the rest of this file uses it.
-
-   So the only honest report of the network leg is that it is still running.
-   Reading the file is measurable and does get a real percentage; after that the
-   bar goes indeterminate and a running clock shows the request is alive. No
-   invented percentages: a fake bar sitting at 90% is worse than no bar. */
+/* Uploading used to mean reading the whole file into a base64 string and
+   POSTing it to Apps Script as JSON -- base64 inflates size by about a
+   third, and Apps Script web apps cap how large a doPost body can be, so
+   anything much over a few MB failed outright. Instead, ask Apps Script
+   (which already holds Drive access) to open a Drive resumable-upload
+   session, then PUT the raw file straight to Drive from here. The bytes
+   never pass through Apps Script, so there is no practical ceiling, and
+   XHR's upload.onprogress gives a real percentage on the leg that actually
+   takes time. */
 async function uploadDocumentToDrive({ segments, category, file, onPhase }){
   if (!syncUrl) throw new Error('Set up Google Sheet sync in Settings first. File upload uses the same connection.');
   const phase = onPhase || (()=>{});
-  phase('reading', 0);
-  const base64 = await fileToBase64(file, (fraction)=> phase('reading', fraction));
-  phase('sending');
+  phase('starting', 0);
   const res = await fetch(syncUrl, {
     method:'POST',
     headers:{ 'Content-Type':'text/plain;charset=utf-8' },
     body: JSON.stringify({
-      action:'uploadFile',
+      action:'startUpload',
       rootFolderId: extractFolderId(state.settings.rootFolderId),
       rootFolderName: state.settings.rootFolderName,
       segments,
       category,
       filename: file.name,
-      mimeType: file.type || 'application/octet-stream',
-      base64
+      mimeType: file.type || 'application/octet-stream'
     })
   });
-  const data = await readScriptJson(res);
-  if (data.error) throw new Error(data.error);
-  return data; // { fileId, link, folderId, folderLink }
+  const startData = await readScriptJson(res);
+  if (startData.error) throw new Error(startData.error);
+  const { uploadUrl, folderId, folderLink } = startData;
+  phase('sending', 0);
+  const uploaded = await putFileToUploadUrl(uploadUrl, file, (fraction)=> phase('sending', fraction));
+  return { fileId: uploaded.id, link: uploaded.webViewLink, folderId, folderLink };
+}
+
+/* The other half of uploadDocumentToDrive: streams the file directly to the
+   Drive resumable-upload session Apps Script opened. Plain fetch cannot
+   report upload progress at all, so this is the one request in the file
+   that goes through XHR instead -- Drive's upload endpoint supports the
+   CORS preflight that provokes, unlike the Apps Script web app the rest of
+   this file talks to. */
+function putFileToUploadUrl(uploadUrl, file, onProgress){
+  return new Promise((resolve, reject)=>{
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl, true);
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+    if (xhr.upload && onProgress){
+      xhr.upload.onprogress = (e)=>{ if (e.lengthComputable) onProgress(e.loaded / e.total); };
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300){
+        try{ resolve(JSON.parse(xhr.responseText)); }
+        catch(e){ reject(new Error('Drive accepted the upload but sent back something unreadable.')); }
+      } else {
+        reject(new Error('Drive rejected the upload (status ' + xhr.status + '): ' + xhr.responseText));
+      }
+    };
+    xhr.onerror = () => reject(new Error('Network error while sending the file to Drive.'));
+    xhr.send(file);
+  });
 }
 
 /* Copies a file that is already in Drive into another venue's folder. The copy
    is done by the Apps Script, inside Drive -- pulling the bytes down and
    pushing them back up would make duplicating a venue as slow as uploading its
-   files again, and would fail on anything that was over the upload ceiling. */
+   files again. */
 async function copyDocumentInDrive({ segments, category, fileId, filename }){
   if (!syncUrl) throw new Error('Set up Google Sheet sync in Settings first. Copying files uses the same connection.');
   const res = await fetch(syncUrl, {
@@ -2939,22 +2949,23 @@ function wireVenuesList(account, items){
       },
       phase(name, fraction){
         if (!fill) return;
-        if (name === 'reading'){
-          // Measurable, so show the real number.
+        if (name === 'sending'){
+          // The PUT to Drive reports real upload progress (see
+          // putFileToUploadUrl), so show the actual number.
+          clearInterval(elapsedTimer);
           fill.classList.remove('indeterminate');
           const percent = Math.round((fraction || 0) * 100);
           fill.style.width = percent + '%';
-          if (pct) pct.textContent = 'Reading ' + percent + '%';
+          if (pct) pct.textContent = 'Sending ' + percent + '%';
           return;
         }
-        // On its way to Drive. Nothing here can be measured (see
-        // uploadDocumentToDrive), so the bar moves without claiming a number and
-        // a running clock shows the request has not died.
+        // Opening the Drive upload session: a quick round trip to Apps
+        // Script with nothing to measure, so the bar just shows it is alive.
         fill.classList.add('indeterminate');
         const startedAt = Date.now();
         const tick = ()=>{
           if (!pct) return;
-          pct.textContent = 'Sending… ' + Math.round((Date.now() - startedAt) / 1000) + 's';
+          pct.textContent = 'Starting… ' + Math.round((Date.now() - startedAt) / 1000) + 's';
         };
         tick();
         clearInterval(elapsedTimer);
@@ -2985,10 +2996,6 @@ function wireVenuesList(account, items){
       const file = pendingFiles.get(itemId) || (fileEl.files && fileEl.files[0]);
       if (!item){ statusEl.innerHTML = banner('destructive','alert-triangle','This location was removed by a teammate.'); return; }
       if (!file){ statusEl.innerHTML = banner('destructive','alert-triangle','Choose a file first.'); return; }
-      if (file.size > 8 * 1024 * 1024){
-        statusEl.innerHTML = banner('destructive','alert-triangle','File is over 8MB. Upload it to Drive manually and paste the link into a note instead.');
-        return;
-      }
       const ui = uploadIndicator(itemId);
       ui.start(file.name);
       statusEl.innerHTML = '';

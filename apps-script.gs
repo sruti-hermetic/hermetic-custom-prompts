@@ -308,10 +308,11 @@ function doPost(e) {
     return json_({ error: 'Body was not JSON: ' + err.message });
   }
 
-  if (body.action === 'set')        return setKey_(body);
-  if (body.action === 'uploadFile') return uploadFile_(body);
-  if (body.action === 'copyFile')   return copyFile_(body);
-  if (body.action === 'checkFiles') return checkFiles_(body);
+  if (body.action === 'set')         return setKey_(body);
+  if (body.action === 'startUpload') return startUpload_(body);
+  if (body.action === 'uploadFile')  return uploadFile_(body);
+  if (body.action === 'copyFile')    return copyFile_(body);
+  if (body.action === 'checkFiles')  return checkFiles_(body);
   return json_({ error: 'Unknown action: ' + body.action });
 }
 
@@ -631,11 +632,53 @@ function uploadFile_(body) {
 }
 
 /**
+ * Opens a Drive resumable-upload session and hands the URL straight to the
+ * browser, which then PUTs the file bytes directly to Drive. The file never
+ * passes through doPost: a base64 JSON body here would inflate the file by
+ * ~33% and run into the size ceiling Apps Script web apps put on request
+ * bodies, which is what used to make anything much over a few MB fail (see
+ * the client's putFileToUploadUrl for the other half of this).
+ *
+ * ScriptApp.getOAuthToken() works for an anonymous visitor because this web
+ * app is deployed to execute as the deploying user (see appsscript.json) --
+ * every Drive call in this file, including the ones above, already runs as
+ * that same account.
+ */
+function startUpload_(body) {
+  try {
+    var folder = destinationFolder_(body);
+    var metadata = {
+      name: body.filename || 'upload',
+      parents: [folder.getId()]
+    };
+    if (body.mimeType) metadata.mimeType = body.mimeType;
+    var initRes = UrlFetchApp.fetch(
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,webViewLink',
+      {
+        method: 'post',
+        contentType: 'application/json; charset=UTF-8',
+        headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+        payload: JSON.stringify(metadata),
+        muteHttpExceptions: true
+      }
+    );
+    if (initRes.getResponseCode() >= 300) {
+      return json_({ error: 'Drive would not start the upload: ' + initRes.getContentText() });
+    }
+    var headers = initRes.getHeaders();
+    var uploadUrl = headers['Location'] || headers['location'];
+    if (!uploadUrl) return json_({ error: 'Drive did not return an upload session.' });
+    return json_({ uploadUrl: uploadUrl, folderId: folder.getId(), folderLink: folder.getUrl() });
+  } catch (err) {
+    return driveError_(err);
+  }
+}
+
+/**
  * Copies a file that is already in Drive into another venue's folder, for
  * duplicating a venue. The copy happens entirely inside Drive: sending the
  * bytes down to the browser and back up would make duplicating a venue with a
- * few large PDFs take as long as uploading them again, and would fail on
- * anything over the upload ceiling that was fine when it first went in.
+ * few large PDFs take as long as uploading them again.
  *
  * A real copy, not a shortcut to the original -- the point of duplicating a
  * venue is that the new one can have its own files edited or removed without
