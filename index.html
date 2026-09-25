@@ -108,6 +108,7 @@
   .icon-btn{ display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:var(--radius-md); border:none; background:transparent; color:var(--evening-slate); flex-shrink:0; }
   .icon-btn:hover{ background:oklch(0.926 0.013 255 / 0.6); }
   .sidebar-section{ padding:var(--space-2) var(--space-3) var(--space-1); }
+  .sidebar-section-row{ display:flex; align-items:center; justify-content:space-between; }
   .hide-collapsed{ overflow:hidden; white-space:nowrap; }
   .sidebar.collapsed .hide-collapsed{ display:none; }
   .sidebar.collapsed .nav-list{ display:none; }
@@ -327,7 +328,7 @@
       <div class="wordmark hide-collapsed">Hermetic<span> AI</span></div>
       <button class="icon-btn" id="btnCollapse" title="Collapse sidebar"></button>
     </div>
-    <div class="sidebar-section hide-collapsed" style="display:flex; align-items:center; justify-content:space-between;">
+    <div class="sidebar-section sidebar-section-row hide-collapsed">
       <span class="t-overline" style="margin-bottom:0;">Accounts</span>
       <button class="icon-btn" id="btnToggleAccountSearch" title="Search accounts"></button>
     </div>
@@ -2327,6 +2328,14 @@ document.getElementById('btnCollapse').addEventListener('click', ()=>{
   state.sidebarCollapsed = !state.sidebarCollapsed;
   document.getElementById('sidebar').classList.toggle('collapsed', state.sidebarCollapsed);
   document.getElementById('btnCollapse').innerHTML = icon(state.sidebarCollapsed ? 'chevrons-right' : 'chevrons-left');
+  // These two rows carry their own inline display:block/none, which -- being
+  // inline -- outranks the collapsed sidebar's stylesheet rule and would
+  // otherwise keep showing through a collapsed rail.
+  if (state.sidebarCollapsed){
+    document.getElementById('newAccountRow').style.display = 'none';
+    document.getElementById('accountSearchRow').style.display = 'none';
+    if (state.accountSearch){ state.accountSearch = ''; renderSidebar(); }
+  }
 });
 function openNewAccountRow(){
   if (state.sidebarCollapsed){
