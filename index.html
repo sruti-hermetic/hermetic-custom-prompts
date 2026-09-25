@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hermetic AI: Account setup</title>
+<title>Hermetic AI: Account Setup</title>
 <!-- Both font hosts get their own handshake up front: the General Sans files sit
      on cdnfonts, and the Google Fonts CSS hands off to gstatic for the actual
      woff2. The General Sans @font-face rules are declared inline below rather
@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="font" type="font/woff" href="https://fonts.cdnfonts.com/s/85793/GeneralSans-Regular.woff" crossorigin>
 <link rel="preload" as="font" type="font/woff" href="https://fonts.cdnfonts.com/s/85793/GeneralSans-Medium.woff" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Raleway:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   /* font-display:swap renders in the fallback face immediately and swaps General
      Sans in when it lands, instead of blanking the text while it downloads. */
@@ -110,22 +110,22 @@
   .sidebar-section{ padding:var(--space-2) var(--space-3) var(--space-1); }
   .hide-collapsed{ overflow:hidden; white-space:nowrap; }
   .sidebar.collapsed .hide-collapsed{ display:none; }
-  .collapsed-only{ display:none; }
-  .sidebar.collapsed .collapsed-only{ display:block !important; }
-
-  .add-account-btn{ display:flex; align-items:center; gap:var(--space-2); width:100%; height:32px; padding:0 var(--space-2); border:none; background:transparent; border-radius:var(--radius-md); color:var(--evening-slate); font-size:14px; font-weight:500; }
-  .add-account-btn:hover{ background:oklch(0.926 0.013 255 / 0.6); color:var(--venue-blue-deep); }
+  .sidebar.collapsed .nav-list{ display:none; }
 
   .new-account-row{ padding:var(--space-1) var(--space-3) var(--space-2); }
   .new-account-row input{ width:100%; height:32px; padding:0 var(--space-2-5); border:1px solid var(--border-default); border-radius:var(--radius-md); background:var(--canvas); font-size:13px; }
   .new-account-row input:focus{ outline:none; border-color:var(--venue-blue); box-shadow:0 0 0 2px var(--venue-blue-tint), 0 0 0 3px oklch(0.432 0.193 267 / 0.25); }
+
+  .list-search{ position:relative; }
+  .list-search .list-search-icon{ position:absolute; left:var(--space-2-5); top:50%; transform:translateY(-50%); display:flex; color:var(--mid-slate); pointer-events:none; }
+  .list-search-with-action{ display:flex; align-items:center; gap:var(--space-2); }
+  .list-search-with-action input.input{ flex:1; }
   .nav-list{ flex:1; overflow-y:auto; padding:var(--space-1) var(--space-2); }
   .nav-item{ display:flex; align-items:center; gap:var(--space-2); height:34px; padding:0 var(--space-2); border-radius:var(--radius-md); color:var(--evening-slate); font-size:14px; margin-bottom:1px; }
   .nav-item:hover{ background:oklch(0.926 0.013 255 / 0.6); }
-  .nav-item.active{ background:var(--venue-blue); color:#fff; font-weight:600; box-shadow:var(--shadow-hover); }
+  .nav-item.active{ background:var(--evening-slate); color:#fff; font-weight:600; box-shadow:var(--shadow-hover); }
   .nav-item .name{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .nav-empty{ padding:var(--space-4) var(--space-3); color:var(--mid-slate); font-size:12.5px; }
-  .sync-pill{ margin:0 var(--space-3) var(--space-3); }
   .topbar-right{ display:flex; align-items:center; gap:var(--space-3); }
   .peer-dot{
     margin-left:auto; flex:none; min-width:18px; height:18px; padding:0 5px;
@@ -195,12 +195,15 @@
   .badge-destructive{ background:var(--badge-destructive-bg); border-color:var(--badge-destructive-border); color:var(--badge-destructive-text); }
   .badge-warning{ background:var(--badge-warning-bg); border-color:var(--badge-warning-border); color:var(--badge-warning-text); }
 
+  .sync-pill .badge{ height:36px; padding:0 var(--space-3); font-size:14px; gap:var(--space-1-5); }
+
   .field{ margin-bottom:var(--space-4); }
   .field label{ display:block; font-size:13px; font-weight:500; margin-bottom:var(--space-1-5); color:var(--night-ink); }
   input[type=text].input, textarea.input{ width:100%; padding:0 var(--space-2-5); border:1px solid var(--border-default); border-radius:var(--radius-md); background:var(--canvas); color:var(--night-ink); font-size:13.5px; }
   input[type=text].input{ height:36px; }
   textarea.input{ padding:var(--space-2-5); min-height:44px; resize:vertical; line-height:1.5; }
   input.input:focus, textarea.input:focus{ outline:none; border-color:var(--venue-blue); box-shadow:0 0 0 2px var(--canvas), 0 0 0 4px oklch(0.432 0.193 267 / 0.35); }
+  .list-search input.input{ padding-left:calc(var(--space-2-5) + 20px); }
   /* select carried .input but matched no rule, so it rendered as a raw native
      control next to styled inputs. Same box as a text input, with the native
      arrow replaced so it looks the same in every browser. */
@@ -245,9 +248,6 @@
      claiming to know and just shows that work is still happening. */
   .progress-fill.indeterminate{ width:35%; animation:progress-slide 1.1s ease-in-out infinite; transition:none; }
   @keyframes progress-slide{ from{ margin-left:-35%; } to{ margin-left:100%; } }
-
-  .inline-add{ display:flex; gap:var(--space-2); margin-bottom:var(--space-5); }
-  .inline-add input{ flex:1; }
 
   .part-head{ margin-bottom:var(--space-4); padding-bottom:var(--space-2); border-bottom:1px solid var(--border-subtle); }
   .part-head .t-caption{ margin-top:2px; }
@@ -327,18 +327,21 @@
       <div class="wordmark hide-collapsed">Hermetic<span> AI</span></div>
       <button class="icon-btn" id="btnCollapse" title="Collapse sidebar"></button>
     </div>
-    <div class="sidebar-section hide-collapsed"><span class="t-overline" style="margin-bottom:0;">Accounts</span></div>
-    <div class="hide-collapsed" style="padding:0 var(--space-3) var(--space-2);">
-      <button class="add-account-btn" id="btnAddAccountTop"></button>
+    <div class="sidebar-section hide-collapsed" style="display:flex; align-items:center; justify-content:space-between;">
+      <span class="t-overline" style="margin-bottom:0;">Accounts</span>
+      <button class="icon-btn" id="btnToggleAccountSearch" title="Search accounts"></button>
     </div>
-    <div class="collapsed-only" style="padding:0 var(--space-2) var(--space-2);">
-      <button class="icon-btn" id="btnAddAccountCollapsed" title="Add account" style="width:100%;"></button>
+    <div class="hide-collapsed" style="padding:0 var(--space-3) var(--space-2);">
+      <button class="btn btn-primary" id="btnAddAccountTop" style="width:100%;"></button>
     </div>
     <div class="new-account-row hide-collapsed" id="newAccountRow" style="display:none;">
       <input type="text" id="newAccountInput" placeholder="Account name">
     </div>
+    <div class="list-search hide-collapsed" id="accountSearchRow" style="margin:0 var(--space-3) var(--space-2); display:none;">
+      <span class="list-search-icon" id="accountSearchIcon"></span>
+      <input type="text" class="input" id="accountSearchInput" placeholder="Search accounts">
+    </div>
     <div class="nav-list" id="accountsList"></div>
-    <div class="hide-collapsed sync-pill" id="syncStatusPill"></div>
   </aside>
 
   <main class="main">
@@ -348,6 +351,7 @@
         <div class="t-caption topbar-meta" id="pageMeta">Add an account to set up locations for Mia.</div>
       </div>
       <div class="topbar-right">
+        <div class="sync-pill" id="syncStatusPill"></div>
         <div id="presenceBar"></div>
         <button class="btn btn-outline" id="btnSettings"></button>
       </div>
@@ -364,6 +368,7 @@
 ================================================================= */
 const ICONS = {
   'plus': '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  'search': '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
   'x': '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
   'chevron-right': '<polyline points="9 18 15 12 9 6"/>',
   'chevrons-left': '<polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/>',
@@ -1766,7 +1771,9 @@ let state = {
   view: 'main',                  // 'main' or 'settings'; a background repaint respects it
   settings: { rootFolderName: "ONBOARDING - Custom Prompt Uploads", rootFolderId: "" },
   openItemIds: new Set(),
-  sidebarCollapsed: false
+  sidebarCollapsed: false,
+  accountSearch: '',
+  venueSearch: ''
 };
 
 /* =================================================================
@@ -2073,7 +2080,7 @@ function renderSyncPill(){
   const el = document.getElementById('syncStatusPill');
   if (!el) return;
   const pill = (kind, ico, text) =>
-    `<span class="badge badge-${kind}" style="width:100%; justify-content:center;">${icon(ico, 'icon', 12)}${text}</span>`;
+    `<span class="badge badge-${kind}">${icon(ico, 'icon', 16)}${text}</span>`;
   if (!syncUrl){
     el.title = 'Answers are saved in this browser only. Connect the Sheet in Settings to share them.';
     el.innerHTML = pill('slate','info','Not connected');
@@ -2082,7 +2089,7 @@ function renderSyncPill(){
   // A write that keeps failing must never be able to look like one that worked.
   if (writeQueue.size && writeFailures > 0){
     el.title = lastWriteError || '';
-    el.innerHTML = pill('destructive','alert-triangle','Not saved yet, retrying');
+    el.innerHTML = pill('destructive','alert-triangle','Not saved yet, Retrying');
     return;
   }
   // Typed but not sent yet is not an error and not a wait anybody needs to watch:
@@ -2147,7 +2154,7 @@ const DEFAULT_SETTINGS = { rootFolderName: "ONBOARDING - Custom Prompt Uploads",
    allowed to differ -- renaming the folder in Drive to match this would strand
    every file already uploaded under the old name. Settings still shows the real
    folder. */
-const WORKSPACE_LABEL = 'ONBOARDING - Custom Instructions Creation';
+const WORKSPACE_LABEL = 'HERMETIC AI ONBOARDING - Agent Setup';
 
 function readTopLevelState(){
   state.accounts = readAccounts();
@@ -2198,8 +2205,9 @@ function restoreFocus(snap){
 
 async function init(){
   document.getElementById('btnCollapse').innerHTML = icon('chevrons-left');
-  document.getElementById('btnAddAccountTop').innerHTML = icon('plus') + '<span>Add account</span>';
-  document.getElementById('btnAddAccountCollapsed').innerHTML = icon('plus');
+  document.getElementById('btnAddAccountTop').innerHTML = icon('plus') + '<span>New Account</span>';
+  document.getElementById('btnToggleAccountSearch').innerHTML = icon('search', 'icon', 14);
+  document.getElementById('accountSearchIcon').innerHTML = icon('search', 'icon', 14);
   document.getElementById('btnSettings').innerHTML = icon('settings') + '<span>Settings</span>';
 
   // Anything the last session could not get up to the Sheet goes back in the
@@ -2248,7 +2256,13 @@ function renderSidebar(){
     list.innerHTML = `<div class="nav-empty hide-collapsed">No accounts yet.</div>`;
     return;
   }
-  list.innerHTML = state.accounts.map(acc => {
+  const term = state.accountSearch.trim().toLowerCase();
+  const accounts = term ? state.accounts.filter(a => a.name.toLowerCase().includes(term)) : state.accounts;
+  if (accounts.length === 0){
+    list.innerHTML = `<div class="nav-empty hide-collapsed">No accounts match &ldquo;${escapeHtml(state.accountSearch.trim())}&rdquo;.</div>`;
+    return;
+  }
+  list.innerHTML = accounts.map(acc => {
     const active = acc.id === state.currentAccountId ? 'active' : '';
     // Who is in each account, before you open it -- the cheapest way to stop
     // two specialists landing on the same customer.
@@ -2304,6 +2318,7 @@ async function confirmDeleteAccount(accountId){
 }
 async function selectAccount(id){
   state.currentAccountId = id;
+  state.venueSearch = '';
   renderSidebar();
   heartbeat();            // tell everyone else where this browser went
   await renderMain();
@@ -2319,6 +2334,7 @@ function openNewAccountRow(){
     document.getElementById('sidebar').classList.remove('collapsed');
     document.getElementById('btnCollapse').innerHTML = icon('chevrons-left');
   }
+  document.getElementById('accountSearchRow').style.display = 'none';
   document.getElementById('newAccountRow').style.display = 'block';
   document.getElementById('newAccountInput').focus();
 }
@@ -2326,7 +2342,18 @@ document.getElementById('btnAddAccountTop').addEventListener('click', ()=>{
   const row = document.getElementById('newAccountRow');
   if (row.style.display === 'block'){ row.style.display = 'none'; } else { openNewAccountRow(); }
 });
-document.getElementById('btnAddAccountCollapsed').addEventListener('click', openNewAccountRow);
+document.getElementById('btnToggleAccountSearch').addEventListener('click', ()=>{
+  const row = document.getElementById('accountSearchRow');
+  const showing = row.style.display !== 'none';
+  if (showing){
+    row.style.display = 'none';
+    if (state.accountSearch){ state.accountSearch = ''; renderSidebar(); }
+    return;
+  }
+  document.getElementById('newAccountRow').style.display = 'none';
+  row.style.display = 'block';
+  document.getElementById('accountSearchInput').focus();
+});
 document.getElementById('newAccountInput').addEventListener('keydown', async (e)=>{
   if (e.key === 'Enter'){
     const name = e.target.value.trim();
@@ -2340,6 +2367,10 @@ document.getElementById('newAccountInput').addEventListener('keydown', async (e)
     renderSidebar();
     await selectAccount(acc.id);
   }
+});
+document.getElementById('accountSearchInput').addEventListener('input', (e)=>{
+  state.accountSearch = e.target.value;
+  renderSidebar();
 });
 
 /* =================================================================
@@ -2386,7 +2417,7 @@ async function renderMain(opts){
     return renderMain();
   }
   title.textContent = account.name;
-  meta.innerHTML = `<span class="mono" style="font-size:11.5px;">${escapeHtml(WORKSPACE_LABEL)} - ${escapeHtml(account.name)}</span>`;
+  meta.innerHTML = `<span style="font-family:'Raleway', sans-serif; font-weight:400; font-size:11.5px;">${escapeHtml(WORKSPACE_LABEL)}</span>`;
 
   // Only an account the mirror knows nothing about waits on the network. A
   // returning browser paints its cached answers immediately and lets the pull
@@ -2399,23 +2430,41 @@ async function renderMain(opts){
 
   const venues = readVenues(account.id);
 
-  content.innerHTML = `<div id="venueList"></div>`;
-  const listEl = document.getElementById('venueList');
-  listEl.innerHTML = renderVenuesList(venues);
-  wireVenuesList(account, venues);
+  content.innerHTML = `<div class="list-search list-search-with-action" style="margin-bottom:var(--space-3);">
+      <span class="list-search-icon">${icon('search','icon',14)}</span>
+      <input type="text" class="input" id="venueSearchInput" placeholder="Search locations" value="${escapeAttr(state.venueSearch)}">
+      <button class="btn btn-primary" id="btnAddVenue">${icon('plus')}Add location</button>
+    </div>
+    <div id="venueList"></div>`;
+  // Typing here repaints only the list below, not this box, so the caret
+  // and scroll position of the search field itself are never disturbed.
+  const paintVenues = ()=>{
+    const term = state.venueSearch.trim().toLowerCase();
+    const filtered = term ? venues.filter(v => v.name.toLowerCase().includes(term)) : venues;
+    const listEl = document.getElementById('venueList');
+    listEl.innerHTML = renderVenuesList(filtered, { searchTerm: state.venueSearch.trim(), totalCount: venues.length });
+    wireVenuesList(account, filtered);
+  };
+  paintVenues();
+  document.getElementById('venueSearchInput').addEventListener('input', (e)=>{
+    state.venueSearch = e.target.value;
+    paintVenues();
+  });
+  document.getElementById('btnAddVenue').addEventListener('click', ()=> openAddVenueDialog(account));
   renderPresence();
   restoreFocus(snap);
 }
 
-function renderVenuesList(items){
-  const addRow = `<div class="inline-add">
-      <input type="text" class="input" id="newVenueInput" placeholder="New location name">
-      <button class="btn btn-primary" id="btnAddVenue">${icon('plus')}Add location</button>
-    </div>`;
-  if (items.length === 0){
-    return addRow + `<div class="empty-state">${icon('map-pin','icon-lg')}<div class="t-title">No locations yet</div><div class="t-body">Add one above. Each location holds the facts and the behavior together, and produces both documents Mia needs.</div></div>`;
+function renderVenuesList(items, opts){
+  const searchTerm = (opts && opts.searchTerm) || '';
+  const totalCount = (opts && opts.totalCount != null) ? opts.totalCount : items.length;
+  if (totalCount === 0){
+    return `<div class="empty-state">${icon('map-pin','icon-lg')}<div class="t-title">No locations yet</div><div class="t-body">Add one above. Each location holds the facts and the behavior together, and produces both documents Mia needs.</div></div>`;
   }
-  return addRow + items.map(item => renderVenue(item)).join('');
+  if (items.length === 0){
+    return `<div class="empty-state">${icon('search','icon-lg')}<div class="t-title">No matches</div><div class="t-body">No locations match &ldquo;${escapeHtml(searchTerm)}&rdquo;.</div></div>`;
+  }
+  return items.map(item => renderVenue(item)).join('');
 }
 
 function renderSchemaSection(itemId, data, sec){
@@ -2517,7 +2566,7 @@ function renderVenue(item){
       <div class="row-actions" style="display:flex; gap:var(--space-2);">
         <button class="btn btn-primary" data-copy-claude="${item.id}">${icon('copy')}Copy for Claude</button>
       </div>
-      <div class="t-caption" style="margin-top:var(--space-2);">Paste this into a Claude.ai chat, attach the client files listed above, and Claude returns the Location Details, the Campaign Instructions, and the open questions.</div>
+      <div class="t-caption" style="margin-top:var(--space-2);">Paste this into a Claude.ai chat. Claude returns the Location Details, the Campaign Instructions, and the open questions.</div>
     </div>
   </div>`;
 }
@@ -2791,6 +2840,38 @@ function openDuplicateDialog(account, item){
   });
 }
 
+function openAddVenueDialog(account){
+  openModal(`
+    <div class="t-title" style="margin-bottom:var(--space-4);">Add location</div>
+    <div class="field">
+      <label>Location name</label>
+      <input type="text" class="input" id="newVenueName" placeholder="e.g. Downtown">
+    </div>
+    <div id="newVenueStatus"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="newVenueCancel">Cancel</button>
+      <button class="btn btn-primary" id="newVenueGo">${icon('plus')}Create location</button>
+    </div>`);
+
+  const nameEl = document.getElementById('newVenueName');
+  nameEl.focus();
+
+  document.getElementById('newVenueCancel').addEventListener('click', closeModal);
+  nameEl.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') document.getElementById('newVenueGo').click(); });
+
+  document.getElementById('newVenueGo').addEventListener('click', async ()=>{
+    const name = nameEl.value.trim();
+    if (!name){
+      document.getElementById('newVenueStatus').innerHTML = banner('destructive','alert-triangle','Give the location a name.');
+      return;
+    }
+    const record = createVenue(account.id, name);
+    state.openItemIds.add(record.id);
+    closeModal();
+    await renderMain();
+  });
+}
+
 /* Appends one file to a venue and saves immediately. Goes through editVenue so
    the record is re-read first: a duplicate with several files takes seconds,
    and a teammate may well have touched the venue in between. */
@@ -2833,19 +2914,6 @@ const pendingFiles = new Map();
 const pendingCategory = new Map();     // venue id -> category chosen for the next upload
 
 function wireVenuesList(account, items){
-  const addBtn = document.getElementById('btnAddVenue');
-  if (addBtn){
-    addBtn.addEventListener('click', async ()=>{
-      const input = document.getElementById('newVenueInput');
-      const name = input.value.trim();
-      if (!name) return;
-      const record = createVenue(account.id, name);
-      input.value = '';
-      state.openItemIds.add(record.id);
-      await renderMain();
-    });
-  }
-
   document.querySelectorAll('[data-toggle]').forEach(el=>{
     el.addEventListener('click', ()=>{
       const id = el.dataset.toggle;
