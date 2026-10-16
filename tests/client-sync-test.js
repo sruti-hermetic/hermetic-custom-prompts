@@ -118,9 +118,26 @@ ok('nothing offers sub-venues any more', out.toLowerCase().indexOf('sub-location
    out.toLowerCase().indexOf('sub-venue') === -1);
 ok('an empty box still reports itself, so Claude knows it was asked',
    serializePart(LOCATION_SCHEMA, newVenueData()).indexOf('Policies:\nNone.') !== -1);
-ok('Claude is no longer told policies come only from the files',
-   FILE_SOURCED_LABEL.toLowerCase().indexOf('polic') === -1 &&
-   FILE_SOURCED_LABEL.toLowerCase().indexOf('faq') === -1, FILE_SOURCED_LABEL);
+
+section('Rooms, pricing and menus are boxes like the rest');
+['rooms_text','pricing_text','menu_text'].forEach(function(k){
+  ok(k + ' is a box', locKeys.indexOf(k) !== -1, locKeys.join(','));
+  ok('a new location starts with ' + k, newVenueData()[k] === '');
+});
+// The prompt may hold only what the console shows: the skill line, the file
+// list and the boxes. Rows typed into the grids these replaced are no longer
+// read at all, so an old key left in a record cannot reach Claude unseen.
+var stale = newVenueData();
+stale.rooms = [{name:'The Loft', capacity:'40 seated'}];
+stale.pricing_rows = [{space:'The Loft', room_fee:'$500'}];
+stale.menus = [{name:'Dinner buffet', price:'$65'}];
+var staleOut = serializePart(LOCATION_SCHEMA, stale);
+ok('a row the console cannot show is not serialized',
+   staleOut.indexOf('The Loft') === -1 && staleOut.indexOf('Dinner buffet') === -1, staleOut);
+ok('the box it belongs to still reports itself empty',
+   staleOut.indexOf('Rooms:\nNone.') !== -1 && staleOut.indexOf('Menu:\nNone.') !== -1);
+ok('each heading is printed once',
+   staleOut.split('Rooms:').length === 2 && staleOut.split('Pricing:').length === 2, staleOut);
 
 section('Rows typed before these were boxes');
 var legacy = { policies: [{topic:'Outside food', policy:'Not permitted.'},
@@ -141,6 +158,34 @@ ok('a box somebody has already filled is never overwritten',
    typed.policies_text === 'What the teammate typed.');
 ok('sub-locations is on the retired list, so it is cleaned out of saved records',
    RETIRED_FIELDS.indexOf('sub_venues_text') !== -1);
+
+// Rooms, pricing and menus are boxes again, so the rows typed when they were
+// grids fold in the same way: into the box, where the console shows them.
+var grids = { rooms: [{name:'The Loft', capacity:'40 seated', av:'Screen and mic'},
+                      {name:'The Cellar', capacity:'24 seated'}],
+              activity_pricing: 'Bowling: $75 per lane per hour Sun-Thu.',
+              pricing_rows: [{space:'The Loft', guest_count:'20-40', fb_minimum:'$2,000', room_fee:'$500'}],
+              menus: [{name:'Dinner buffet', format:'buffet', price:'$65', min_guests:'20'}] };
+foldLegacyBlocks(grids);
+ok('old room rows became the box text',
+   grids.rooms_text.indexOf('The Loft') !== -1 && grids.rooms_text.indexOf('40 seated') !== -1 &&
+   grids.rooms_text.indexOf('The Cellar') !== -1, grids.rooms_text);
+ok('old menu rows became the box text',
+   grids.menu_text.indexOf('Dinner buffet') !== -1 && grids.menu_text.indexOf('$65') !== -1, grids.menu_text);
+ok('per-unit pricing and the old pricing rows share the one Pricing box',
+   grids.pricing_text.indexOf('Bowling: $75') !== -1 &&
+   grids.pricing_text.indexOf('The Loft') !== -1 &&
+   grids.pricing_text.indexOf('$2,000') !== -1, grids.pricing_text);
+ok('the rows themselves were dropped, so nothing prints twice',
+   grids.rooms === undefined && grids.pricing_rows === undefined && grids.menus === undefined);
+ok('and what folded in is what Claude is handed',
+   serializePart(LOCATION_SCHEMA, grids).indexOf('Rooms:\nRoom: The Loft') !== -1,
+   serializePart(LOCATION_SCHEMA, grids));
+var typedBoxes = { rooms_text: 'What the teammate typed.', rooms: [{name:'Old room'}],
+                   menu_text: 'Also typed.', menus: [{name:'Old menu'}] };
+foldLegacyBlocks(typedBoxes);
+ok('a Rooms or Menu box somebody has already filled is never overwritten',
+   typedBoxes.rooms_text === 'What the teammate typed.' && typedBoxes.menu_text === 'Also typed.');
 
 section('Where a guest-count-to-space rule belongs');
 function box(schema, key){ return schema.filter(function(b){ return b.key === key; })[0]; }
