@@ -349,7 +349,7 @@
     <div class="topbar">
       <div>
         <div class="t-display" id="pageTitle">Accounts</div>
-        <div class="t-caption topbar-meta" id="pageMeta">Add an account to set up locations for Mia.</div>
+        <div class="t-caption topbar-meta" id="pageMeta">Add an account to set up venues for Mia.</div>
       </div>
       <div class="topbar-right">
         <div class="sync-pill" id="syncStatusPill"></div>
@@ -434,17 +434,16 @@ const DOC_TYPES = ['Menu', 'Pricing doc/matrix', 'Private dining packet', 'Event
 /* One box per template section. `hint` is the outline of what belongs in the
    box, mirroring the matching heading in the Location Details template. */
 const LOCATION_SCHEMA = [
-  {type:'block', key:'overview', title:'Location overview', hint:[
+  {type:'block', key:'overview', title:'Venue overview', hint:[
     'Concept and cuisine',
     'Ambiance',
-    'What makes it different from other locations'
+    'What makes it different from other venues'
   ], placeholder:'One to three sentences.'},
 
   {type:'block', key:'address_contact', title:'Address & contact', hint:[
     'Street, city, state, zip',
     'General phone number',
-    'Website URL',
-    'Parking, in one line'
+    'Website URL'
   ]},
 
   {type:'block', key:'hours_text', title:'Hours & blackout dates', hint:[
@@ -525,7 +524,7 @@ const LOCATION_SCHEMA = [
 const CAMPAIGN_SCHEMA = [
   {type:'block', key:'persona_text', title:'Persona & tone', hint:[
     'Personality, in one sentence',
-    'Tone rules, only where this location differs from the default',
+    'Tone rules, only where this venue differs from the default',
     'Salutation, only if non-standard'
   ], placeholder:'Warm, unhurried host for a hill country winery who makes every gathering feel personal, never salesy.\nTone: keep it playful, never corporate or stiff.\nSalutation: "Hey folks!" instead of "Hello."'},
 
@@ -586,9 +585,9 @@ const CAMPAIGN_SCHEMA = [
    Claude" still asks for the two documents separately, so the extraction step
    downstream is unchanged. */
 const VENUE_PARTS = [
-  { id:'facts', title:'Location facts', schema: LOCATION_SCHEMA,
+  { id:'facts', title:'Knowledge', schema: LOCATION_SCHEMA,
     caption:'What the files do not carry, plus the availability rules. Becomes the Location Details document.' },
-  { id:'behavior', title:'Assistant behavior', schema: CAMPAIGN_SCHEMA,
+  { id:'behavior', title:'Guidelines', schema: CAMPAIGN_SCHEMA,
     caption:'How Mia talks, what she does in order, and when she hands off. Becomes the Campaign Instructions document.' }
 ];
 
@@ -617,7 +616,7 @@ function foldLegacyBlocks(data){
         handoff = data.handoff || {}, cross = data.cross_sell || {};
 
   set('address_contact', [kv('Address', data.address), kv('Phone', data.phone),
-    kv('Website', data.website), kv('Parking', data.parking)]);
+    kv('Website', data.website)]);
   set('hours_text', [bullets(data.hours_notes)]);
   set('availability_text', [bullets(data.availability_policy)]);
   set('rooms_text', [rows(data.rooms, [['Room','name'], ['Name in booking system','system_name'],
@@ -2081,7 +2080,7 @@ function renderPresence(){
   if (!el) return;
   const peers = peersOn(state.currentAccountId);
   if (!state.currentAccountId || !peers.length){ el.innerHTML = ''; return; }
-  el.innerHTML = `<span class="badge badge-warning" title="If two of you edit the same location at once, both sets of answers are kept. It is still easier to take one location each.">
+  el.innerHTML = `<span class="badge badge-warning" title="If two of you edit the same venue at once, both sets of answers are kept. It is still easier to take one venue each.">
       ${icon('users','icon',12)}Also here: ${escapeHtml(peers.map(p => p.name).join(', '))}
     </span>`;
 }
@@ -2270,7 +2269,7 @@ async function confirmDeleteAccount(accountId){
     title: `Delete ${account.name}?`,
     body: `<p>This removes the account for everyone on the team, and it cannot be undone.</p>
       <ul>
-        <li><strong>${locations.length === 0 ? 'No locations' : locations.length === 1 ? '1 location' : locations.length + ' locations'}</strong> will be deleted with it${locations.length ? `: ${escapeHtml(locations.map(l => l.name).join(', '))}` : ''}</li>
+        <li><strong>${locations.length === 0 ? 'No venues' : locations.length === 1 ? '1 venue' : locations.length + ' venues'}</strong> will be deleted with it${locations.length ? `: ${escapeHtml(locations.map(l => l.name).join(', '))}` : ''}</li>
         <li>Every answer in ${locations.length === 1 ? 'it' : 'them'} goes too</li>
         <li>Files already in Google Drive are <strong>not</strong> deleted</li>
       </ul>
@@ -2382,8 +2381,8 @@ async function renderMain(opts){
 
   if (!state.currentAccountId){
     title.textContent = 'Accounts';
-    meta.textContent = 'Add an account to set up locations for Mia.';
-    content.innerHTML = `<div class="empty-state">${icon('building-2','icon-lg')}<div class="t-title">No account selected</div><div class="t-body">Add your first account on the left to start setting up locations.</div></div>`;
+    meta.textContent = 'Add an account to set up venues for Mia.';
+    content.innerHTML = `<div class="empty-state">${icon('building-2','icon-lg')}<div class="t-title">No account selected</div><div class="t-body">Add your first account on the left to start setting up venues.</div></div>`;
     renderPresence();
     return;
   }
@@ -2411,8 +2410,8 @@ async function renderMain(opts){
 
   content.innerHTML = `<div class="list-search list-search-with-action" style="margin-bottom:var(--space-3);">
       <span class="list-search-icon">${icon('search','icon',14)}</span>
-      <input type="text" class="input" id="venueSearchInput" placeholder="Search locations" value="${escapeAttr(state.venueSearch)}">
-      <button class="btn btn-primary" id="btnAddVenue">${icon('plus')}Add location</button>
+      <input type="text" class="input" id="venueSearchInput" placeholder="Search venues" value="${escapeAttr(state.venueSearch)}">
+      <button class="btn btn-primary" id="btnAddVenue">${icon('plus')}Add venue</button>
     </div>
     <div id="venueList"></div>`;
   // Typing here repaints only the list below, not this box, so the caret
@@ -2438,10 +2437,10 @@ function renderVenuesList(items, opts){
   const searchTerm = (opts && opts.searchTerm) || '';
   const totalCount = (opts && opts.totalCount != null) ? opts.totalCount : items.length;
   if (totalCount === 0){
-    return `<div class="empty-state">${icon('map-pin','icon-lg')}<div class="t-title">No locations yet</div><div class="t-body">Add one above. Each location holds the facts and the behavior together, and produces both documents Mia needs.</div></div>`;
+    return `<div class="empty-state">${icon('map-pin','icon-lg')}<div class="t-title">No venues yet</div><div class="t-body">Add one above. Each venue holds the facts and the behavior together, and produces both documents Mia needs.</div></div>`;
   }
   if (items.length === 0){
-    return `<div class="empty-state">${icon('search','icon-lg')}<div class="t-title">No matches</div><div class="t-body">No locations match &ldquo;${escapeHtml(searchTerm)}&rdquo;.</div></div>`;
+    return `<div class="empty-state">${icon('search','icon-lg')}<div class="t-title">No matches</div><div class="t-body">No venues match &ldquo;${escapeHtml(searchTerm)}&rdquo;.</div></div>`;
   }
   return items.map(item => renderVenue(item)).join('');
 }
@@ -2508,8 +2507,8 @@ function renderVenue(item){
       <span class="name t-title">${escapeHtml(item.name)}</span>
       ${isStale ? `<span class="badge badge-warning" title="Answers changed since this was last copied for Claude">${icon('alert-triangle','icon',12)}Outdated</span>` : (copiedAt ? `<span class="badge badge-success" title="Copied for Claude on ${escapeAttr(formatTimestamp(copiedAt))}">${icon('check-circle','icon',12)}Up to date</span>` : `<span class="badge badge-slate">Not copied yet</span>`)}
       ${item.data.drive_link ? `<a href="${item.data.drive_link}" target="_blank" rel="noopener" class="badge badge-success" onclick="event.stopPropagation()">${icon('link-2','icon',12)}Folder</a>` : `<span class="badge badge-slate">No files yet</span>`}
-      <button class="icon-btn" data-duplicate="${item.id}" title="Duplicate location" onclick="event.stopPropagation()">${icon('copy-plus')}</button>
-      <button class="icon-btn" data-delete="${item.id}" title="Delete location" onclick="event.stopPropagation()">${icon('trash-2')}</button>
+      <button class="icon-btn" data-duplicate="${item.id}" title="Duplicate venue" onclick="event.stopPropagation()">${icon('copy-plus')}</button>
+      <button class="icon-btn" data-delete="${item.id}" title="Delete venue" onclick="event.stopPropagation()">${icon('trash-2')}</button>
     </div>
     <div class="card-body">
       <div class="subsection">
@@ -2698,15 +2697,15 @@ function openDuplicateDialog(account, item){
   const staleBackend = !!syncUrl && copyable > 0 && serverVersion > 0 && serverVersion < 4;
 
   openModal(`
-    <div class="t-title" style="margin-bottom:var(--space-4);">Duplicate location</div>
+    <div class="t-title" style="margin-bottom:var(--space-4);">Duplicate venue</div>
     <div class="field">
-      <label>New location name</label>
+      <label>New venue name</label>
       <input type="text" class="input" id="dupName" value="${escapeAttr(item.name + ' (copy)')}">
     </div>
     ${docs.length ? `<div class="field">
       <label class="modal-check">
         <input type="checkbox" id="dupFiles"${canCopyFiles ? '' : ' disabled'}>
-        <span>Copy the ${docs.length === 1 ? 'uploaded file' : docs.length + ' uploaded files'} into the new location's Drive folder${
+        <span>Copy the ${docs.length === 1 ? 'uploaded file' : docs.length + ' uploaded files'} into the new venue's Drive folder${
           staleBackend ? ' (not available until the connection is updated)' :
           (!syncUrl ? ' (needs a connection first)' :
           (copyable ? '' : ' (these files were added before uploads and cannot be copied)'))
@@ -2730,7 +2729,7 @@ function openDuplicateDialog(account, item){
     const statusEl = document.getElementById('dupStatus');
     const goEl = document.getElementById('dupGo');
     const name = nameEl.value.trim();
-    if (!name){ statusEl.innerHTML = banner('destructive','alert-triangle','Give the new location a name.'); return; }
+    if (!name){ statusEl.innerHTML = banner('destructive','alert-triangle','Give the new venue a name.'); return; }
 
     // The copy belongs to the account being looked at. Moving a location
     // between accounts is a different job from duplicating one, and offering
@@ -2746,7 +2745,7 @@ function openDuplicateDialog(account, item){
 
     const record = duplicateVenueRecord(account.id, item.id, targetId, name);
     if (!record){
-      statusEl.innerHTML = banner('destructive','alert-triangle','This location was removed by a teammate.');
+      statusEl.innerHTML = banner('destructive','alert-triangle','This venue was removed by a teammate.');
       return;
     }
 
@@ -2811,15 +2810,15 @@ function openDuplicateDialog(account, item){
 
 function openAddVenueDialog(account){
   openModal(`
-    <div class="t-title" style="margin-bottom:var(--space-4);">Add location</div>
+    <div class="t-title" style="margin-bottom:var(--space-4);">Add venue</div>
     <div class="field">
-      <label>Location name</label>
+      <label>Venue name</label>
       <input type="text" class="input" id="newVenueName" placeholder="e.g. Downtown">
     </div>
     <div id="newVenueStatus"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="newVenueCancel">Cancel</button>
-      <button class="btn btn-primary" id="newVenueGo">${icon('plus')}Create location</button>
+      <button class="btn btn-primary" id="newVenueGo">${icon('plus')}Create venue</button>
     </div>`);
 
   const nameEl = document.getElementById('newVenueName');
@@ -2831,7 +2830,7 @@ function openAddVenueDialog(account){
   document.getElementById('newVenueGo').addEventListener('click', async ()=>{
     const name = nameEl.value.trim();
     if (!name){
-      document.getElementById('newVenueStatus').innerHTML = banner('destructive','alert-triangle','Give the location a name.');
+      document.getElementById('newVenueStatus').innerHTML = banner('destructive','alert-triangle','Give the venue a name.');
       return;
     }
     const record = createVenue(account.id, name);
@@ -2911,12 +2910,12 @@ function wireVenuesList(account, items){
       const fileCount = (item.data.docs || []).length;
       const ok = await confirmDialog({
         title: `Delete ${item.name}?`,
-        body: `<p>This removes the location for everyone on the team, and it cannot be undone.</p>
+        body: `<p>This removes the venue for everyone on the team, and it cannot be undone.</p>
           <ul>
             <li>Every answer typed into it goes</li>
             <li>${fileCount ? `The ${fileCount === 1 ? 'file' : fileCount + ' files'} uploaded here stay in Google Drive` : 'Nothing in Google Drive is affected'}</li>
           </ul>`,
-        confirmLabel: 'Delete location',
+        confirmLabel: 'Delete venue',
         danger: true
       });
       if (!ok) return;
@@ -3086,7 +3085,7 @@ function wireVenuesList(account, items){
       const categoryEl = document.getElementById(`docCategory-${itemId}`);
       const statusEl = document.querySelector(`[data-upload-status="${itemId}"]`);
       const file = pendingFiles.get(itemId) || (fileEl.files && fileEl.files[0]);
-      if (!item){ statusEl.innerHTML = banner('destructive','alert-triangle','This location was removed by a teammate.'); return; }
+      if (!item){ statusEl.innerHTML = banner('destructive','alert-triangle','This venue was removed by a teammate.'); return; }
       if (!file){ statusEl.innerHTML = banner('destructive','alert-triangle','Choose a file first.'); return; }
       const ui = uploadIndicator(itemId);
       ui.start(file.name);
@@ -3238,7 +3237,7 @@ function renderSettings(){
         <div class="field">
           <label>Root Drive folder (URL or ID)</label>
           <input type="text" class="input" id="rootFolderIdInput" value="${escapeAttr(state.settings.rootFolderId||'')}" placeholder="https://drive.google.com/drive/folders/...">
-          <div class="t-caption" style="margin-top:var(--space-1);">Files upload into this folder, organized by account and location automatically. Leave blank to let the Apps Script create a top-level folder by name instead.</div>
+          <div class="t-caption" style="margin-top:var(--space-1);">Files upload into this folder, organized by account and venue automatically. Leave blank to let the Apps Script create a top-level folder by name instead.</div>
         </div>
         <div class="field">
           <label>Root folder name</label>
@@ -3302,9 +3301,9 @@ function renderSettings(){
     statusEl.innerHTML = !result.ok
       ? banner('destructive','alert-triangle','Not connected. Check the link is right and that it was shared with everyone, then try again.')
       : result.serverVersion < 3 || !result.batch
-        ? banner('destructive','alert-triangle','Connected, but out of date. Until it is updated, two people working on the same location at the same time can overwrite each other. Ask whoever set this up to update it.')
+        ? banner('destructive','alert-triangle','Connected, but out of date. Until it is updated, two people working on the same venue at the same time can overwrite each other. Ask whoever set this up to update it.')
         : result.serverVersion < 4
-          ? banner('info','alert-triangle','Connected. One thing is missing: duplicating a location will not bring its files across until this is updated.')
+          ? banner('info','alert-triangle','Connected. One thing is missing: duplicating a venue will not bring its files across until this is updated.')
           : result.serverVersion < 5
             ? banner('info','alert-triangle','Connected. Two things are missing until this is updated: the console will not notice files renamed or deleted in Google Drive, and edits typed straight into the Google Sheet will not show up here.')
             : result.serverVersion < 8
