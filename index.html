@@ -431,40 +431,6 @@ function escapeAttr(str){ return escapeHtml(str); }
 ================================================================= */
 const DOC_TYPES = ['Menu', 'Pricing doc/matrix', 'Private dining packet', 'Event deck', 'Venue guide', 'Inquiry form', 'Gallery photos', 'Policy', 'FAQs', 'TS room setup', 'Other'];
 
-const ROOM_FIELDS = [
-  {path:'name', label:'Room name', kind:'text'},
-  {path:'system_name', label:'Name in booking system (if different)', kind:'text'},
-  {path:'privacy', label:'Privacy (private / semi-private / open dining)', kind:'text'},
-  {path:'capacity', label:'Capacity (seated / standing / theater)', kind:'text'},
-  {path:'features', label:'Features', kind:'textarea', full:true},
-  {path:'av', label:'AV', kind:'text'},
-  {path:'notes', label:'Notes (combinable with, duration, seasonal)', kind:'textarea', full:true}
-];
-const PRICING_FIELDS = [
-  {path:'space', label:'Space / item', kind:'text'},
-  {path:'guest_count', label:'Guest count', kind:'text'},
-  {path:'days', label:'Days', kind:'text'},
-  {path:'time', label:'Time', kind:'text'},
-  {path:'fb_minimum', label:'F&B minimum', kind:'text'},
-  {path:'room_fee', label:'Room fee', kind:'text'},
-  {path:'notes', label:'Notes', kind:'text', full:true}
-];
-const MENU_FIELDS = [
-  {path:'name', label:'Menu name', kind:'text'},
-  {path:'format', label:'Format (plated / buffet / stations / passed / beverage)', kind:'text'},
-  {path:'price', label:'Price', kind:'text'},
-  {path:'min_guests', label:'Minimum guests', kind:'text'},
-  {path:'items', label:'Items / tiers (one per line with price)', kind:'textarea', full:true},
-  {path:'notes', label:'Notes (upcharges, timing, attendant fees)', kind:'textarea', full:true}
-];
-const POLICY_FIELDS = [
-  {path:'topic', label:'Topic', kind:'text'},
-  {path:'policy', label:'Policy', kind:'textarea', full:true}
-];
-const FAQ_FIELDS = [
-  {path:'question', label:'Question guests ask', kind:'text', full:true},
-  {path:'answer', label:'Fact / answer', kind:'textarea', full:true}
-];
 /* One box per template section. `hint` is the outline of what belongs in the
    box, mirroring the matching heading in the Location Details template. */
 const LOCATION_SCHEMA = [
@@ -495,10 +461,23 @@ const LOCATION_SCHEMA = [
     'Which space to offer when more than one fits'
   ], placeholder:'One event a day. Any confirmed booking blocks the whole venue for that day, even outside its hours.'},
 
-  {type:'block', key:'pricing_text', title:'Per-unit activity pricing (if applicable)', hint:[
+  {type:'block', key:'rooms_text', title:'Rooms', hint:[
+    'Room or space info not covered in the uploaded room files',
+    'Name and capacity (seated / standing)',
+    'Notes: combinable with, duration, seasonal'
+  ], placeholder:'The Loft: seats 40, semi-private, AV included.'},
+
+  {type:'block', key:'pricing_text', title:'Pricing', hint:[
+    'Pricing info not covered in the uploaded pricing files',
     'Only prices the assistant is allowed to quote',
-    'Rate, the unit it applies to, and the days or times it holds'
-  ], placeholder:'e.g. Bowling: $75 per lane per hour Sun-Thu.'},
+    'Per-unit activity pricing: rate, the unit it applies to, and the days or times it holds',
+    'Packages, minimums, or flat rates that are not priced per unit'
+  ], placeholder:'Bowling: $75 per lane per hour Sun-Thu.\nBuyout: $5,000 flat, up to 80 guests.'},
+
+  {type:'block', key:'menu_text', title:'Menu', hint:[
+    'Menu items, formats, or tiers: info not covered in the uploaded menu files',
+    'Anything the assistant should know about dietary options or substitutions'
+  ]},
 
   {type:'block', key:'fees_text', title:'Fees & taxes', hint:[
     'Service charge (% on F&B)',
@@ -548,7 +527,7 @@ const CAMPAIGN_SCHEMA = [
     'Personality, in one sentence',
     'Tone rules, only where this location differs from the default',
     'Salutation, only if non-standard'
-  ], placeholder:'e.g. Say "our team", never "sales".'},
+  ], placeholder:'Warm, unhurried host for a hill country winery who makes every gathering feel personal, never salesy.\nTone: keep it playful, never corporate or stiff.\nSalutation: "Hey folks!" instead of "Hello."'},
 
   {type:'block', key:'handoff_text', title:'Handoff', hint:[
     'Follow-up window quoted to the guest',
@@ -601,23 +580,6 @@ const CAMPAIGN_SCHEMA = [
   ], placeholder:'Leave blank if cross-sell is off.'}
 ];
 
-/* Rooms, pricing and menus are never typed in: they always come from the
-   uploaded client files. The section shapes stay here so that anything a
-   teammate typed before that change still rides along in the Claude prompt
-   instead of quietly disappearing.
-
-   Policies and FAQs are collected again, as one box each. Their old row shapes
-   stay in this list as a safety net for a venue that never re-ran the legacy
-   fold: the fold empties them into the new boxes, so a venue that has been
-   through it contributes nothing here and is printed once, from its box. */
-const FILE_SOURCED_SECTIONS = [
-  {type:'group', title:'Rooms', key:'rooms', itemLabel:'room', fields: ROOM_FIELDS},
-  {type:'group', title:'Pricing', key:'pricing_rows', itemLabel:'pricing row', fields: PRICING_FIELDS},
-  {type:'group', title:'Menus', key:'menus', itemLabel:'menu', fields: MENU_FIELDS},
-  {type:'group', title:'Policies', key:'policies', itemLabel:'policy', fields: POLICY_FIELDS},
-  {type:'group', title:'FAQs', key:'faqs', itemLabel:'FAQ', fields: FAQ_FIELDS}
-];
-const FILE_SOURCED_LABEL = 'rooms and capacities, pricing and menus';
 
 /* One venue record covers both documents: the facts (Location Details) and the
    behavior (Campaign Instructions). Support fills it in one pass; "Copy for
@@ -658,7 +620,15 @@ function foldLegacyBlocks(data){
     kv('Website', data.website), kv('Parking', data.parking)]);
   set('hours_text', [bullets(data.hours_notes)]);
   set('availability_text', [bullets(data.availability_policy)]);
-  set('pricing_text', [data.activity_pricing]);
+  set('rooms_text', [rows(data.rooms, [['Room','name'], ['Name in booking system','system_name'],
+    ['Privacy','privacy'], ['Capacity','capacity'], ['Features','features'], ['AV','av'],
+    ['Notes','notes']])]);
+  set('pricing_text', [data.activity_pricing,
+    rows(data.pricing_rows, [['Space / item','space'], ['Guest count','guest_count'],
+      ['Days','days'], ['Time','time'], ['F&B minimum','fb_minimum'], ['Room fee','room_fee'],
+      ['Notes','notes']])]);
+  set('menu_text', [rows(data.menus, [['Menu','name'], ['Format','format'], ['Price','price'],
+    ['Minimum guests','min_guests'], ['Items / tiers','items'], ['Notes','notes']])]);
   set('fees_text', [kv('Service charge', fees.service_charge), kv('Sales tax', fees.sales_tax),
     kv('Admin fee', fees.admin_fee), kv('Gratuity', fees.gratuity), bullets(data.other_fees)]);
   set('deposit_text', [kv('Deposit', data.deposit), kv('Final payment', data.final_payment),
@@ -684,9 +654,9 @@ function foldLegacyBlocks(data){
   set('cross_sell_text', [kv('Offer alternatives when', cross.when), kv('How to introduce them', cross.how)]);
 
   // Drop the folded-from keys so an intentionally emptied box stays empty on the
-  // next load. `overview` and `cancellation` keep their names and are untouched,
-  // as are the file-sourced sections that serializeCarriedOver still reads.
+  // next load. `overview` and `cancellation` keep their names and are untouched.
   ['address','phone','website','parking','hours_notes','availability_policy','activity_pricing',
+   'rooms','pricing_rows','menus',
    'fees','other_fees','deposit','final_payment','payment_methods','refundability','booking',
    'sub_venues','policies','faqs','personality','tone_rules','salutation','handoff','steps','rules','links',
    'vocabulary','ai_disclosure','legal_wording','cross_sell'].forEach(k => delete data[k]);
@@ -2610,18 +2580,9 @@ function serializePart(schema, data){
   return out.join('\n\n');
 }
 
-/* Rooms, pricing, menus, policies and FAQs come from the files now, but a
-   venue set up before that change may still hold typed rows. Pass those along
-   rather than dropping facts on the floor. */
-function serializeCarriedOver(data){
-  const kept = FILE_SOURCED_SECTIONS.filter(sec =>
-    (getAtPath(data, sec.key) || []).some(row => sec.fields.some(f => (row[f.path]||'').trim())));
-  return kept.length ? serializePart(kept, data) : '';
-}
 
 async function copyForClaude(account, item){
   const facts = serializePart(LOCATION_SCHEMA, item.data);
-  const carried = serializeCarriedOver(item.data);
   const behavior = serializePart(CAMPAIGN_SCHEMA, item.data);
   const docs = item.data.docs || [];
   const fileList = docs.length
@@ -2644,12 +2605,11 @@ CLIENT FILES (attached to this chat):
 
 ${fileList}
 
-How to use these sources: ${FILE_SOURCED_LABEL} are not collected in the console at all. Take them from the attached files and structure them yourself against the Location Details template. The answers below cover everything else; each heading holds one free-form note, so read it for the facts it contains rather than expecting a fixed field order, and treat an empty one as "nothing special here." Where a typed answer below and a file disagree, the typed answer wins. Anything still missing, unconfirmed, or contradictory goes in Open Questions, never into the documents.
+How to use these sources: nothing has to come from a file -- every answer below can be typed in on its own. When the attached files cover a room, a price, or a menu in more detail than what is typed, take that extra detail from the files and structure it yourself against the Location Details template. Each heading below holds one free-form note, so read it for the facts it contains rather than expecting a fixed field order, and treat an empty one as "nothing special here." Where a typed answer below and a file disagree, the typed answer wins. Anything still missing, unconfirmed, or contradictory goes in Open Questions, never into the documents.
 
 COLLECTED ANSWERS: LOCATION FACTS (for Location Details):
 
 ${facts}
-${carried ? `\nFACTS TYPED IN BEFORE THESE SECTIONS MOVED TO FILE UPLOAD. Treat them as typed answers:\n\n${carried}\n` : ''}
 
 COLLECTED ANSWERS: ASSISTANT BEHAVIOR (for Campaign Instructions):
 
