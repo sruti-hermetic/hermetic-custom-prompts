@@ -135,6 +135,21 @@
     background:var(--badge-warning-bg); border:1px solid var(--badge-warning-border);
     color:var(--badge-warning-text);
   }
+  .nav-count{
+    flex:none; min-width:18px; height:18px; padding:0 5px;
+    display:inline-flex; align-items:center; justify-content:center;
+    border-radius:var(--radius-full); font-size:11px; font-weight:600;
+    background:var(--badge-slate-bg); border:1px solid var(--badge-slate-border);
+    color:var(--badge-slate-text);
+  }
+  .nav-item.active .nav-count{ background:oklch(1 0 0 / 0.16); border-color:transparent; color:var(--clean-linen); }
+  .sidebar-count{
+    display:inline-flex; align-items:center; justify-content:center;
+    margin-left:6px; height:18px; padding:0 6px; border-radius:var(--radius-md);
+    background:var(--badge-slate-bg); border:1px solid var(--badge-slate-border);
+    color:var(--badge-slate-text); font-size:11px; font-weight:600;
+    text-transform:none; letter-spacing:normal;
+  }
   .name-gate{
     display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2);
     margin:var(--space-5) var(--space-8) 0; padding:var(--space-3) var(--space-4);
@@ -329,18 +344,18 @@
       <button class="icon-btn" id="btnCollapse" title="Collapse sidebar"></button>
     </div>
     <div class="sidebar-section sidebar-section-row hide-collapsed">
-      <span class="t-overline" style="margin-bottom:0;">Accounts</span>
+      <span class="t-overline" style="margin-bottom:0;">Accounts<span class="sidebar-count" id="accountsCount"></span></span>
       <button class="icon-btn" id="btnToggleAccountSearch" title="Search accounts"></button>
+    </div>
+    <div class="list-search hide-collapsed" id="accountSearchRow" style="margin:0 var(--space-3) var(--space-2); display:none;">
+      <span class="list-search-icon" id="accountSearchIcon"></span>
+      <input type="text" class="input" id="accountSearchInput" placeholder="Search for an account">
     </div>
     <div class="hide-collapsed" style="padding:0 var(--space-3) var(--space-2);">
       <button class="btn btn-primary" id="btnAddAccountTop" style="width:100%;"></button>
     </div>
     <div class="new-account-row hide-collapsed" id="newAccountRow" style="display:none;">
       <input type="text" id="newAccountInput" placeholder="Account name">
-    </div>
-    <div class="list-search hide-collapsed" id="accountSearchRow" style="margin:0 var(--space-3) var(--space-2); display:none;">
-      <span class="list-search-icon" id="accountSearchIcon"></span>
-      <input type="text" class="input" id="accountSearchInput" placeholder="Search accounts">
     </div>
     <div class="nav-list" id="accountsList"></div>
   </aside>
@@ -1758,8 +1773,7 @@ function readAccounts(){
   return localKeys('hermetic:account:')
     .map(localRead)
     .filter(a => a && a.id && !a.deleted)
-    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0) ||
-                    String(a.name || '').localeCompare(String(b.name || '')));
+    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
 }
 function readAccount(id){
   const rec = localRead(accountKey(id));
@@ -1774,6 +1788,20 @@ function readVenues(accountId){
 function readVenue(accountId, venueId){
   const rec = localRead(venueKey(accountId, venueId));
   return rec && !rec.deleted ? rec : null;
+}
+/* Every account's venue tally in one pass. The sidebar needs a count for each
+   account at once, and readVenues() per account would walk the whole mirror
+   and parse every venue row once per account -- on every keystroke in the
+   account search. One walk, one parse per row, counts for everyone. */
+function venueCounts(){
+  const counts = {};
+  for (const key of localKeys('hermetic:venue:')){
+    const rec = localRead(key);
+    if (!rec || !rec.id || rec.deleted) continue;
+    const accountId = key.split(':')[2];
+    counts[accountId] = (counts[accountId] || 0) + 1;
+  }
+  return counts;
 }
 function readSettings(){
   const rec = localRead('hermetic:settings') || {};
@@ -2225,26 +2253,37 @@ async function startSync(){
 ================================================================= */
 function renderSidebar(){
   const list = document.getElementById('accountsList');
-  if (state.accounts.length === 0){
+  const countEl = document.getElementById('accountsCount');
+  const total = state.accounts.length;
+  if (total === 0){
+    countEl.style.display = 'none';
     list.innerHTML = `<div class="nav-empty hide-collapsed">No accounts yet.</div>`;
     return;
   }
   const term = state.accountSearch.trim().toLowerCase();
   const accounts = term ? state.accounts.filter(a => a.name.toLowerCase().includes(term)) : state.accounts;
+  countEl.style.display = 'inline-flex';
+  countEl.textContent = term ? `${accounts.length} of ${total}` : String(total);
   if (accounts.length === 0){
     list.innerHTML = `<div class="nav-empty hide-collapsed">No accounts match &ldquo;${escapeHtml(state.accountSearch.trim())}&rdquo;.</div>`;
     return;
   }
+  const counts = venueCounts();
   list.innerHTML = accounts.map(acc => {
     const active = acc.id === state.currentAccountId ? 'active' : '';
     // Who is in each account, before you open it -- the cheapest way to stop
     // two specialists landing on the same customer.
     const peers = peersOn(acc.id);
     const who = peers.length ? `${peers.map(p => p.name).join(', ')} ${peers.length > 1 ? 'are' : 'is'} in here now` : '';
+    // Initials rather than a headcount: the point is to say who, not how many.
+    const initials = peers.map(p => (p.name || '').trim().charAt(0).toUpperCase()).join('');
+    const venueCount = counts[acc.id] || 0;
+    const venueLabel = `${venueCount} ${venueCount === 1 ? 'venue' : 'venues'}`;
     return `<div class="nav-item ${active}" data-id="${acc.id}" title="${escapeAttr(acc.name + (who ? ' (' + who + ')' : ''))}">
       ${icon('building-2')}
       <span class="name hide-collapsed">${escapeHtml(acc.name)}</span>
-      ${peers.length ? `<span class="peer-dot hide-collapsed" title="${escapeAttr(who)}">${escapeHtml(String(peers.length))}</span>` : ''}
+      <span class="nav-count hide-collapsed" title="${escapeAttr(venueLabel)}">${venueLabel}</span>
+      ${peers.length ? `<span class="peer-dot hide-collapsed" title="${escapeAttr(who)}">${escapeHtml(initials)}</span>` : ''}
       <button class="icon-btn nav-delete hide-collapsed" data-delete-account="${acc.id}" title="Delete ${escapeAttr(acc.name)}">${icon('trash-2','icon',14)}</button>
     </div>`;
   }).join('');
@@ -2398,22 +2437,24 @@ async function renderMain(opts){
     return renderMain();
   }
   title.textContent = account.name;
-  meta.innerHTML = `<span style="font-family:'Raleway', sans-serif; font-weight:400; font-size:11.5px;">${escapeHtml(WORKSPACE_LABEL)}</span>`;
 
   // Only an account the mirror knows nothing about waits on the network. A
   // returning browser paints its cached answers immediately and lets the pull
   // catch it up a moment later.
   if (!kvHydrated && syncUrl && !localKeys(`hermetic:venue:${account.id}:`).length){
+    meta.innerHTML = `<span style="font-family:'Raleway', sans-serif; font-weight:400; font-size:11.5px;">${escapeHtml(WORKSPACE_LABEL)}</span>`;
     content.innerHTML = skeletonList();
     await hydrate();
     if (generation !== renderGeneration) return;   // a newer render took over
   }
 
   const venues = readVenues(account.id);
+  meta.innerHTML = `<span style="font-family:'Raleway', sans-serif; font-weight:400; font-size:11.5px;">${escapeHtml(WORKSPACE_LABEL)}</span>`;
 
-  content.innerHTML = `<div class="list-search list-search-with-action" style="margin-bottom:var(--space-3);">
+  content.innerHTML = `<div class="t-caption" style="margin-bottom:var(--space-2);">Total Venues at ${escapeHtml(account.name)}: <span style="font-weight:700;">${venues.length}</span></div>
+    <div class="list-search list-search-with-action" style="margin-bottom:var(--space-3);">
       <span class="list-search-icon">${icon('search','icon',14)}</span>
-      <input type="text" class="input" id="venueSearchInput" placeholder="Search venues" value="${escapeAttr(state.venueSearch)}">
+      <input type="text" class="input" id="venueSearchInput" placeholder="Search for a venue" value="${escapeAttr(state.venueSearch)}">
       <button class="btn btn-primary" id="btnAddVenue">${icon('plus')}Add venue</button>
     </div>
     <div id="venueList"></div>`;
@@ -2839,6 +2880,7 @@ function openAddVenueDialog(account){
     const record = createVenue(account.id, name);
     state.openItemIds.add(record.id);
     closeModal();
+    renderSidebar();
     await renderMain();
   });
 }
@@ -2925,6 +2967,7 @@ function wireVenuesList(account, items){
       // A tombstone, not a removed row: the Sheet has no delete, and a reader
       // cannot tell a row that was deleted from one it has not seen yet.
       deleteVenue(account.id, id);
+      renderSidebar();
       await renderMain();
     });
   });

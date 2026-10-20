@@ -1111,7 +1111,8 @@ function readModel_() {
   });
 
   var byCreated = function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); };
-  model.accounts.sort(byCreated);
+  var byName = function (a, b) { return String(a.name || '').localeCompare(String(b.name || '')); };
+  model.accounts.sort(byName);
   Object.keys(model.venues).forEach(function (k) { model.venues[k].sort(byCreated); });
   return model;
 }
