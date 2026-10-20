@@ -2168,7 +2168,10 @@ function restoreFocus(snap){
     : document.querySelector(`[data-item="${snap.item}"][data-bind="${snap.bind}"]`);
   if (!el) return;
   el.value = snap.value;       // keystrokes not yet flushed outrank the repaint
-  el.focus();
+  // preventScroll: this box was already focused and on screen wherever the
+  // person scrolled it to; a plain focus() re-centers it, yanking the page
+  // out from under anyone scrolling past it while a background repaint lands.
+  el.focus({ preventScroll: true });
   try{ el.setSelectionRange(snap.start, snap.end); }catch(e){}
   el.scrollTop = snap.scrollTop;
 }
