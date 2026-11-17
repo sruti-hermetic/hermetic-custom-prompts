@@ -595,7 +595,7 @@ const CAMPAIGN_SCHEMA = [
 ];
 
 /* A third part, separate from the Location/Campaign documents. Filled in by a
-   small automation team, not by whoever is answering Knowledge and
+   small engineering team, not by whoever is answering Knowledge and
    Guidelines -- the bold warning is the only hint, on purpose. */
 const AUTOMATION_SCHEMA = [
   {type:'block', key:'automation_text', title:'Automation', hint:[
@@ -613,7 +613,7 @@ const VENUE_PARTS = [
   { id:'behavior', title:'Guidelines', schema: CAMPAIGN_SCHEMA,
     caption:'How Mia talks, what she does in order, and when she hands off. Becomes the Campaign Instructions document.' },
   { id:'automation', title:'Automation', schema: AUTOMATION_SCHEMA,
-    caption:'Maintained by the automation team. Leave this box alone unless that’s you.' }
+    caption:'Maintained by the engineering team. Leave this box alone unless that’s you.' }
 ];
 
 function newVenueData(){
