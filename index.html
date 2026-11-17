@@ -596,11 +596,14 @@ const CAMPAIGN_SCHEMA = [
 
 /* A third part, separate from the Location/Campaign documents. Filled in by a
    small engineering team, not by whoever is answering Knowledge and
-   Guidelines -- the bold warning is the only hint, on purpose. */
+   Guidelines -- the caption is the only warning, on purpose.
+
+   The one box carries no heading of its own: the part head above it already
+   says Automation, and bare means there is nothing here to work through. The
+   title is still what names the section in "Copy for Claude" and in the
+   spreadsheet's readable view, so it stays on the schema either way. */
 const AUTOMATION_SCHEMA = [
-  {type:'block', key:'automation_text', title:'Automation', hint:[
-    {bold:"Don't touch"}
-  ]}
+  {type:'block', key:'automation_text', title:'Automation', bareBox:true}
 ];
 
 /* One venue record covers both documents: the facts (Location Details) and the
@@ -613,7 +616,7 @@ const VENUE_PARTS = [
   { id:'behavior', title:'Guidelines', schema: CAMPAIGN_SCHEMA,
     caption:'How Mia talks, what she does in order, and when she hands off. Becomes the Campaign Instructions document.' },
   { id:'automation', title:'Automation', schema: AUTOMATION_SCHEMA,
-    caption:'Maintained by the engineering team. Leave this box alone unless that’s you.' }
+    caption:'Maintained by the engineering team. Leave this box alone unless that’s you. DO NOT TOUCH.' }
 ];
 
 function newVenueData(){
@@ -2507,13 +2510,10 @@ function renderSchemaSection(itemId, data, sec){
       const subList = sub.map(s => `<li>${escapeHtml(s)}</li>`).join('');
       return `<li>${escapeHtml(label)}<ul class="outline-sub">${subList}</ul></li>`;
     }
-    if (h && typeof h === 'object' && 'bold' in h){
-      return `<li><strong>${escapeHtml(h.bold)}</strong></li>`;
-    }
     return `<li>${escapeHtml(h)}</li>`;
   }).join('');
   return `<div class="subsection">
-      <div class="t-overline">${escapeHtml(sec.title)}</div>
+      ${sec.bareBox ? '' : `<div class="t-overline">${escapeHtml(sec.title)}</div>`}
       ${outline ? `<ul class="outline">${outline}</ul>` : ''}
       <textarea class="input block-input" data-item="${itemId}" data-bind="${sec.key}" placeholder="${escapeAttr(sec.placeholder || '')}">${escapeHtml(getAtPath(data, sec.key) || '')}</textarea>
     </div>`;
