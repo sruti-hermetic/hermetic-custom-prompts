@@ -594,6 +594,17 @@ const CAMPAIGN_SCHEMA = [
   ], placeholder:'Leave blank if cross-sell is off.'}
 ];
 
+/* A third part, separate from the Location/Campaign documents. Filled in by a
+   small engineering team, not by whoever is answering Knowledge and
+   Guidelines -- the caption is the only warning, on purpose.
+
+   The one box carries no heading of its own: the part head above it already
+   says Automation, and bare means there is nothing here to work through. The
+   title is still what names the section in "Copy for Claude" and in the
+   spreadsheet's readable view, so it stays on the schema either way. */
+const AUTOMATION_SCHEMA = [
+  {type:'block', key:'automation_text', title:'Automation', bareBox:true}
+];
 
 /* One venue record covers both documents: the facts (Location Details) and the
    behavior (Campaign Instructions). Support fills it in one pass; "Copy for
@@ -603,12 +614,14 @@ const VENUE_PARTS = [
   { id:'facts', title:'Knowledge', schema: LOCATION_SCHEMA,
     caption:'What the files do not carry, plus the availability rules. Becomes the Location Details document.' },
   { id:'behavior', title:'Guidelines', schema: CAMPAIGN_SCHEMA,
-    caption:'How Mia talks, what she does in order, and when she hands off. Becomes the Campaign Instructions document.' }
+    caption:'How Mia talks, what she does in order, and when she hands off. Becomes the Campaign Instructions document.' },
+  { id:'automation', title:'Automation', schema: AUTOMATION_SCHEMA,
+    caption:'Maintained by the engineering team. Leave this box alone unless that’s you. DO NOT TOUCH.' }
 ];
 
 function newVenueData(){
   const data = { drive_link:'', docs:[] };
-  [...LOCATION_SCHEMA, ...CAMPAIGN_SCHEMA].forEach(sec => data[sec.key] = '');
+  [...LOCATION_SCHEMA, ...CAMPAIGN_SCHEMA, ...AUTOMATION_SCHEMA].forEach(sec => data[sec.key] = '');
   return data;
 }
 
@@ -2500,7 +2513,7 @@ function renderSchemaSection(itemId, data, sec){
     return `<li>${escapeHtml(h)}</li>`;
   }).join('');
   return `<div class="subsection">
-      <div class="t-overline">${escapeHtml(sec.title)}</div>
+      ${sec.bareBox ? '' : `<div class="t-overline">${escapeHtml(sec.title)}</div>`}
       ${outline ? `<ul class="outline">${outline}</ul>` : ''}
       <textarea class="input block-input" data-item="${itemId}" data-bind="${sec.key}" placeholder="${escapeAttr(sec.placeholder || '')}">${escapeHtml(getAtPath(data, sec.key) || '')}</textarea>
     </div>`;
@@ -2627,6 +2640,7 @@ function serializePart(schema, data){
 async function copyForClaude(account, item){
   const facts = serializePart(LOCATION_SCHEMA, item.data);
   const behavior = serializePart(CAMPAIGN_SCHEMA, item.data);
+  const automation = serializePart(AUTOMATION_SCHEMA, item.data);
   const docs = item.data.docs || [];
   const fileList = docs.length
     ? docs.map(d => `- ${d.category || 'Other'}: ${d.name}${d.link ? ` (${d.link})` : ''}`).join('\n')
@@ -2657,6 +2671,10 @@ ${facts}
 COLLECTED ANSWERS: ASSISTANT BEHAVIOR (for Campaign Instructions):
 
 ${behavior}
+
+COLLECTED ANSWERS: AUTOMATION:
+
+${automation}
 
 ---
 

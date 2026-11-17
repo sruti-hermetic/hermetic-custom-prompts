@@ -51,6 +51,7 @@ parts += [grab(n) for n in ['localRead', 'localKeys', 'kindOfKey', 'queueLocalOn
 # public repo"), so there is nothing left here to check it against.
 for pattern in [r"const LOCATION_SCHEMA = \[.*?\n\];",
                 r"const CAMPAIGN_SCHEMA = \[.*?\n\];",
+                r"const AUTOMATION_SCHEMA = \[.*?\n\];",
                 r"const RETIRED_FIELDS = \[.*?\];",
                 r"const SKILL_INVOCATION = .*?;"]:
     m = re.search(pattern, src, re.S)
