@@ -1867,6 +1867,11 @@ function editVenue(accountId, venueId, mutate){
 }
 function setVenueField(accountId, venueId, field, value){
   return editVenue(accountId, venueId, (record, at) => {
+    // Clicking into a box and tabbing back out without typing anything
+    // fires the same blur-driven commit as a real edit. Comparing against
+    // the stored value keeps that a no-op instead of a phantom edit that
+    // stamps lastEditedAt and marks the venue outdated for no reason.
+    if (getAtPath(record.data, field) === value) return [];
     setAtPath(record.data, field, value);
     return ['data.' + field];
   });
