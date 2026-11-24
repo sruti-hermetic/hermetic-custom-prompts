@@ -1261,6 +1261,14 @@ async function pullNow(){
   pulling = true;
   try{
     if (await pull({})) onRemoteChange();
+    // A teammate who closes the tab or leaves it in the background sends
+    // nothing more, so no row arrives to clear their badge. Repaint on every
+    // poll so anyone past the TTL drops off within one interval.
+    renderPresence();
+    renderVenuePresenceBadges();
+    // The sidebar initials too, but only when someone actually came or went:
+    // rebuilding the account list on every poll could swallow a click on it.
+    if (sidebarPresenceSig() !== sidebarPeersSig) renderSidebar();
   }finally{ pulling = false; }
 }
 function startPolling(){
@@ -1420,12 +1428,23 @@ function applyPresence(rec){
   if (!rec || !rec.clientId || rec.clientId === CLIENT_ID) return;
   presenceByClient.set(rec.clientId, rec);
   renderPresence();
+  renderVenuePresenceBadges();
 }
 function peersOn(accountId){
   const cutoff = Date.now() - PRESENCE_TTL_MS;
   const out = [];
   for (const p of presenceByClient.values()){
     if (p.accountId === accountId && (p.at || 0) > cutoff) out.push(p);
+  }
+  return out.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+}
+// Same as peersOn, but narrowed to whoever has a field in this specific venue
+// focused right now -- the actual collision the account-level badge can't show.
+function peersOnVenue(accountId, venueId){
+  const cutoff = Date.now() - PRESENCE_TTL_MS;
+  const out = [];
+  for (const p of presenceByClient.values()){
+    if (p.accountId === accountId && p.venueId === venueId && (p.at || 0) > cutoff) out.push(p);
   }
   return out.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
 }
@@ -1442,6 +1461,7 @@ function heartbeat(){
     clientId: CLIENT_ID,
     name: displayName,
     accountId: state.currentAccountId || null,
+    venueId: state.currentVenueId || null,
     at: Date.now(),
     updatedAt: Date.now(),
     rev: 0
@@ -1766,6 +1786,7 @@ async function verifyLocationFiles(accountId, venueId, opts){
 let state = {
   accounts: [],                  // derived from the mirror by readTopLevelState()
   currentAccountId: null,
+  currentVenueId: null,          // which venue's field is focused right now, for presence
   view: 'main',                  // 'main' or 'settings'; a background repaint respects it
   settings: { rootFolderName: "ONBOARDING - Custom Prompt Uploads", rootFolderId: "" },
   openItemIds: new Set(),
@@ -2126,6 +2147,20 @@ function renderPresence(){
     </span>`;
 }
 
+/* Who else has a field in this venue focused right now. Rendered on its own,
+   straight into each card's badge slot, so a pull or a focus change elsewhere
+   never repaints the textarea underneath and steals the caret. */
+function renderVenuePresenceBadges(){
+  document.querySelectorAll('[data-venue-presence]').forEach(el=>{
+    const venueId = el.dataset.venuePresence;
+    const peers = peersOnVenue(state.currentAccountId, venueId);
+    if (!peers.length){ el.innerHTML = ''; return; }
+    const names = peers.map(p => p.name).join(', ');
+    const verb = peers.length > 1 ? 'are' : 'is';
+    el.innerHTML = `<span class="badge badge-warning" title="${escapeAttr(`${names} ${verb} editing this venue right now`)}">${icon('users','icon',12)}${escapeHtml(names)}</span>`;
+  });
+}
+
 /* Presence is only useful if it has a name to show, and a name nobody set is
    the default state. Ask for it once, inline, rather than behind Settings --
    but never block the page on it: a specialist who is already on a call can
@@ -2264,7 +2299,15 @@ async function startSync(){
 /* =================================================================
    SIDEBAR
 ================================================================= */
+/* Who the sidebar last showed in each account, so a poll can tell whether the
+   initials are out of date without rebuilding the list to find out. */
+let sidebarPeersSig = '';
+function sidebarPresenceSig(){
+  return state.accounts.map(a => a.id + ':' + peersOn(a.id).map(p => p.clientId).join(',')).join('|');
+}
+
 function renderSidebar(){
+  sidebarPeersSig = sidebarPresenceSig();
   const list = document.getElementById('accountsList');
   const countEl = document.getElementById('accountsCount');
   const total = state.accounts.length;
@@ -2335,7 +2378,10 @@ async function confirmDeleteAccount(accountId){
   if (!ok) return;
 
   deleteAccount(accountId);
-  if (state.currentAccountId === accountId) state.currentAccountId = null;
+  if (state.currentAccountId === accountId){
+    state.currentAccountId = null;
+    state.currentVenueId = null;
+  }
   readTopLevelState();
   renderSidebar();
   heartbeat();                      // no longer in that account
@@ -2343,6 +2389,7 @@ async function confirmDeleteAccount(accountId){
 }
 async function selectAccount(id){
   state.currentAccountId = id;
+  state.currentVenueId = null;   // no field in the new account is focused yet
   state.venueSearch = '';
   renderSidebar();
   heartbeat();            // tell everyone else where this browser went
@@ -2479,6 +2526,7 @@ async function renderMain(opts){
     const listEl = document.getElementById('venueList');
     listEl.innerHTML = renderVenuesList(filtered, { searchTerm: state.venueSearch.trim(), totalCount: venues.length });
     wireVenuesList(account, filtered);
+    renderVenuePresenceBadges();
   };
   paintVenues();
   document.getElementById('venueSearchInput').addEventListener('input', (e)=>{
@@ -2562,6 +2610,7 @@ function renderVenue(item){
     <div class="card-header" data-toggle="${item.id}">
       ${icon('chevron-right','icon chev')}
       <span class="name t-title">${escapeHtml(item.name)}</span>
+      <span class="venue-presence" data-venue-presence="${item.id}"></span>
       ${isStale ? `<span class="badge badge-warning" title="Answers changed since this was last copied for Claude">${icon('alert-triangle','icon',12)}Outdated</span>` : (copiedAt ? `<span class="badge badge-success" title="Copied for Claude on ${escapeAttr(formatTimestamp(copiedAt))}">${icon('check-circle','icon',12)}Up to date</span>` : `<span class="badge badge-slate">Not copied yet</span>`)}
       ${item.data.drive_link ? `<a href="${item.data.drive_link}" target="_blank" rel="noopener" class="badge badge-success" onclick="event.stopPropagation()">${icon('link-2','icon',12)}Folder</a>` : `<span class="badge badge-slate">No files yet</span>`}
       <button class="icon-btn" data-duplicate="${item.id}" title="Duplicate venue" onclick="event.stopPropagation()">${icon('copy-plus')}</button>
@@ -3009,6 +3058,26 @@ function wireVenuesList(account, items){
     el.addEventListener('blur', ()=>{
       clearTimeout(timers.get(key));
       commit(el);
+    });
+    // Presence is reported at the venue a field belongs to, not the whole
+    // account -- that is the one thing the top presence bar can't tell two
+    // people apart on. Checked on a tick so focus moving to another field in
+    // the same venue doesn't flicker it off and straight back on.
+    el.addEventListener('focus', ()=>{
+      if (state.currentVenueId !== el.dataset.item){
+        state.currentVenueId = el.dataset.item;
+        heartbeat();
+      }
+    });
+    el.addEventListener('blur', ()=>{
+      setTimeout(()=>{
+        const active = document.activeElement;
+        if (active && active.dataset && active.dataset.item === el.dataset.item) return;
+        if (state.currentVenueId === el.dataset.item){
+          state.currentVenueId = null;
+          heartbeat();
+        }
+      }, 0);
     });
   });
 
