@@ -233,7 +233,7 @@ ok('diag counts the orphaned locations', diag.rows.orphanVenues === 1, JSON.stri
 ok('diag reports no schema row yet', diag.rows.schema === false);
 ok('diag reports the trigger', diag.view.trigger === true);
 ok('diag lists what is waiting', diag.view.pending.length === 1, JSON.stringify(diag.view.pending));
-ok('serverVersion moved', diag.serverVersion === 8);
+ok('serverVersion moved', diag.serverVersion === 9);
 
 section('14. A save that lands mid-rebuild is not swallowed');
 reset();

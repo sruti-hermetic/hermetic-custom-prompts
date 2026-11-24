@@ -50,7 +50,9 @@
  * SHEET LAYOUT
  * A tab named "kv": column A is the key, column B onward is the JSON value.
  * Values longer than one cell can hold are split across B, C, D... and
- * rejoined on read, so a long typed answer is never truncated.
+ * rejoined on read, so a long typed answer is never truncated. A record saved
+ * since server version 9 starts with an "_arrivedAt" stamp the script adds and
+ * strips (see WHEN A ROW ARRIVED); clients never see it.
  */
 
 var SHEET_NAME = 'kv';
@@ -125,7 +127,7 @@ function sheet_() {
  * nothing on a script that predates it -- which is exactly the failure you
  * would not notice until two people had overwritten each other.
  */
-var SERVER_VERSION = 8;
+var SERVER_VERSION = 9;
 
 function findRow_(sh, key) {
   var last = sh.getLastRow();
@@ -184,10 +186,56 @@ function json_(obj) {
  * data immediately, and the TTL is only what a genuinely concurrent write
  * can hide behind.
  */
-var KV_CACHE_KEY = 'hermetic.kvCache';
+var KV_CACHE_KEY = 'hermetic.kvCache.v2';
 var KV_CACHE_TTL_S = 5;
 
+/**
+ * WHEN A ROW ARRIVED
+ * The delta poll used to ask "which rows have an updatedAt after my last
+ * poll?" -- but updatedAt is the moment someone typed, on their own laptop's
+ * clock, and the console holds writes for up to 30s before sending them. A row
+ * typed at 2:00:00 that landed at 2:00:25 was already "older" than the cursor
+ * of anyone who had polled in between, so every later poll skipped it, and a
+ * teammate's open console never saw that location until they reloaded.
+ *
+ * So setKey_ stamps each record with the server's clock at the moment it
+ * lands, as the first field of the stored JSON, and the delta poll filters on
+ * that. The stamp is stripped from every value before it leaves this script:
+ * a client that saw a field its merge does not produce would read every row as
+ * changed and push it straight back, on every poll, for the whole team.
+ */
+var ARRIVED_PREFIX = '{"_arrivedAt":';
+
+/** A stored value split into its arrival stamp (0 when it has none) and the value as the client wrote it. */
+function splitArrival_(value) {
+  if (value.lastIndexOf(ARRIVED_PREFIX, 0) !== 0) return { at: 0, value: value };
+  var i = ARRIVED_PREFIX.length, j = i;
+  while (j < value.length && value.charCodeAt(j) >= 48 && value.charCodeAt(j) <= 57) j++;
+  if (j === i) return { at: 0, value: value };
+  var rest = value.charAt(j) === ',' ? value.substring(j + 1) : value.substring(j);
+  return { at: Number(value.substring(i, j)), value: '{' + rest };
+}
+
+/** The value with a fresh arrival stamp. Only JSON objects carry one. */
+function withArrival_(value, at) {
+  var bare = splitArrival_(value).value;
+  if (bare.charAt(0) !== '{') return bare;
+  var rest = bare.substring(1);
+  return ARRIVED_PREFIX + at + (rest === '}' ? '' : ',') + rest;
+}
+
 function readAll_() {
+  return readSnapshot_().rows;
+}
+
+/**
+ * Every row, plus when the sheet was read. A cached snapshot can be up to
+ * KV_CACHE_TTL_S old by the time it is served, so the delta cursor handed to
+ * the client must be when it was read, not when it was sent -- otherwise a row
+ * that landed just after the read sits behind a cursor that has already
+ * passed it.
+ */
+function readSnapshot_() {
   var cache = kvCache_();
   if (cache) {
     try {
@@ -196,6 +244,7 @@ function readAll_() {
     } catch (err) {}   // an unreadable entry is no worse than no entry
   }
 
+  var at = Date.now();
   var sh = sheet_();
   var last = sh.getLastRow();
   var out = [];
@@ -209,15 +258,17 @@ function readAll_() {
         if (rows[i][c] === '' || rows[i][c] === null) break;
         value += String(rows[i][c]);
       }
-      out.push({ key: key, value: value });
+      var split = splitArrival_(value);
+      out.push({ key: key, value: split.value, arrivedAt: split.at });
     }
   }
 
+  var snapshot = { at: at, rows: out };
   if (cache) {
-    try { cache.put(KV_CACHE_KEY, JSON.stringify(out), KV_CACHE_TTL_S); }
+    try { cache.put(KV_CACHE_KEY, JSON.stringify(snapshot), KV_CACHE_TTL_S); }
     catch (err) {}    // over the 100KB cache entry limit; every call just reads the sheet
   }
-  return out;
+  return snapshot;
 }
 
 function kvCache_() {
@@ -284,18 +335,21 @@ function doGet(e) {
 
   // `since` turns this into a delta poll. The sheet still has to be read whole
   // either way, but the response is what actually costs -- a team polling every
-  // 20s must not pull every venue's answers each time. Rows with no
-  // parseable updatedAt (legacy values, settings written by an older client)
-  // are only returned on a full read, which every page load does first.
+  // 20s must not pull every venue's answers each time. A row is "since" when it
+  // arrived after the cursor (see WHEN A ROW ARRIVED). Rows saved before the
+  // stamp existed fall back to their updatedAt; rows with neither are only
+  // returned on a full read, which every page load does first.
   if (action === 'getAll') {
     var prefix = p.prefix || '';
     var since = Number(p.since || 0);
-    var items = readAll_().filter(function (it) {
-      if (prefix && it.key.indexOf(prefix) !== 0) return false;
-      if (!since) return true;
-      return (fieldOf_(it.value, 'updatedAt') || 0) > since;
+    var snap = readSnapshot_();
+    var items = [];
+    snap.rows.forEach(function (it) {
+      if (prefix && it.key.indexOf(prefix) !== 0) return;
+      if (since && (it.arrivedAt || fieldOf_(it.value, 'updatedAt') || 0) <= since) return;
+      items.push({ key: it.key, value: it.value });
     });
-    return json_({ items: items, serverVersion: SERVER_VERSION, now: Date.now() });
+    return json_({ items: items, serverVersion: SERVER_VERSION, now: snap.at });
   }
 
   if (action === 'get') {
@@ -337,8 +391,6 @@ function setKey_(body) {
   if (!key) return json_({ error: 'set needs a key' });
   var value = body.value == null ? '' : String(body.value);
 
-  var chunks = chunksOf_(value);
-
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);   // serialize writes so two saves cannot interleave
   try {
@@ -351,7 +403,7 @@ function setKey_(body) {
     // is editing and the stored row has moved on, hand back what is there now
     // and write nothing -- the client merges and retries.
     if (row && body.ifRev !== undefined && body.ifRev !== null) {
-      var current = readRowValue_(sh, row);
+      var current = splitArrival_(readRowValue_(sh, row)).value;
       var curRev = fieldOf_(current, 'rev');
       // A row with no parseable rev predates revisions; let the write through
       // rather than deadlocking the client against a value it can never match.
@@ -361,7 +413,9 @@ function setKey_(body) {
     }
 
     if (!row) row = Math.max(sh.getLastRow() + 1, 2);
-    writeRow_(sh, row, key, chunks);
+    // Stamped inside the lock, right before the write, so the gap between the
+    // stamp and the row being readable stays well inside the client's 5s pad.
+    writeRow_(sh, row, key, chunksOf_(withArrival_(value, Date.now())));
     SpreadsheetApp.flush();
     invalidateReadCache_();
   } finally {
@@ -433,7 +487,7 @@ function normalizeEditedRow_(sh, row, e) {
   if (!key) return;
   var record;
   try {
-    record = JSON.parse(readRowValue_(sh, row));
+    record = JSON.parse(splitArrival_(readRowValue_(sh, row)).value);
   } catch (err) {
     return;   // Hand-edited into invalid JSON. Leave it exactly as typed:
               // rewriting it would destroy whatever they were trying to say,
@@ -452,7 +506,7 @@ function normalizeEditedRow_(sh, row, e) {
   record.rev = (typeof record.rev === 'number' ? record.rev : 0) + 1;
   record.updatedAt = now;
   record.lastWriter = 'sheet';
-  writeRow_(sh, row, key, chunksOf_(JSON.stringify(record)));
+  writeRow_(sh, row, key, chunksOf_(withArrival_(JSON.stringify(record), now)));
   invalidateReadCache_();
   // Typing straight into kv is a save like any other, so the tab that displays
   // it has to follow. Without this the only edits the view ever saw were the
