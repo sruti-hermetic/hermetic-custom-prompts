@@ -29,6 +29,16 @@ TMP=$(mktemp -t hermetic-view)
 "$JSC" "$TMP"
 
 echo ""
+echo "=== What open consoles receive (apps-script.gs) ==="
+TMP3=$(mktemp -t hermetic-delta)
+{
+  echo "load('$DIR/apps-script-mock.js');"
+  echo "load('$DIR/../apps-script.gs');"
+  cat "$DIR/delta-poll-test.js"
+} > "$TMP3"
+"$JSC" "$TMP3"
+
+echo ""
 echo "=== Sending work to the Sheet (index.html) ==="
 CUT=$(mktemp -t hermetic-cut)
 python3 - "$DIR/../index.html" "$CUT" <<'PY'

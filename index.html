@@ -3372,7 +3372,9 @@ function renderSettings(){
             ? banner('info','alert-triangle','Connected. Two things are missing until this is updated: the console will not notice files renamed or deleted in Google Drive, and edits typed straight into the Google Sheet will not show up here.')
             : result.serverVersion < 8
               ? banner('info','alert-triangle','Connected. One thing is missing: the readable tabs in the Google Sheet stop updating themselves after a while and have to be refreshed by hand, until this is updated.')
-              : banner('success','check-circle','Connected. Everything is saving, your team can work at the same time, the Google Sheet keeps a readable copy up to date, and changes made in Google Drive or the Sheet show up here.');
+              : result.serverVersion < 9
+                ? banner('info','alert-triangle','Connected. One thing is missing until this is updated: venues and answers your teammates add can take hours to show up here unless you reload the page.')
+                : banner('success','check-circle','Connected. Everything is saving, your team can work at the same time, the Google Sheet keeps a readable copy up to date, and changes made in Google Drive or the Sheet show up here.');
   });
 
   document.getElementById('saveFolderBtn').addEventListener('click', async ()=>{
